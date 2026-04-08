@@ -1,0 +1,67 @@
+/* ─── Split View Layout ─── */
+
+.split-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.split-panel {
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.split-panel--doc {
+  min-height: 60px;
+  border-bottom: none;
+}
+
+.split-panel--chat {
+  min-height: 80px;
+}
+
+/* ─── Resize Handle ─── */
+
+.split-handle {
+  flex-shrink: 0;
+  height: 8px;
+  cursor: row-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 50;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background var(--transition-fast);
+}
+
+.split-handle:hover {
+  background: var(--bg-tertiary);
+}
+
+.split-handle:hover .split-handle__grip {
+  opacity: 1;
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-primary-glow);
+}
+
+.split-handle__grip {
+  width: 48px;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: var(--text-muted);
+  opacity: 0.4;
+  transition: all var(--transition-base);
+}
+
+.split-handle:active .split-handle__grip {
+  width: 72px;
+  opacity: 1;
+  background: var(--accent-primary);
+}
