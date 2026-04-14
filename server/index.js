@@ -35,7 +35,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.get('/', (_req, res) => {
-  res.send('<h1>Compact Chatment API Server is running</h1><p>Please visit the frontend at <a href="http://localhost:5173">http://localhost:5173</a></p>');
+  res.send('<h1>Chatment ver.2 API Server is running</h1><p>Please visit the frontend at <a href="http://localhost:5173">http://localhost:5173</a></p>');
 });
 
 // ─── Socket.IO ──────────────────────────────────────────
@@ -77,7 +77,7 @@ const PORT = process.env.PORT || 3001;
 async function start() {
   await connectDB();
   server.listen(PORT, () => {
-    console.log(`[Server] Compact Chatment server running on port ${PORT}`);
+    console.log(`[Server] Chatment ver.2 server running on port ${PORT}`);
   });
 }
 

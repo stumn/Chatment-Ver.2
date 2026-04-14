@@ -28,7 +28,7 @@ export const UserSetup: React.FC<UserSetupProps> = ({ onComplete }) => {
     <div className="user-setup-overlay" id="user-setup">
       <div className="user-setup-modal">
         <div className="user-setup-icon">💬</div>
-        <h1 className="user-setup-title">Compact Chatment</h1>
+        <h1 className="user-setup-title">Chatment ver.2</h1>
         <p className="user-setup-subtitle">
           直列結合による没入型共創プラットフォーム
         </p>

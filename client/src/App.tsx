@@ -50,7 +50,7 @@ export const App: React.FC = () => {
         <div className="app-header__left">
           <h1 className="app-header__title">
             <span className="app-header__icon">💬</span>
-            Compact Chatment
+            Chatment ver.2
           </h1>
         </div>
         <div className="app-header__right">
