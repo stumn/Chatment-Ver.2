@@ -16,7 +16,6 @@
 }
 
 .split-panel--doc {
-  min-height: 60px;
   border-bottom: none;
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
@@ -24,7 +23,6 @@
 }
 
 .split-panel--chat {
-  min-height: 80px;
 }
 
 /* ─── Resize Handle ─── */

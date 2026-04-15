@@ -22,6 +22,7 @@ export type StreamNode = ChatNodeData | DocNodeData;
 
 export interface StreamNodeWithIndex {
   node: StreamNode;
+  id: string;
   index: number;
   loroMap: LoroMap;
   loroText?: LoroText;

@@ -6,14 +6,27 @@ import { loadSnapshot, saveSnapshot, createAutoSave } from '../loro/local-storag
 import { initSyncClient, sendUpdate, type ConnectionState } from '../loro/sync-client';
 import type { StreamNodeWithIndex } from '../types';
 
-const DOC_ID = 'default';
+const getDocIdFromHash = () => {
+  const hash = window.location.hash.replace(/^#\/?/, '');
+  return hash || 'default';
+};
 
 export function useLoroDoc() {
+  const [docId, setDocId] = useState(() => getDocIdFromHash());
   const docRef = useRef<LoroDoc | null>(null);
   const [nodes, setNodes] = useState<StreamNodeWithIndex[]>([]);
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
+  const [userCount, setUserCount] = useState<number>(0);
   const [isReady, setIsReady] = useState(false);
   const autoSaveRef = useRef<ReturnType<typeof createAutoSave> | null>(null);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setDocId(getDocIdFromHash());
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   const refreshNodes = useCallback(() => {
     if (!docRef.current) return;
@@ -25,8 +38,8 @@ export function useLoroDoc() {
     if (!docRef.current) return;
     const snapshot = docRef.current.export({ mode: 'snapshot' });
     autoSaveRef.current?.(snapshot);
-    sendUpdate(docRef.current, DOC_ID);
-  }, []);
+    sendUpdate(docRef.current, docId);
+  }, [docId]);
 
   useEffect(() => {
     // 1. Create LoroDoc
@@ -34,13 +47,13 @@ export function useLoroDoc() {
     docRef.current = doc;
 
     // 2. Load from LocalStorage
-    const saved = loadSnapshot(DOC_ID);
+    const saved = loadSnapshot(docId);
     if (saved) {
       try {
         doc.import(saved);
-        console.log('[App] Restored from LocalStorage');
+        console.log(`[App] Restored from LocalStorage (docId: ${docId})`);
       } catch (err) {
-        console.warn('[App] Failed to restore from LocalStorage:', err);
+        console.warn(`[App] Failed to restore from LocalStorage (docId: ${docId}):`, err);
       }
     }
 
@@ -49,7 +62,7 @@ export function useLoroDoc() {
     const cleanupKeys = setupUndoKeyBindings();
 
     // 4. Auto-save
-    autoSaveRef.current = createAutoSave(DOC_ID, 500);
+    autoSaveRef.current = createAutoSave(docId, 500);
 
     // 5. Subscribe to changes
     const unsubscribe = doc.subscribe((event) => {
@@ -63,11 +76,12 @@ export function useLoroDoc() {
     // 6. Init sync client
     const cleanupSync = initSyncClient({
       doc,
-      docId: DOC_ID,
+      docId,
       onRemoteUpdate: () => {
         refreshNodes();
       },
       onConnectionChange: setConnectionState,
+      onUserCountChange: setUserCount,
     });
 
     // 7. Initial render
@@ -80,16 +94,19 @@ export function useLoroDoc() {
       unsubscribe();
       destroyUndoManager();
       docRef.current = null;
+      setIsReady(false);
+      setUserCount(0);
     };
-  }, [refreshNodes]);
+  }, [refreshNodes, docId]);
 
   return {
     doc: docRef.current,
     nodes,
     connectionState,
+    userCount,
     isReady,
     refreshNodes,
     triggerSave,
-    docId: DOC_ID,
+    docId,
   };
 }

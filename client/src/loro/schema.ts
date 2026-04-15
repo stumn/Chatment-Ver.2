@@ -49,9 +49,10 @@ export function addChatNode(
 export function addDocNode(
   doc: LoroDoc,
   text: string,
-  author: string
+  author: string,
+  emphasis?: number
 ): void {
-  insertDocNodeAfter(doc, getStream(doc).length - 1, text, author);
+  insertDocNodeAfter(doc, getStream(doc).length - 1, text, author, emphasis);
 }
 
 /**
@@ -61,12 +62,16 @@ export function insertDocNodeAfter(
   doc: LoroDoc,
   targetIndex: number,
   text: string,
-  author: string
+  author: string,
+  emphasis?: number
 ): void {
   const stream = getStream(doc);
   const insertPos = targetIndex >= 0 ? targetIndex + 1 : stream.length;
   const nodeMap = stream.insertContainer(insertPos, new LoroMap());
   nodeMap.set('type', 'doc');
+  if (emphasis !== undefined) {
+    nodeMap.set('emphasis', emphasis);
+  }
   const loroText = nodeMap.setContainer('content', new LoroText());
   loroText.insert(0, text);
   nodeMap.set('blockId', `blk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
@@ -217,19 +222,30 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
         reactions = {};
       }
 
+      let id = loroMap.get('blockId') as string | undefined;
+      if (!id) {
+        id = `chat-${timestamp}-${i}`;
+        // Optionally set it back if we want to persist it, but ephemeral is fine for keying
+      }
+
       nodes.push({
         node: { type: 'chat', content: contentStr, author, timestamp, reactions },
+        id,
         index: i,
         loroMap,
         loroText: loroTextContainer,
       });
     } else if (type === 'doc') {
       const loroText = loroMap.get('content') as LoroText;
-      const blockId = (loroMap.get('blockId') as string) || '';
+      let blockId = (loroMap.get('blockId') as string) || '';
+      if (!blockId) {
+        blockId = `doc-${timestamp}-${i}`;
+      }
       const content = loroText ? loroText.toString() : '';
 
       nodes.push({
         node: { type: 'doc', content, blockId, author, timestamp },
+        id: blockId,
         index: i,
         loroMap,
         loroText,

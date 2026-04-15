@@ -8,8 +8,9 @@ interface DocBlockProps {
   nodeWithIndex: StreamNodeWithIndex;
   doc: LoroDoc | null;
   userName: string;
-  isFirstInDoc: boolean;
-  isLastInDoc: boolean;
+  defaultEmphasis: number;
+  isFirstInDoc?: boolean;
+  isLastInDoc?: boolean;
   isDropTarget: boolean;
   isDragging: boolean;
   onDragStart: (e: React.DragEvent) => void;
@@ -24,6 +25,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   nodeWithIndex,
   doc,
   userName,
+  defaultEmphasis,
   isFirstInDoc,
   isLastInDoc,
   isDropTarget,
@@ -50,7 +52,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       updateDocContent(doc, index, newText);
       onAfterEdit();
     }
-  }, [doc, index, node, onAfterEdit]);
+  }, [doc, index, node.content, onAfterEdit]);
 
   const moveUp = useCallback(() => {
     if (!doc || isFirstInDoc) return;
@@ -127,22 +129,29 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     const currentText = contentRef.current?.textContent || '';
     // If we are at the very last block, and user types something, append an empty block below.
     if (currentText.length > 0) {
-      insertDocNodeAfter(doc, index, '', userName);
+      insertDocNodeAfter(doc, index, '', userName, defaultEmphasis);
       onAfterEdit();
     }
-  }, [doc, isLastInDoc, index, userName, onAfterEdit]);
+  }, [doc, isLastInDoc, index, userName, defaultEmphasis, onAfterEdit]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      // Commit current text
-      const currentText = contentRef.current?.textContent || '';
-      if (doc && currentText !== node.content) {
-        updateDocContent(doc, index, currentText);
+      const selection = window.getSelection();
+      const range = selection?.getRangeAt(0);
+      const caretPos = range?.startOffset || 0;
+      const newText = contentRef.current?.textContent || '';
+      
+      // Delete any remnants after the cursor and insert a new block with them
+      const textAfterCursor = newText.substring(caretPos);
+      if (caretPos < newText.length) {
+        updateDocContent(doc, index, newText.substring(0, caretPos));
+      } else {
+        updateDocContent(doc, index, newText);
       }
       
       if (doc) {
-        insertDocNodeAfter(doc, index, '', userName);
+        insertDocNodeAfter(doc, index, textAfterCursor, userName, defaultEmphasis);
         onAfterEdit();
         // focus logic after render is deferred
         setTimeout(() => focusNextBlock(1), 50);
@@ -201,7 +210,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
         }
       }
     }
-  }, [doc, index, node, userName, onAfterEdit, moveUp, moveDown, focusNextBlock, getSelectionRange]);
+  }, [doc, index, node, userName, defaultEmphasis, onAfterEdit, moveUp, moveDown, focusNextBlock, getSelectionRange]);
 
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -237,45 +246,13 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   const setEmphasis = useCallback((level: EmphasisLevel) => {
     if (!doc || !loroMap) return;
 
-    // Evaluate selection INSTANTLY upon clicking the button,
-    // avoiding issues where selection was slightly lost or mis-cached.
-    const currentSr = getSelectionRange() || contextMenu?.selectionRange;
-
-    // Use currentSr if they selected text, otherwise whole block
-    if (currentSr) {
-      const { start, end } = currentSr;
-      
-      let targetText = loroText;
-      // Auto-upgrade any node (chat or legacy doc from local storage) dynamically if user attempts inline rich text formatting
-      if (!targetText || typeof targetText.toDelta !== 'function') {
-        console.log("[DocBlock Debug] Auto-upgrading legacy string node to rich text LoroText to support inline styling");
-        targetText = loroMap.setContainer('content', new LoroText()) as LoroText;
-        targetText.insert(0, node.content); // migrate the string
-        if (!loroMap.get('blockId')) {
-          loroMap.set('blockId', `blk-upg-${Date.now()}`);
-        }
-      }
-
-      if (targetText) {
-        console.log(`[DocBlock Debug] Applying text emphasis level ${level} to range [${start}, ${end}]`);
-        applyEmphasis(doc, targetText, start, end, level);
-        console.log("[DocBlock Debug] Loro Deltas after mark:", targetText.toDelta());
-      }
-    } else {
-      // If there's an active loroText container, uniform block styling should override/clear inner stylings
-      if (loroText && typeof (loroText as any).toDelta === 'function') {
-        const textLen = (loroText as LoroText).length;
-        if (textLen > 0) {
-          // Apply the new block style to all inline text too to ensure complete uniform override
-          applyEmphasis(doc, loroText as LoroText, 0, textLen, level);
-        }
-      }
-      doc.commit();
-    }
+    // Apply the block-level style mapping (simple key-value setting)
+    loroMap.set('emphasis', level);
+    doc.commit();
 
     onAfterEdit();
     setContextMenu(null);
-  }, [doc, loroMap, loroText, contextMenu, node.type, node.content, getSelectionRange, onAfterEdit]);
+  }, [doc, loroMap, onAfterEdit]);
 
   // moveUp and moveDown have been moved up
   const formatTime = (ts: number) => {
@@ -294,11 +271,18 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     textLength: loroText?.length
   });
 
+  // Calculate total reactions
+  let totalReactions = 0;
+  if (node.reactions) {
+    totalReactions = Object.values(node.reactions).length;
+  }
+
   const blockClass = [
     'doc-block',
     isChat ? 'doc-block--chat' : 'doc-block--doc',
     contextMenu ? 'doc-block--focused' : '',
     `doc-emphasis-${blockEmphasis}`,
+    totalReactions >= 5 ? 'doc-block--highly-reacted' : '',
     isDropTarget ? 'doc-block--drop-target' : '',
     isDragging ? 'doc-block--dragging' : '',
   ].filter(Boolean).join(' ');
@@ -314,27 +298,8 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   };
 
   const renderContentAsHTML = (): string => {
-    let deltas: any = null;
-    if (loroText && typeof (loroText as any).toDelta === 'function') {
-      deltas = (loroText as LoroText).toDelta();
-    }
-    
-    // If we successfully extracted deltas, render them as HTML spans
-    if (deltas && deltas.length > 0) {
-      return deltas.map((delta: any) => {
-        const emphasis = delta.attributes?.emphasis as EmphasisLevel | undefined;
-        const text = escapeHtml(delta.insert as string);
-        if (emphasis === 1) {
-          return `<span class="text-emphasis-1">${text}</span>`;
-        } else if (emphasis === -1) {
-          return `<span class="text-emphasis-minus1">${text}</span>`;
-        }
-        return `<span>${text}</span>`;
-      }).join('');
-    }
-
-    // Fallback for raw chat nodes or non-upgraded strings
-    return escapeHtml(node.content);
+    // インライン装飾(LoroTextデルタ等)は廃止されたため、単純なプレーンテキストとして出力
+    return escapeHtml(node.content || '');
   };
 
   return (
@@ -359,6 +324,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           <div className="doc-block__meta-tooltip">
             <span className="doc-block__author">{node.author}</span>
             <span className="doc-block__time">{formatTime(node.timestamp)}</span>
+            {totalReactions > 0 && <span className="doc-block__reaction-count">リアクション {totalReactions}件</span>}
             {isChat && <span className="doc-block__badge">chat</span>}
           </div>
         )}
@@ -391,7 +357,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
         >
           <div className="context-menu__header">
-            {contextMenu.selectionRange ? '選択箇所の文字色' : 'ブロック全体の色'}
+            ブロックの色を変更
           </div>
           <button className="context-menu__item" onMouseDown={(e) => e.preventDefault()} onClick={() => setEmphasis(0)}>
             <span className="color-dot" style={{ background: '#3E3E3A' }}></span>標準 (黒)

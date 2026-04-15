@@ -91,6 +91,12 @@
   border-color: hsla(250, 30%, 50%, 0.2);
 }
 
+.doc-block--highly-reacted {
+  background: hsla(45, 100%, 50%, 0.08); /* Slackのリアクション多ハイライトのようなうっすらとしたゴールド背景 */
+  border-color: hsla(45, 100%, 50%, 0.2);
+  border-radius: var(--radius-sm);
+}
+
 /* 引用線としての疑似要素 */
 .doc-block::before {
   content: '';

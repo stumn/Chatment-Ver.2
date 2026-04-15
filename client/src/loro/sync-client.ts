@@ -8,6 +8,7 @@ interface SyncClientOptions {
   docId: string;
   onRemoteUpdate: () => void;
   onConnectionChange: (state: ConnectionState) => void;
+  onUserCountChange?: (count: number) => void;
 }
 
 let socket: Socket | null = null;
@@ -17,7 +18,7 @@ let currentDocId: string | null = null;
  * Initialize the sync client and connect to the server.
  */
 export function initSyncClient(options: SyncClientOptions): () => void {
-  const { doc, docId, onRemoteUpdate, onConnectionChange } = options;
+  const { doc, docId, onRemoteUpdate, onConnectionChange, onUserCountChange } = options;
 
   currentDocId = docId;
   onConnectionChange('connecting');
@@ -59,6 +60,10 @@ export function initSyncClient(options: SyncClientOptions): () => void {
 
   socket.on('connect_error', () => {
     onConnectionChange('disconnected');
+  });
+
+  socket.on('user-count', (count: number) => {
+    onUserCountChange?.(count);
   });
 
   // Cleanup function

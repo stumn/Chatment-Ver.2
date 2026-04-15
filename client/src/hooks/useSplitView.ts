@@ -2,8 +2,8 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { saveSplitRatio, loadSplitRatio } from '../loro/local-storage';
 
 const DEFAULT_RATIO = 0.4; // 40% doc, 60% chat
-const MIN_RATIO = 0.15;
-const MAX_RATIO = 0.85;
+const MIN_RATIO = 0.0;
+const MAX_RATIO = 1.0;
 
 export function useSplitView() {
   const [ratio, setRatio] = useState(() => {

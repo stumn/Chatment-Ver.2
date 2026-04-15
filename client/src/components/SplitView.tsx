@@ -21,8 +21,18 @@ export const SplitView: React.FC<SplitViewProps> = ({
 }) => {
   const inputOffset = 78; // Approximate height of the chat input area
 
-  const docHeight = isDominantDoc ? `calc(${ratio * 100}% + ${inputOffset}px)` : `${ratio * 100}%`;
-  const chatHeight = isDominantDoc ? `calc(${(1 - ratio) * 100}% - ${inputOffset}px)` : `${(1 - ratio) * 100}%`;
+  // 滑らかな補間処理 (ratio 0.6 ~ 0.7 の間で 0 から inputOffset に滑らかに移行させる)
+  let w = 0;
+  if (ratio > 0.7) {
+    w = 1;
+  } else if (ratio > 0.6) {
+    // 0.6 ~ 0.7 を 0.0 ~ 1.0 にマッピング
+    w = (ratio - 0.6) * 10;
+  }
+  const currentOffset = inputOffset * w;
+
+  const docHeight = `calc(${ratio * 100}% + ${currentOffset}px)`;
+  const chatHeight = `calc(${(1 - ratio) * 100}% - ${currentOffset}px)`;
 
   return (
     <div className="split-view" ref={containerRef as React.RefObject<HTMLDivElement>} id="split-view">

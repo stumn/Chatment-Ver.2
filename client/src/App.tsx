@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
+import type { EmphasisLevel } from './types';
 import { useLoroDoc } from './hooks/useLoroDoc';
 import { useOverflow } from './hooks/useOverflow';
 import { useSplitView } from './hooks/useSplitView';
@@ -12,9 +13,12 @@ import { ConnectionStatus } from './components/ConnectionStatus';
 export const App: React.FC = () => {
   const [userName, setUserName] = useState<string | null>(null);
   const [userId] = useState(() => `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
+  const [defaultEmphasis, setDefaultEmphasis] = useState<EmphasisLevel>(0);
+  const [displayFilter, setDisplayFilter] = useState<'all' | 'highlightAndStandard' | 'highlightOnly'>('all');
+
   const chatPanelRef = useRef<HTMLDivElement>(null);
 
-  const { doc, nodes, connectionState, isReady, triggerSave } = useLoroDoc();
+  const { doc, nodes, connectionState, userCount, isReady, triggerSave, docId } = useLoroDoc();
   const { ratio, containerRef, handleMouseDown, handleDoubleClick } = useSplitView();
   const { docNodes, chatNodes } = useOverflow(nodes, chatPanelRef, 36);
 
@@ -26,6 +30,22 @@ export const App: React.FC = () => {
   } else if (ratio < 0.35) {
     dominantClass = 'dominant-chat';
   }
+
+  const filteredDocNodes = docNodes.filter(({ node, loroMap }) => {
+    let emphasis = 0;
+    if (loroMap) {
+      if (node.type === 'chat') {
+        // If the workspace is currently dominant-doc, chat nodes appear as muted (-1)
+        emphasis = isDominantDoc ? -1 : 0;
+      } else {
+        emphasis = (loroMap.get('emphasis') as number) || 0;
+      }
+    }
+
+    if (displayFilter === 'highlightOnly') return emphasis === 1;
+    if (displayFilter === 'highlightAndStandard') return emphasis >= 0;
+    return true; // all
+  });
 
   const handleAfterEdit = useCallback(() => {
     triggerSave();
@@ -59,12 +79,52 @@ export const App: React.FC = () => {
         <div className="app-header__left">
           <h1 className="app-header__title">
             <span className="app-header__icon">💬</span>
-            Chatment ver.2
+            Chatment ver.2 <span style={{ fontSize: '12px', opacity: 0.6, marginLeft: '8px' }}>#{docId}</span>
           </h1>
         </div>
+
+        <div className="app-header__center" style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--glass-bg)', padding: '4px', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ display: 'flex', gap: '4px', paddingRight: '4px' }}>
+              <button
+                title="標準 (黒)"
+                onClick={() => setDefaultEmphasis(0)}
+                style={{ width: '22px', height: '22px', borderRadius: '50%', background: defaultEmphasis === 0 ? 'var(--bg-elevated)' : 'transparent', border: `1px solid ${defaultEmphasis === 0 ? 'var(--text-primary)' : 'transparent'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#666' }} />
+              </button>
+              <button
+                title="ハイライト (金)"
+                onClick={() => setDefaultEmphasis(1)}
+                style={{ width: '22px', height: '22px', borderRadius: '50%', background: defaultEmphasis === 1 ? 'var(--bg-elevated)' : 'transparent', border: `1px solid ${defaultEmphasis === 1 ? '#c99b66' : 'transparent'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#c99b66' }} />
+              </button>
+              <button
+                title="控えめ (緑)"
+                onClick={() => setDefaultEmphasis(-1)}
+                style={{ width: '22px', height: '22px', borderRadius: '50%', background: defaultEmphasis === -1 ? 'var(--bg-elevated)' : 'transparent', border: `1px solid ${defaultEmphasis === -1 ? '#8f9b73' : 'transparent'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#8f9b73' }} />
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--glass-bg)', padding: '4px', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-sm)' }}>
+            <select
+              value={displayFilter}
+              onChange={e => setDisplayFilter(e.target.value as any)}
+              style={{ appearance: 'none', padding: '4px 12px', borderRadius: 'var(--radius-full)', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontSize: '11px', cursor: 'pointer', fontWeight: 600, outline: 'none' }}
+            >
+              <option value="all">すべて</option>
+              <option value="highlightAndStandard">標準＋ハイライト</option>
+              <option value="highlightOnly">ハイライトのみ</option>
+            </select>
+          </div>
+
+        </div>
+
         <div className="app-header__right">
           <span className="app-header__user">
-            <span className="app-header__user-icon">👤</span>
+            <span className="app-header__user-icon" title={`現在 ${userCount} 人が接続中`}>👤</span>
             {userName}
           </span>
           <ConnectionStatus state={connectionState} />
@@ -80,9 +140,10 @@ export const App: React.FC = () => {
           containerRef={containerRef}
           docPanel={
             <DocPanel
-              nodes={docNodes}
+              nodes={filteredDocNodes}
               doc={doc}
               userName={userName}
+              defaultEmphasis={defaultEmphasis}
               dragState={dragState}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}

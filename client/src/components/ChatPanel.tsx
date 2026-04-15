@@ -38,7 +38,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         )}
         {nodes.map((nodeWithIndex) => (
           <ChatMessage
-            key={`chat-${nodeWithIndex.index}`}
+            key={nodeWithIndex.id}
             nodeWithIndex={nodeWithIndex}
             doc={doc}
             isOwn={nodeWithIndex.node.author === userName}

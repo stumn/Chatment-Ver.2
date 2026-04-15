@@ -84,15 +84,19 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'} ${typeClass}`}
       id={`chat-message-${index}`}
     >
-      {!isOwn && (
-        <div className="chat-message__author">{node.author}</div>
-      )}
+      <div className="chat-message__meta" style={{ display: 'flex', justifyContent: 'space-between', width: 'calc(100% - 88px)', marginBottom: '2px', paddingLeft: '8px' }}>
+        <div className="chat-message__author" style={{ marginBottom: 0, paddingLeft: 0 }}>
+          {isOwn ? 'あなた' : node.author}
+        </div>
+        <div className="chat-message__time" style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
+          {formatTime(node.timestamp)}
+        </div>
+      </div>
 
       <div className="chat-message__bubble" onContextMenu={handleContextMenu}>
         <div className="chat-message__content">{node.content}</div>
         
         <div className="chat-message__footer">
-          <div className="chat-message__time">{formatTime(node.timestamp)}</div>
           
           <div className="chat-message__reaction-list">
             {Object.keys(reactionCounts).length > 0 && 

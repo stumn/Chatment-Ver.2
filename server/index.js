@@ -45,6 +45,7 @@ io.on('connection', (socket) => {
 
   socket.on('join-doc', async (docId) => {
     socket.join(docId);
+    socket.docId = docId;
     console.log(`[WS] ${socket.id} joined doc "${docId}"`);
 
     try {
@@ -53,6 +54,10 @@ io.on('connection', (socket) => {
     } catch (err) {
       console.error(`[WS] Error sending snapshot for "${docId}":`, err.message);
     }
+
+    // Broadcast current user count to room
+    const count = io.sockets.adapter.rooms.get(docId)?.size || 0;
+    io.in(docId).emit('user-count', count);
   });
 
   socket.on('send-update', async ({ docId, update }) => {
@@ -67,6 +72,10 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log(`[WS] Client disconnected: ${socket.id}`);
+    if (socket.docId) {
+      const count = io.sockets.adapter.rooms.get(socket.docId)?.size || 0;
+      io.in(socket.docId).emit('user-count', count);
+    }
   });
 });
 

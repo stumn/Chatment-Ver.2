@@ -8,6 +8,7 @@ interface DocPanelProps {
   nodes: StreamNodeWithIndex[];
   doc: LoroDoc | null;
   userName: string;
+  defaultEmphasis: number;
   dragState: { dragIndex: number | null; dropIndex: number | null };
   onDragStart: (index: number) => (e: React.DragEvent) => void;
   onDragOver: (index: number) => (e: React.DragEvent) => void;
@@ -21,6 +22,7 @@ export const DocPanel: React.FC<DocPanelProps> = ({
   nodes,
   doc,
   userName,
+  defaultEmphasis,
   dragState,
   onDragStart,
   onDragOver,
@@ -58,34 +60,48 @@ export const DocPanel: React.FC<DocPanelProps> = ({
 
   const insertBlock = React.useCallback(() => {
     if (doc) {
-      addDocNode(doc, '', userName);
+      addDocNode(doc, '', userName, defaultEmphasis);
       onAfterEdit();
     }
     setBgMenu(null);
-  }, [doc, userName, onAfterEdit]);
+  }, [doc, userName, defaultEmphasis, onAfterEdit]);
 
   if (nodes.length === 0) {
     return (
       <div className="doc-panel" id="doc-panel" onContextMenu={handleBgContextMenu}>
+        {/* チャットが溢れる前の 1件目の仮書き込みエリア (CRDT上にはまだ追加されないが、入力で発火する想定) */}
+        <div style={{ padding: '8px 32px', marginBottom: '16px' }}>
+          <div 
+            className={`doc-block doc-block--doc doc-emphasis-${defaultEmphasis}`}
+            style={{ border: '1px dashed var(--border-medium)', background: 'transparent' }}
+          >
+            <div className="doc-block__body">
+              <div 
+                className="doc-block__content"
+                contentEditable
+                suppressContentEditableWarning
+                data-placeholder="ここから書き始めることができます"
+                style={{ opacity: 0.8 }}
+                onInput={(e) => {
+                  const val = e.currentTarget.textContent || '';
+                  if (val.length > 0 && doc) {
+                    import('../loro/schema').then(({ addDocNode }) => {
+                      addDocNode(doc, val, userName, defaultEmphasis);
+                      onAfterEdit();
+                    });
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
         <div className="doc-panel__empty">
           <div className="doc-panel__empty-icon">📄</div>
           <p className="doc-panel__empty-text">
             チャットが溢れると、ここにドキュメントとして表示されます
           </p>
         </div>
-        
-        {bgMenu && (
-          <div 
-            className="doc-block__context-menu"
-            style={{ position: 'fixed', top: bgMenu.y, left: bgMenu.x, zIndex: 100000 }}
-            onClick={(e) => e.stopPropagation()}
-            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          >
-            <button className="context-menu__item" onClick={insertBlock}>
-              ➕ 新しいブロックを追加
-            </button>
-          </div>
-        )}
       </div>
     );
   }
@@ -95,10 +111,11 @@ export const DocPanel: React.FC<DocPanelProps> = ({
       <div className="doc-panel__content">
         {nodes.map((nodeWithIndex, arrayIndex) => (
           <DocBlock
-            key={`doc-${nodeWithIndex.index}`}
+            key={nodeWithIndex.id}
             nodeWithIndex={nodeWithIndex}
             doc={doc}
             userName={userName}
+            defaultEmphasis={defaultEmphasis}
             isFirstInDoc={arrayIndex === 0}
             isLastInDoc={arrayIndex === nodes.length - 1}
             isDropTarget={dragState.dropIndex === nodeWithIndex.index}

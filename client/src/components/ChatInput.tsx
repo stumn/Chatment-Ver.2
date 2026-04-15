@@ -32,9 +32,11 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
+    if (e.key === 'Enter') {
+      e.preventDefault(); // 改行を禁止する
+      if (e.ctrlKey || e.metaKey) {
+        sendMessage();
+      }
     }
   }, [sendMessage]);
 
@@ -46,7 +48,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         value={text}
         onChange={e => setText(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="メッセージを入力... (Enter で送信, Shift+Enter で改行)"
+        placeholder="メッセージを入力... (Ctrl + Enter で送信)"
         rows={1}
         id="chat-input-textarea"
       />
