@@ -73,11 +73,12 @@ export function applyEmphasis(
   end: number,
   level: EmphasisLevel
 ): void {
+  // Make sure we configure the style before marking OR unmarking!
+  doc.configTextStyle({ emphasis: { expand: 'none' } });
+
   if (level === 0) {
     loroText.unmark({ start, end }, 'emphasis');
   } else {
-    // Make sure we configure the style before marking
-    doc.configTextStyle({ emphasis: { expand: 'none' } });
     loroText.mark({ start, end }, 'emphasis', level);
   }
   doc.commit();
@@ -92,6 +93,8 @@ export function moveNode(
   toIndex: number
 ): void {
   const stream = getStream(doc);
+  if (fromIndex < 0 || fromIndex >= stream.length) return;
+  if (toIndex < 0 || toIndex >= stream.length) return;
   stream.move(fromIndex, toIndex);
   doc.commit();
 }
@@ -159,7 +162,17 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
     const timestamp = (loroMap.get('timestamp') as number) || 0;
 
     if (type === 'chat') {
-      const content = (loroMap.get('content') as string) || '';
+      let contentVal = loroMap.get('content');
+      let contentStr = '';
+      let loroTextContainer: LoroText | undefined;
+
+      if (contentVal && typeof contentVal === 'object' && typeof (contentVal as any).toDelta === 'function') {
+        loroTextContainer = contentVal as LoroText;
+        contentStr = loroTextContainer.toString();
+      } else {
+        contentStr = (contentVal as string) || '';
+      }
+
       let reactions: Record<string, string> = {};
       try {
         const reactionsMap = loroMap.get('reactions') as LoroMap | null;
@@ -171,9 +184,10 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
       }
 
       nodes.push({
-        node: { type: 'chat', content, author, timestamp, reactions },
+        node: { type: 'chat', content: contentStr, author, timestamp, reactions },
         index: i,
         loroMap,
+        loroText: loroTextContainer,
       });
     } else if (type === 'doc') {
       const loroText = loroMap.get('content') as LoroText;

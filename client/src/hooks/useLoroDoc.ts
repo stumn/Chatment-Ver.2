@@ -52,8 +52,12 @@ export function useLoroDoc() {
     autoSaveRef.current = createAutoSave(DOC_ID, 500);
 
     // 5. Subscribe to changes
-    const unsubscribe = doc.subscribe(() => {
+    const unsubscribe = doc.subscribe((event) => {
       refreshNodes();
+      // Auto-save and broadcast local edits (like typing, D&D, or Undo/Redo)
+      if (event.by === 'local' || event.by === 'checkout') {
+        triggerSave();
+      }
     });
 
     // 6. Init sync client

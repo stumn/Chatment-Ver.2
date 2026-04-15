@@ -2,39 +2,39 @@
 
 :root {
   /* Background */
-  --bg-primary: hsl(222, 22%, 8%);
-  --bg-secondary: hsl(222, 18%, 12%);
-  --bg-tertiary: hsl(222, 15%, 16%);
-  --bg-elevated: hsl(222, 14%, 20%);
-  --bg-glass: hsla(222, 18%, 14%, 0.85);
+  --bg-primary: #e8e9e6;
+  --bg-secondary: #fdf5e0;
+  --bg-tertiary: #dfded1;
+  --bg-elevated: #ffffff;
+  --bg-glass: rgba(232, 233, 230, 0.85);
 
   /* Text */
-  --text-primary: hsl(210, 20%, 92%);
-  --text-secondary: hsl(210, 12%, 68%);
-  --text-muted: hsl(210, 8%, 45%);
+  --text-primary: #4a4a40;
+  --text-secondary: #6e6f5f;
+  --text-muted: #959685;
 
   /* 3-Level Emphasis */
-  --emphasis-plus: hsl(45, 92%, 68%);
-  --emphasis-default: hsl(210, 20%, 85%);
-  --emphasis-minus: hsl(210, 10%, 48%);
+  --emphasis-plus: #dfb45e;
+  --emphasis-default: #4a4a40;
+  --emphasis-minus: #98b79f;
 
   /* Accent */
-  --accent-primary: hsl(250, 72%, 62%);
-  --accent-primary-hover: hsl(250, 72%, 70%);
-  --accent-primary-glow: hsla(250, 72%, 62%, 0.3);
-  --accent-secondary: hsl(170, 62%, 52%);
-  --accent-secondary-hover: hsl(170, 62%, 60%);
+  --accent-primary: #23b479;
+  --accent-primary-hover: #1ca36a;
+  --accent-primary-glow: rgba(35, 180, 121, 0.3);
+  --accent-secondary: #a0ac83;
+  --accent-secondary-hover: #8f9b73;
 
   /* Chat bubbles */
-  --bubble-own: hsl(250, 45%, 28%);
-  --bubble-own-hover: hsl(250, 45%, 32%);
-  --bubble-other: hsl(222, 16%, 18%);
-  --bubble-other-hover: hsl(222, 16%, 22%);
+  --bubble-own: #c99b66;
+  --bubble-own-hover: #b88d5c;
+  --bubble-other: #fdf5e0;
+  --bubble-other-hover: #faecce;
 
   /* Borders */
-  --border-subtle: hsla(210, 15%, 40%, 0.15);
-  --border-medium: hsla(210, 15%, 50%, 0.2);
-  --border-focus: hsla(250, 72%, 62%, 0.5);
+  --border-subtle: rgba(160, 172, 131, 0.2);
+  --border-medium: rgba(160, 172, 131, 0.4);
+  --border-focus: rgba(35, 180, 121, 0.5);
 
   /* Shadows */
   --shadow-sm: 0 1px 3px hsla(0, 0%, 0%, 0.3);
@@ -73,18 +73,22 @@
 
   /* Glass */
   --glass-blur: 16px;
-  --glass-bg: hsla(222, 18%, 12%, 0.75);
+  --glass-bg: rgba(245, 244, 239, 0.75);
 }
 
 /* ─── Reset & Base ─── */
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   width: 100%;
   overflow: hidden;

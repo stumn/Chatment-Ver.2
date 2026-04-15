@@ -1,11 +1,9 @@
-/* ─── Chat Panel ─── */
-
 .chat-panel {
   height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: linear-gradient(180deg, var(--bg-primary) 0%, hsl(222, 22%, 9%) 100%);
+  background: var(--bg-primary);
 }
 
 .chat-panel__messages {
@@ -31,19 +29,26 @@
 .chat-message {
   display: flex;
   flex-direction: column;
-  max-width: 78%;
   position: relative;
-  animation: messageSlideIn 0.3s ease;
+  width: 100%;
 }
 
 .chat-message--own {
-  align-self: flex-end;
-  align-items: flex-end;
+  align-self: flex-start;
+  align-items: flex-start;
 }
 
 .chat-message--other {
   align-self: flex-start;
   align-items: flex-start;
+}
+
+.chat-message__row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  width: 100%;
 }
 
 .chat-message__author {
@@ -61,12 +66,22 @@
   transition: background var(--transition-fast);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-xs);
+  width: calc(100% - 88px); /* Align perfectly with input textarea */
 }
 
 .chat-message--own .chat-message__bubble {
   background: var(--bubble-own);
-  border-bottom-right-radius: var(--radius-sm);
+  border-bottom-left-radius: var(--radius-sm);
+  color: #fff;
+}
+
+.chat-message--own .chat-message__bubble .chat-message__content {
+  color: #fff;
+}
+
+.chat-message--own .chat-message__time {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .chat-message--own .chat-message__bubble:hover {
@@ -91,20 +106,26 @@
   word-break: break-word;
 }
 
+.chat-message__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: 4px;
+}
+
 .chat-message__time {
   font-size: 10px;
   color: var(--text-muted);
-  align-self: flex-end;
 }
 
 /* ─── Reactions ─── */
 
-.chat-message__reactions {
+.chat-message__reaction-list {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 4px;
-  padding-left: var(--space-xs);
 }
 
 .chat-message__reaction-badge {
@@ -127,48 +148,28 @@
 }
 
 .chat-message__actions {
-  position: absolute;
-  top: -4px;
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-  z-index: 10;
-}
-
-.chat-message--own .chat-message__actions {
-  left: -32px;
-}
-
-.chat-message--other .chat-message__actions {
-  right: -32px;
-}
-
-.chat-message:hover .chat-message__actions {
-  opacity: 1;
+  position: relative;
+  opacity: 1; /* Always visible for slack style */
 }
 
 .chat-message__react-btn {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-elevated);
+  background: var(--bg-tertiary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-full);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   transition: all var(--transition-fast);
-}
-
-.chat-message__react-btn:hover {
-  transform: scale(1.15);
-  box-shadow: var(--shadow-sm);
 }
 
 .chat-message__reaction-picker {
   position: absolute;
-  top: 100%;
-  margin-top: 4px;
+  bottom: 100%;
+  right: 0;
   display: flex;
   gap: 2px;
   padding: 4px;
@@ -181,7 +182,7 @@
 }
 
 .chat-message--own .chat-message__reaction-picker {
-  right: 0;
+  left: 0;
 }
 
 .chat-message--other .chat-message__reaction-picker {
