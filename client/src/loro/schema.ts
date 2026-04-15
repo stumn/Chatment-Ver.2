@@ -51,8 +51,21 @@ export function addDocNode(
   text: string,
   author: string
 ): void {
+  insertDocNodeAfter(doc, getStream(doc).length - 1, text, author);
+}
+
+/**
+ * Insert a document node to the stream after a specific index.
+ */
+export function insertDocNodeAfter(
+  doc: LoroDoc,
+  targetIndex: number,
+  text: string,
+  author: string
+): void {
   const stream = getStream(doc);
-  const nodeMap = stream.insertContainer(stream.length, new LoroMap());
+  const insertPos = targetIndex >= 0 ? targetIndex + 1 : stream.length;
+  const nodeMap = stream.insertContainer(insertPos, new LoroMap());
   nodeMap.set('type', 'doc');
   const loroText = nodeMap.setContainer('content', new LoroText());
   loroText.insert(0, text);
@@ -138,11 +151,32 @@ export function updateDocContent(
   if (!loroText) return;
 
   const currentLength = loroText.length;
+  
+  // If the block is transitioning from empty to non-empty, update timestamp
+  // so it correctly floats to the newest in the chat stream.
+  if (currentLength === 0 && newText.trim().length > 0) {
+    nodeMap.set('timestamp', Date.now());
+  }
+
   if (currentLength > 0) {
     loroText.delete(0, currentLength);
   }
   loroText.insert(0, newText);
   doc.commit();
+}
+
+/**
+ * Delete a document node from the stream.
+ */
+export function deleteDocNode(
+  doc: LoroDoc,
+  nodeIndex: number
+): void {
+  const stream = getStream(doc);
+  if (nodeIndex >= 0 && nodeIndex < stream.length) {
+    stream.delete(nodeIndex, 1);
+    doc.commit();
+  }
 }
 
 /**

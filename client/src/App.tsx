@@ -16,7 +16,16 @@ export const App: React.FC = () => {
 
   const { doc, nodes, connectionState, isReady, triggerSave } = useLoroDoc();
   const { ratio, containerRef, handleMouseDown, handleDoubleClick } = useSplitView();
-  const { docNodes, chatNodes } = useOverflow(nodes, chatPanelRef, 72);
+  const { docNodes, chatNodes } = useOverflow(nodes, chatPanelRef, 36);
+
+  let dominantClass = 'dominant-neutral';
+  let isDominantDoc = false;
+  if (ratio > 0.65) {
+    dominantClass = 'dominant-doc';
+    isDominantDoc = true;
+  } else if (ratio < 0.35) {
+    dominantClass = 'dominant-chat';
+  }
 
   const handleAfterEdit = useCallback(() => {
     triggerSave();
@@ -62,9 +71,10 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="app-main">
+      <main className={`app-main ${dominantClass}`}>
         <SplitView
           ratio={ratio}
+          isDominantDoc={isDominantDoc}
           onHandleMouseDown={handleMouseDown}
           onHandleDoubleClick={handleDoubleClick}
           containerRef={containerRef}

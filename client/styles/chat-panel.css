@@ -12,7 +12,7 @@
   padding: var(--space-md) var(--space-lg);
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-sm); /* Reduced from space-md */
 }
 
 .chat-panel__empty {
@@ -60,8 +60,9 @@
 }
 
 .chat-message__bubble {
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-lg);
+  padding: 6px 12px; /* Reduced padding for slimmer appearance */
+  border-radius: var(--radius-md);
+
   position: relative;
   transition: background var(--transition-fast);
   display: flex;
@@ -97,6 +98,27 @@
 .chat-message--other .chat-message__bubble:hover {
   background: var(--bubble-other-hover);
 }
+
+/* ── ドキュメント由来メッセージの表示 ── */
+/* ニュートラル状態では標準のチャットスタイルが適用されるため上書き不要 */
+
+/* チャットが大きい(dominant-chat)ときのみ、ドキュメント由来(-1)の表示を控える */
+.dominant-chat .chat-message--doc.chat-message--own .chat-message__bubble,
+.dominant-chat .chat-message--doc.chat-message--other .chat-message__bubble {
+  background: transparent;
+  border: 1px dashed var(--border-subtle);
+}
+
+.dominant-chat .chat-message--doc .chat-message__content {
+  color: var(--text-muted);
+}
+
+.dominant-chat .chat-message--doc.chat-message--own .chat-message__time,
+.dominant-chat .chat-message--doc.chat-message--other .chat-message__time {
+  color: var(--text-muted);
+}
+
+
 
 .chat-message__content {
   font-size: var(--font-size-base);
@@ -214,12 +236,17 @@
   display: flex;
   align-items: flex-end;
   gap: var(--space-sm);
-  padding: var(--space-md) var(--space-lg);
+  padding: 10px var(--space-lg);
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   border-top: 1px solid var(--border-subtle);
   flex-shrink: 0;
+}
+
+/* dominant-doc 時はインプット非表示 */
+.dominant-doc .chat-input {
+  display: none;
 }
 
 .chat-input__textarea {

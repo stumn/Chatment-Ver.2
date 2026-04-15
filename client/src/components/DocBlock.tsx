@@ -1,13 +1,15 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import type { StreamNodeWithIndex, EmphasisLevel } from '../types';
 import { LoroText, type LoroDoc } from 'loro-crdt';
-import { updateDocContent, applyEmphasis, moveNode } from '../loro/schema';
+import { updateDocContent, applyEmphasis, moveNode, insertDocNodeAfter, deleteDocNode } from '../loro/schema';
 // No EmphasisToolbar needed
 
 interface DocBlockProps {
   nodeWithIndex: StreamNodeWithIndex;
   doc: LoroDoc | null;
   userName: string;
+  isFirstInDoc: boolean;
+  isLastInDoc: boolean;
   isDropTarget: boolean;
   isDragging: boolean;
   onDragStart: (e: React.DragEvent) => void;
@@ -21,6 +23,9 @@ interface DocBlockProps {
 export const DocBlock: React.FC<DocBlockProps> = ({
   nodeWithIndex,
   doc,
+  userName,
+  isFirstInDoc,
+  isLastInDoc,
   isDropTarget,
   isDragging,
   onDragStart,
@@ -41,11 +46,53 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   const handleBlur = useCallback(() => {
     if (!doc || !contentRef.current) return;
     const newText = contentRef.current.textContent || '';
-    if (node.type === 'doc' && newText !== node.content) {
+    if (newText !== node.content) {
       updateDocContent(doc, index, newText);
       onAfterEdit();
     }
   }, [doc, index, node, onAfterEdit]);
+
+  const moveUp = useCallback(() => {
+    if (!doc || isFirstInDoc) return;
+    moveNode(doc, index, index - 1);
+    onAfterEdit();
+    setContextMenu(null);
+    setTimeout(() => {
+      const nextBlock = document.getElementById(`doc-block-${index - 1}`);
+      const nextContent = nextBlock?.querySelector('.doc-block__content') as HTMLElement;
+      nextContent?.focus();
+    }, 50);
+  }, [doc, index, isFirstInDoc, onAfterEdit]);
+
+  const moveDown = useCallback(() => {
+    if (!doc || isLastInDoc) return;
+    moveNode(doc, index, index + 1);
+    onAfterEdit();
+    setContextMenu(null);
+    setTimeout(() => {
+      const nextBlock = document.getElementById(`doc-block-${index + 1}`);
+      const nextContent = nextBlock?.querySelector('.doc-block__content') as HTMLElement;
+      nextContent?.focus();
+    }, 50);
+  }, [doc, index, isLastInDoc, onAfterEdit]);
+
+  const focusNextBlock = useCallback((offset: number) => {
+    const nextBlock = document.getElementById(`doc-block-${index + offset}`);
+    const nextContent = nextBlock?.querySelector('.doc-block__content') as HTMLElement;
+    if (nextContent) {
+      nextContent.focus();
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(nextContent);
+      if (offset < 0) {
+        range.collapse(false); // end of line
+      } else {
+        range.collapse(true); // start of line
+      }
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }
+  }, [index]);
 
   const getSelectionRange = useCallback(() => {
     try {
@@ -54,7 +101,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       const win = doc.defaultView;
       if (!win) return null;
       const sel = win.getSelection();
-      if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+      if (sel && sel.rangeCount > 0) {
         const range = sel.getRangeAt(0);
 
         // Ensure selection is inside this doc block
@@ -74,6 +121,88 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     }
     return null;
   }, []);
+
+  const handleInput = useCallback(() => {
+    if (!doc || !isLastInDoc) return;
+    const currentText = contentRef.current?.textContent || '';
+    // If we are at the very last block, and user types something, append an empty block below.
+    if (currentText.length > 0) {
+      insertDocNodeAfter(doc, index, '', userName);
+      onAfterEdit();
+    }
+  }, [doc, isLastInDoc, index, userName, onAfterEdit]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      // Commit current text
+      const currentText = contentRef.current?.textContent || '';
+      if (doc && currentText !== node.content) {
+        updateDocContent(doc, index, currentText);
+      }
+      
+      if (doc) {
+        insertDocNodeAfter(doc, index, '', userName);
+        onAfterEdit();
+        // focus logic after render is deferred
+        setTimeout(() => focusNextBlock(1), 50);
+      }
+      return;
+    }
+
+    if ((e.key === 'Backspace' || e.key === 'Delete') && !e.shiftKey) {
+      if (contentRef.current?.textContent === '') {
+        e.preventDefault();
+        // Remove block and focus previous
+        focusNextBlock(-1);
+        if (doc) {
+          deleteDocNode(doc, index);
+          onAfterEdit();
+        }
+        return;
+      }
+    }
+
+    if (e.key === 'ArrowUp' && !e.shiftKey) {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        moveUp();
+      } else {
+        // focus previous block
+        focusNextBlock(-1);
+      }
+    } else if (e.key === 'ArrowDown' && !e.shiftKey) {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        moveDown();
+      } else {
+        // focus next block
+        focusNextBlock(1);
+      }
+    } else if (e.key === 'ArrowLeft' && !e.shiftKey) {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && sel.isCollapsed) {
+        const sr = getSelectionRange();
+        if (sr && sr.start === 0 && sr.end === 0) {
+          // At the very beginning of the line
+          e.preventDefault();
+          focusNextBlock(-1);
+        }
+      }
+    } else if (e.key === 'ArrowRight' && !e.shiftKey) {
+      const textLen = contentRef.current?.textContent?.length || 0;
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && sel.isCollapsed) {
+        const sr = getSelectionRange();
+        if (sr && sr.start === textLen && sr.end === textLen) {
+          // At the very end of the line
+          e.preventDefault();
+          focusNextBlock(1);
+        }
+      }
+    }
+  }, [doc, index, node, userName, onAfterEdit, moveUp, moveDown, focusNextBlock, getSelectionRange]);
+
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -148,20 +277,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     setContextMenu(null);
   }, [doc, loroMap, loroText, contextMenu, node.type, node.content, getSelectionRange, onAfterEdit]);
 
-  const moveUp = useCallback(() => {
-    if (!doc) return;
-    moveNode(doc, index, index - 1);
-    onAfterEdit();
-    setContextMenu(null);
-  }, [doc, index, onAfterEdit]);
-
-  const moveDown = useCallback(() => {
-    if (!doc) return;
-    moveNode(doc, index, index + 1);
-    onAfterEdit();
-    setContextMenu(null);
-  }, [doc, index, onAfterEdit]);
-
+  // moveUp and moveDown have been moved up
   const formatTime = (ts: number) => {
     const d = new Date(ts);
     return d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
@@ -181,6 +297,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   const blockClass = [
     'doc-block',
     isChat ? 'doc-block--chat' : 'doc-block--doc',
+    contextMenu ? 'doc-block--focused' : '',
     `doc-emphasis-${blockEmphasis}`,
     isDropTarget ? 'doc-block--drop-target' : '',
     isDragging ? 'doc-block--dragging' : '',
@@ -256,9 +373,11 @@ export const DocBlock: React.FC<DocBlockProps> = ({
         <div
           ref={contentRef}
           className="doc-block__content"
-          contentEditable={node.type === 'doc'}
+          contentEditable={true}
           suppressContentEditableWarning
           onBlur={handleBlur}
+          onInput={handleInput}
+          onKeyDown={handleKeyDown}
           onContextMenu={handleContextMenu}
           dangerouslySetInnerHTML={{ __html: renderContentAsHTML() }}
         />

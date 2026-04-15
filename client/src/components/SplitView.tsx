@@ -7,6 +7,7 @@ interface SplitViewProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   docPanel: React.ReactNode;
   chatPanel: React.ReactNode;
+  isDominantDoc?: boolean;
 }
 
 export const SplitView: React.FC<SplitViewProps> = ({
@@ -16,9 +17,12 @@ export const SplitView: React.FC<SplitViewProps> = ({
   containerRef,
   docPanel,
   chatPanel,
+  isDominantDoc,
 }) => {
-  const docHeight = `${ratio * 100}%`;
-  const chatHeight = `${(1 - ratio) * 100}%`;
+  const inputOffset = 78; // Approximate height of the chat input area
+
+  const docHeight = isDominantDoc ? `calc(${ratio * 100}% + ${inputOffset}px)` : `${ratio * 100}%`;
+  const chatHeight = isDominantDoc ? `calc(${(1 - ratio) * 100}% - ${inputOffset}px)` : `${(1 - ratio) * 100}%`;
 
   return (
     <div className="split-view" ref={containerRef as React.RefObject<HTMLDivElement>} id="split-view">

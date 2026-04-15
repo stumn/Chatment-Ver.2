@@ -5,7 +5,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg-primary);
+  background: transparent;
 }
 
 .doc-panel__header {
@@ -38,10 +38,10 @@
 .doc-panel__content {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-md);
+  padding: var(--space-md) var(--space-xl);
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: 0; /* エディタらしい行間にするためgapをゼロに */
 }
 
 .doc-panel__empty {
@@ -72,29 +72,59 @@
 .doc-block {
   display: flex;
   gap: var(--space-sm);
-  padding: var(--space-md);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  transition: all var(--transition-base);
+  padding: var(--space-xs) var(--space-sm);
+  background: transparent;
+  border: 1px solid transparent; /* 枠線を透明にして隙間を埋めつつレイアウトを安定させる */
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
   position: relative;
+  margin: 1px 0;
   animation: fadeSlideIn 0.3s ease;
 }
 
 .doc-block:hover {
-  border-color: var(--border-medium);
-  box-shadow: var(--shadow-sm);
+  background: hsla(0, 0%, 0%, 0.03);
 }
 
-.doc-block--chat {
-  border-left: 3px solid var(--accent-secondary);
-  background: #f0f4e8;
+.doc-block--focused {
+  background: hsla(250, 30%, 50%, 0.08) !important;
+  border-color: hsla(250, 30%, 50%, 0.2);
+}
+
+/* 引用線としての疑似要素 */
+.doc-block::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 2px;
+  opacity: 0.8;
+}
+
+.doc-block--chat::before {
+  background: var(--accent-secondary);
+}
+
+.doc-block--doc::before {
+  background: transparent;
 }
 
 .doc-block--doc {
-  border-left: 3px solid var(--emphasis-plus);
-  background: #fcf1d4;
-  cursor: pointer;
+  cursor: default;
+}
+
+/* ドキュメントエリアにおける「ドキュメント由来(+1)」と「チャット由来(-1)」の色分け */
+/* ニュートラル状態では全て通常テキストカラー */
+.doc-block--doc .doc-block__content,
+.doc-block--chat .doc-block__content {
+  color: var(--text-primary);
+}
+
+/* ドキュメントが大きい(dominant-doc)ときのみ、チャット由来(-1)を控える */
+.dominant-doc .doc-block--chat .doc-block__content {
+  color: var(--text-muted);
 }
 
 .doc-emphasis-1 .doc-block__content {
@@ -272,10 +302,10 @@
 
 .doc-block__content {
   font-size: var(--font-size-base);
-  color: var(--text-primary);
+  color: inherit;
   line-height: 1.65;
   outline: none;
-  padding: var(--space-xs) 0;
+  padding: 0;
   border-radius: var(--radius-sm);
   transition: background var(--transition-fast);
   white-space: pre-wrap;
@@ -286,10 +316,9 @@
   cursor: text;
 }
 
+/* focus時の青い背景色を削り、エディタらしくシンプルにする */
 .doc-block--doc .doc-block__content:focus {
-  background: hsla(250, 30%, 20%, 0.3);
-  padding: var(--space-xs) var(--space-sm);
-  margin: 0 calc(-1 * var(--space-sm));
+  background: transparent;
 }
 
 .text-emphasis-1 {

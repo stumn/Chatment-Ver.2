@@ -93,12 +93,14 @@ export const DocPanel: React.FC<DocPanelProps> = ({
   return (
     <div className="doc-panel" onContextMenu={handleBgContextMenu}>
       <div className="doc-panel__content">
-        {nodes.map((nodeWithIndex) => (
+        {nodes.map((nodeWithIndex, arrayIndex) => (
           <DocBlock
             key={`doc-${nodeWithIndex.index}`}
             nodeWithIndex={nodeWithIndex}
             doc={doc}
             userName={userName}
+            isFirstInDoc={arrayIndex === 0}
+            isLastInDoc={arrayIndex === nodes.length - 1}
             isDropTarget={dragState.dropIndex === nodeWithIndex.index}
             isDragging={dragState.dragIndex === nodeWithIndex.index}
             onDragStart={onDragStart(nodeWithIndex.index)}

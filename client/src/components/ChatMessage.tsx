@@ -55,8 +55,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     }
   }, [contextMenu]);
 
-  if (node.type !== 'chat') return null;
-
   const formatTime = (ts: number) => {
     const d = new Date(ts);
     return d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
@@ -78,9 +76,12 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     });
   }
 
+  const isChat = node.type === 'chat';
+  const typeClass = isChat ? 'chat-message--chat' : 'chat-message--doc';
+
   return (
     <div
-      className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'}`}
+      className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'} ${typeClass}`}
       id={`chat-message-${index}`}
     >
       {!isOwn && (

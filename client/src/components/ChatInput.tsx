@@ -30,18 +30,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     });
   }, [text, doc, userName, onAfterSend]);
 
-  const sendAsDoc = useCallback(() => {
-    const trimmed = text.trim();
-    if (!trimmed || !doc) return;
-
-    addDocNode(doc, trimmed, userName);
-    setText('');
-    onAfterSend();
-
-    requestAnimationFrame(() => {
-      inputRef.current?.focus();
-    });
-  }, [text, doc, userName, onAfterSend]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -63,15 +51,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         id="chat-input-textarea"
       />
       <div className="chat-input__buttons">
-        <button
-          className="chat-input__btn chat-input__btn--doc"
-          onClick={sendAsDoc}
-          disabled={!text.trim()}
-          title="ドキュメントノードとして追加"
-          id="send-doc-btn"
-        >
-          📄
-        </button>
         <button
           className="chat-input__btn chat-input__btn--send"
           onClick={sendMessage}
