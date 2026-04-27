@@ -141,7 +141,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       const range = selection?.getRangeAt(0);
       const caretPos = range?.startOffset || 0;
       const newText = contentRef.current?.textContent || '';
-      
+
       // Delete any remnants after the cursor and insert a new block with them
       const textAfterCursor = newText.substring(caretPos);
       if (caretPos < newText.length) {
@@ -149,7 +149,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       } else {
         updateDocContent(doc, index, newText);
       }
-      
+
       if (doc) {
         insertDocNodeAfter(doc, index, textAfterCursor, userName, defaultEmphasis);
         onAfterEdit();
@@ -359,19 +359,20 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           <div className="context-menu__header">
             ブロックの色を変更
           </div>
-          <button className="context-menu__item" onMouseDown={(e) => e.preventDefault()} onClick={() => setEmphasis(0)}>
-            <span className="color-dot" style={{ background: '#3E3E3A' }}></span>標準 (黒)
-          </button>
+
           <button className="context-menu__item" onMouseDown={(e) => e.preventDefault()} onClick={() => setEmphasis(1)}>
-            <span className="color-dot" style={{ background: '#c99b66' }}></span>ハイライト (金)
+            <span className="color-dot" style={{ background: '#000' }}></span>太字
+          </button>
+          <button className="context-menu__item" onMouseDown={(e) => e.preventDefault()} onClick={() => setEmphasis(0)}>
+            <span className="color-dot" style={{ background: '#666' }}></span>標準
           </button>
           <button className="context-menu__item" onMouseDown={(e) => e.preventDefault()} onClick={() => setEmphasis(-1)}>
-            <span className="color-dot" style={{ background: '#8f9b73' }}></span>控えめ (緑)
+            <span className="color-dot" style={{ background: '#aaa' }}></span>控えめ
           </button>
           <div className="context-menu__divider"></div>
 
-          <button className="context-menu__item" onMouseDown={(e) => e.preventDefault()} onClick={moveUp}>⬆ 上へ移動</button>
-          <button className="context-menu__item" onMouseDown={(e) => e.preventDefault()} onClick={moveDown}>⬇ 下へ移動</button>
+          <button className="context-menu__item" onMouseDown={(e) => e.preventDefault()} onClick={moveUp}>⬆ 上へ移動 <span style={{ color: '#aaa', fontSize: '10px' }}>Ctrl+↑</span></button>
+          <button className="context-menu__item" onMouseDown={(e) => e.preventDefault()} onClick={moveDown}>⬇ 下へ移動 <span style={{ color: '#aaa', fontSize: '10px' }}>Ctrl+↓</span></button>
         </div>
       )}
     </div>

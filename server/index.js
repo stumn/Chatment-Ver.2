@@ -34,8 +34,17 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
 
-app.get('/', (_req, res) => {
-  res.send('<h1>Chatment ver.2 API Server is running</h1><p>Please visit the frontend at <a href="http://localhost:5173">http://localhost:5173</a></p>');
+// 静的ファイルの配信 (ビルドされたフロントエンド)
+const path = require('path');
+const clientDistPath = path.join(__dirname, '../client/dist');
+app.use(express.static(clientDistPath));
+
+app.get('*', (req, res) => {
+  // APIへのリクエストなど、意図しないパスのフォールバックを防ぐ場合は適宜拡張してください
+  if (req.path.startsWith('/api/') || req.path.startsWith('/socket.io/')) {
+    return res.status(404).send('Not Found');
+  }
+  res.sendFile(path.join(clientDistPath, 'index.html'));
 });
 
 // ─── Socket.IO ──────────────────────────────────────────

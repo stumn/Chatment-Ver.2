@@ -88,22 +88,22 @@ export const App: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--glass-bg)', padding: '4px', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-sm)' }}>
             <div style={{ display: 'flex', gap: '4px', paddingRight: '4px' }}>
               <button
-                title="標準 (黒)"
+                title="太字"
+                onClick={() => setDefaultEmphasis(1)}
+                style={{ width: '22px', height: '22px', borderRadius: '50%', background: defaultEmphasis === 1 ? 'var(--bg-elevated)' : 'transparent', border: `1px solid ${defaultEmphasis === 1 ? 'var(--text-primary)' : 'transparent'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontWeight: 'bold', fontSize: '12px', color: 'var(--text-primary)' }}>B</span>
+              </button>
+              <button
+                title="標準"
                 onClick={() => setDefaultEmphasis(0)}
                 style={{ width: '22px', height: '22px', borderRadius: '50%', background: defaultEmphasis === 0 ? 'var(--bg-elevated)' : 'transparent', border: `1px solid ${defaultEmphasis === 0 ? 'var(--text-primary)' : 'transparent'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#666' }} />
               </button>
               <button
-                title="ハイライト (金)"
-                onClick={() => setDefaultEmphasis(1)}
-                style={{ width: '22px', height: '22px', borderRadius: '50%', background: defaultEmphasis === 1 ? 'var(--bg-elevated)' : 'transparent', border: `1px solid ${defaultEmphasis === 1 ? '#c99b66' : 'transparent'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#c99b66' }} />
-              </button>
-              <button
-                title="控えめ (緑)"
+                title="控えめ"
                 onClick={() => setDefaultEmphasis(-1)}
-                style={{ width: '22px', height: '22px', borderRadius: '50%', background: defaultEmphasis === -1 ? 'var(--bg-elevated)' : 'transparent', border: `1px solid ${defaultEmphasis === -1 ? '#8f9b73' : 'transparent'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#8f9b73' }} />
+                style={{ width: '22px', height: '22px', borderRadius: '50%', background: defaultEmphasis === -1 ? 'var(--bg-elevated)' : 'transparent', border: `1px solid ${defaultEmphasis === -1 ? '#aaa' : 'transparent'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#aaa' }} />
               </button>
             </div>
           </div>

@@ -134,7 +134,7 @@
 }
 
 .doc-emphasis-1 .doc-block__content {
-  color: var(--emphasis-plus);
+  color: var(--text-primary);
   font-weight: 600;
 }
 
