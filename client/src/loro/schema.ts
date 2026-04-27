@@ -34,12 +34,46 @@ export function addChatNode(
   author: string
 ): void {
   const stream = getStream(doc);
-  const nodeMap = stream.insertContainer(stream.length, new LoroMap());
+  const length = stream.length;
+  let insertChatPos = length;
+  let appendEmptyDoc = true;
+
+  if (length > 0) {
+    const lastNode = stream.get(length - 1) as LoroMap;
+    if (lastNode) {
+      const type = lastNode.get('type') as string;
+      if (type === 'doc') {
+        const loroText = lastNode.get('content') as LoroText;
+        if (loroText && loroText.length === 0) {
+          // The last block is an empty doc block
+          insertChatPos = length - 1; 
+          appendEmptyDoc = false;
+        }
+      }
+    }
+  }
+
+  const nodeMap = stream.insertContainer(insertChatPos, new LoroMap());
   nodeMap.set('type', 'chat');
-  nodeMap.set('content', content);
+  const chatText = nodeMap.setContainer('content', new LoroText());
+  chatText.insert(0, content);
   nodeMap.set('author', author);
   nodeMap.set('timestamp', Date.now());
   nodeMap.setContainer('reactions', new LoroMap());
+  nodeMap.set('isOrganized', false);
+
+  if (appendEmptyDoc) {
+    const emptyPos = insertChatPos + 1;
+    const emptyDocMap = stream.insertContainer(emptyPos, new LoroMap());
+    emptyDocMap.set('type', 'doc');
+    const loroText = emptyDocMap.setContainer('content', new LoroText());
+    
+    emptyDocMap.set('blockId', `blk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
+    emptyDocMap.set('author', author);
+    emptyDocMap.set('timestamp', Date.now());
+    emptyDocMap.set('isOrganized', true);
+  }
+
   doc.commit();
 }
 
@@ -77,6 +111,7 @@ export function insertDocNodeAfter(
   nodeMap.set('blockId', `blk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
   nodeMap.set('author', author);
   nodeMap.set('timestamp', Date.now());
+  nodeMap.set('isOrganized', true);
   doc.commit();
 }
 
@@ -114,6 +149,11 @@ export function moveNode(
   if (fromIndex < 0 || fromIndex >= stream.length) return;
   if (toIndex < 0 || toIndex >= stream.length) return;
   stream.move(fromIndex, toIndex);
+  
+  const movedMap = stream.get(toIndex) as LoroMap;
+  if (movedMap) {
+    movedMap.set('isOrganized', true);
+  }
   doc.commit();
 }
 
@@ -152,8 +192,16 @@ export function updateDocContent(
   const nodeMap = stream.get(nodeIndex) as LoroMap;
   if (!nodeMap) return;
 
-  const loroText = nodeMap.get('content') as LoroText;
-  if (!loroText) return;
+  let contentVal = nodeMap.get('content');
+  let loroText: LoroText;
+
+  if (typeof contentVal === 'string') {
+    loroText = nodeMap.setContainer('content', new LoroText());
+  } else if (contentVal && typeof contentVal === 'object' && typeof (contentVal as any).toDelta === 'function') {
+    loroText = contentVal as LoroText;
+  } else {
+    return;
+  }
 
   const currentLength = loroText.length;
   
@@ -228,8 +276,10 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
         // Optionally set it back if we want to persist it, but ephemeral is fine for keying
       }
 
+      const isOrganized = (loroMap.get('isOrganized') as boolean) ?? false;
+
       nodes.push({
-        node: { type: 'chat', content: contentStr, author, timestamp, reactions },
+        node: { type: 'chat', content: contentStr, author, timestamp, reactions, isOrganized },
         id,
         index: i,
         loroMap,
@@ -242,9 +292,10 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
         blockId = `doc-${timestamp}-${i}`;
       }
       const content = loroText ? loroText.toString() : '';
+      const isOrganized = (loroMap.get('isOrganized') as boolean) ?? true;
 
       nodes.push({
-        node: { type: 'doc', content, blockId, author, timestamp },
+        node: { type: 'doc', content, blockId, author, timestamp, isOrganized },
         id: blockId,
         index: i,
         loroMap,

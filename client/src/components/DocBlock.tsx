@@ -277,9 +277,12 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     totalReactions = Object.values(node.reactions).length;
   }
 
+  const isOrganized = node.isOrganized ?? (isChat ? false : true);
+
   const blockClass = [
     'doc-block',
     isChat ? 'doc-block--chat' : 'doc-block--doc',
+    isOrganized ? 'doc-block--organized' : 'doc-block--unorganized',
     contextMenu ? 'doc-block--focused' : '',
     `doc-emphasis-${blockEmphasis}`,
     totalReactions >= 5 ? 'doc-block--highly-reacted' : '',
@@ -302,6 +305,8 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     return escapeHtml(node.content || '');
   };
 
+  const isContentEmpty = node.content === '';
+
   return (
     <div
       className={blockClass}
@@ -316,16 +321,16 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     >
       <div
         className="doc-block__meta-toggle"
-        onMouseEnter={() => setShowMeta(true)}
+        onMouseEnter={() => !isContentEmpty && setShowMeta(true)}
         onMouseLeave={() => setShowMeta(false)}
+        style={{ visibility: isContentEmpty ? 'hidden' : 'visible' }}
       >
-        ℹ️
-        {showMeta && (
+        <div className="doc-block__timeline-circle"></div>
+        {showMeta && !isContentEmpty && (
           <div className="doc-block__meta-tooltip">
             <span className="doc-block__author">{node.author}</span>
             <span className="doc-block__time">{formatTime(node.timestamp)}</span>
             {totalReactions > 0 && <span className="doc-block__reaction-count">リアクション {totalReactions}件</span>}
-            {isChat && <span className="doc-block__badge">chat</span>}
           </div>
         )}
       </div>
@@ -352,27 +357,27 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       {contextMenu && (
         <div
           className="doc-block__context-menu"
-          style={{ position: 'fixed', top: contextMenu.y, left: contextMenu.x, zIndex: 100000 }}
+          style={{ position: 'fixed', top: contextMenu.y - 40, left: contextMenu.x, zIndex: 100000 }}
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
         >
-          <div className="context-menu__header">
-            ブロックの色を変更
-          </div>
-
-          <button className="context-menu__item" onMouseDown={(e) => e.preventDefault()} onClick={() => setEmphasis(1)}>
-            <span className="color-dot" style={{ background: '#000' }}></span>太字
+          <button className="context-menu__item" title="太字" onMouseDown={(e) => e.preventDefault()} onClick={() => setEmphasis(1)}>
+            <span style={{ fontWeight: 'bold', fontSize: '11px', color: 'var(--text-primary)' }}>B</span>
           </button>
-          <button className="context-menu__item" onMouseDown={(e) => e.preventDefault()} onClick={() => setEmphasis(0)}>
-            <span className="color-dot" style={{ background: '#666' }}></span>標準
+          <button className="context-menu__item" title="標準" onMouseDown={(e) => e.preventDefault()} onClick={() => setEmphasis(0)}>
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#666' }}></span>
           </button>
-          <button className="context-menu__item" onMouseDown={(e) => e.preventDefault()} onClick={() => setEmphasis(-1)}>
-            <span className="color-dot" style={{ background: '#aaa' }}></span>控えめ
+          <button className="context-menu__item" title="控えめ" onMouseDown={(e) => e.preventDefault()} onClick={() => setEmphasis(-1)}>
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#aaa' }}></span>
           </button>
           <div className="context-menu__divider"></div>
 
-          <button className="context-menu__item" onMouseDown={(e) => e.preventDefault()} onClick={moveUp}>⬆ 上へ移動 <span style={{ color: '#aaa', fontSize: '10px' }}>Ctrl+↑</span></button>
-          <button className="context-menu__item" onMouseDown={(e) => e.preventDefault()} onClick={moveDown}>⬇ 下へ移動 <span style={{ color: '#aaa', fontSize: '10px' }}>Ctrl+↓</span></button>
+          <button className="context-menu__item" title="上へ移動 (Ctrl+↑)" onMouseDown={(e) => e.preventDefault()} onClick={moveUp}>
+             <span style={{ fontSize: '12px', lineHeight: 1 }}>↑</span>
+          </button>
+          <button className="context-menu__item" title="下へ移動 (Ctrl+↓)" onMouseDown={(e) => e.preventDefault()} onClick={moveDown}>
+             <span style={{ fontSize: '12px', lineHeight: 1 }}>↓</span>
+          </button>
         </div>
       )}
     </div>

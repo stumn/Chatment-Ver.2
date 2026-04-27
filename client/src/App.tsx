@@ -159,6 +159,7 @@ export const App: React.FC = () => {
               userName={userName}
               userId={userId}
               panelRef={chatPanelRef}
+              ratio={ratio}
               onAfterEdit={handleAfterEdit}
             />
           }

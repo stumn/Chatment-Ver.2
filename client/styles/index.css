@@ -2,44 +2,44 @@
 
 :root {
   /* Background */
-  --bg-primary: #e8e9e6;
-  --bg-secondary: #fdf5e0;
-  --bg-tertiary: #dfded1;
+  --bg-primary: #f9fafb;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f3f4f6;
   --bg-elevated: #ffffff;
-  --bg-glass: rgba(232, 233, 230, 0.85);
+  --bg-glass: rgba(255, 255, 255, 0.85);
 
   /* Text */
-  --text-primary: #4a4a40;
-  --text-secondary: #6e6f5f;
-  --text-muted: #959685;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
 
   /* 3-Level Emphasis */
-  --emphasis-plus: #dfb45e;
-  --emphasis-default: #4a4a40;
-  --emphasis-minus: #98b79f;
+  --emphasis-plus: #d97706;
+  --emphasis-default: #111827;
+  --emphasis-minus: #9ca3af;
 
   /* Accent */
-  --accent-primary: #23b479;
-  --accent-primary-hover: #1ca36a;
-  --accent-primary-glow: rgba(35, 180, 121, 0.3);
-  --accent-secondary: #a0ac83;
-  --accent-secondary-hover: #8f9b73;
+  --accent-primary: #3b82f6;
+  --accent-primary-hover: #2563eb;
+  --accent-primary-glow: rgba(59, 130, 246, 0.3);
+  --accent-secondary: #8b5cf6;
+  --accent-secondary-hover: #7c3aed;
 
   /* Chat bubbles */
-  --bubble-own: #c99b66;
-  --bubble-own-hover: #b88d5c;
-  --bubble-other: #fdf5e0;
-  --bubble-other-hover: #faecce;
+  --bubble-own: #3b82f6;
+  --bubble-own-hover: #2563eb;
+  --bubble-other: #f3f4f6;
+  --bubble-other-hover: #e5e7eb;
 
   /* Borders */
-  --border-subtle: rgba(160, 172, 131, 0.2);
-  --border-medium: rgba(160, 172, 131, 0.4);
-  --border-focus: rgba(35, 180, 121, 0.5);
+  --border-subtle: rgba(0, 0, 0, 0.06);
+  --border-medium: rgba(0, 0, 0, 0.12);
+  --border-focus: rgba(59, 130, 246, 0.5);
 
   /* Shadows */
-  --shadow-sm: 0 1px 3px hsla(0, 0%, 0%, 0.3);
-  --shadow-md: 0 4px 12px hsla(0, 0%, 0%, 0.4);
-  --shadow-lg: 0 8px 32px hsla(0, 0%, 0%, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   --shadow-glow: 0 0 20px var(--accent-primary-glow);
 
   /* Spacing */

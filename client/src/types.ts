@@ -8,6 +8,7 @@ export interface ChatNodeData {
   author: string;
   timestamp: number;
   reactions: Record<string, string>;
+  isOrganized?: boolean;
 }
 
 export interface DocNodeData {
@@ -16,6 +17,7 @@ export interface DocNodeData {
   blockId: string;
   author: string;
   timestamp: number;
+  isOrganized?: boolean;
 }
 
 export type StreamNode = ChatNodeData | DocNodeData;

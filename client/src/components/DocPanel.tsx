@@ -70,28 +70,30 @@ export const DocPanel: React.FC<DocPanelProps> = ({
     return (
       <div className="doc-panel" id="doc-panel" onContextMenu={handleBgContextMenu}>
         {/* チャットが溢れる前の 1件目の仮書き込みエリア (CRDT上にはまだ追加されないが、入力で発火する想定) */}
-        <div style={{ padding: '8px 32px', marginBottom: '16px' }}>
-          <div 
-            className={`doc-block doc-block--doc doc-emphasis-${defaultEmphasis}`}
-            style={{ border: '1px dashed var(--border-medium)', background: 'transparent' }}
-          >
-            <div className="doc-block__body">
-              <div 
-                className="doc-block__content"
-                contentEditable
-                suppressContentEditableWarning
-                data-placeholder="ここから書き始めることができます"
-                style={{ opacity: 0.8 }}
-                onInput={(e) => {
-                  const val = e.currentTarget.textContent || '';
-                  if (val.length > 0 && doc) {
-                    import('../loro/schema').then(({ addDocNode }) => {
-                      addDocNode(doc, val, userName, defaultEmphasis);
-                      onAfterEdit();
-                    });
-                  }
-                }}
-              />
+        <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+          <div className="doc-paper">
+            <div 
+              className={`doc-block doc-block--doc doc-emphasis-${defaultEmphasis}`}
+              style={{ border: '1px dashed var(--border-medium)', background: 'transparent', width: '100%' }}
+            >
+              <div className="doc-block__body">
+                <div 
+                  className="doc-block__content"
+                  contentEditable
+                  suppressContentEditableWarning
+                  data-placeholder="ここから書き始めることができます"
+                  style={{ opacity: 0.8 }}
+                  onInput={(e) => {
+                    const val = e.currentTarget.textContent || '';
+                    if (val.length > 0 && doc) {
+                      import('../loro/schema').then(({ addDocNode }) => {
+                        addDocNode(doc, val, userName, defaultEmphasis);
+                        onAfterEdit();
+                      });
+                    }
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -109,25 +111,27 @@ export const DocPanel: React.FC<DocPanelProps> = ({
   return (
     <div className="doc-panel" onContextMenu={handleBgContextMenu}>
       <div className="doc-panel__content">
-        {nodes.map((nodeWithIndex, arrayIndex) => (
-          <DocBlock
-            key={nodeWithIndex.id}
-            nodeWithIndex={nodeWithIndex}
-            doc={doc}
-            userName={userName}
-            defaultEmphasis={defaultEmphasis}
-            isFirstInDoc={arrayIndex === 0}
-            isLastInDoc={arrayIndex === nodes.length - 1}
-            isDropTarget={dragState.dropIndex === nodeWithIndex.index}
-            isDragging={dragState.dragIndex === nodeWithIndex.index}
-            onDragStart={onDragStart(nodeWithIndex.index)}
-            onDragOver={onDragOver(nodeWithIndex.index)}
-            onDragLeave={onDragLeave}
-            onDrop={onDrop(nodeWithIndex.index)}
-            onDragEnd={onDragEnd}
-            onAfterEdit={onAfterEdit}
-          />
-        ))}
+        <div className="doc-paper">
+          {nodes.map((nodeWithIndex, arrayIndex) => (
+            <DocBlock
+              key={nodeWithIndex.id}
+              nodeWithIndex={nodeWithIndex}
+              doc={doc}
+              userName={userName}
+              defaultEmphasis={defaultEmphasis}
+              isFirstInDoc={arrayIndex === 0}
+              isLastInDoc={arrayIndex === nodes.length - 1}
+              isDropTarget={dragState.dropIndex === nodeWithIndex.index}
+              isDragging={dragState.dragIndex === nodeWithIndex.index}
+              onDragStart={onDragStart(nodeWithIndex.index)}
+              onDragOver={onDragOver(nodeWithIndex.index)}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop(nodeWithIndex.index)}
+              onDragEnd={onDragEnd}
+              onAfterEdit={onAfterEdit}
+            />
+          ))}
+        </div>
       </div>
       
       {bgMenu && (

@@ -84,55 +84,50 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     <div
       className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'} ${typeClass}`}
       id={`chat-message-${index}`}
+      onContextMenu={handleContextMenu}
     >
-      <div className="chat-message__meta" style={{ display: 'flex', justifyContent: 'space-between', width: 'calc(100% - 88px)', marginBottom: '2px', paddingLeft: '8px' }}>
-        <div className="chat-message__author" style={{ marginBottom: 0, paddingLeft: 0 }}>
-          {isOwn ? 'あなた' : node.author}
+      <div className="chat-message__body">
+        <div className="chat-message__header">
+          <span className="chat-message__time">{formatTime(node.timestamp)}</span>
+          <span className="chat-message__author">{node.author}</span>
         </div>
-        <div className="chat-message__time" style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
-          {formatTime(node.timestamp)}
-        </div>
+        <div className="chat-message__content">{node.content}</div>
       </div>
 
-      <div className="chat-message__bubble" onContextMenu={handleContextMenu}>
-        <div className="chat-message__content">{node.content}</div>
-        
-        <div className="chat-message__footer">
-          
-          <div className="chat-message__reaction-list">
-            {Object.keys(reactionCounts).length > 0 && 
-              Object.entries(reactionCounts).map(([emoji, count]) => (
-                <span
-                  key={emoji}
-                  className="chat-message__reaction-badge"
-                  onClick={() => handleReaction(emoji)}
-                >
-                  {emoji} {count > 1 && count}
-                </span>
-              ))
-            }
-            <div className="chat-message__actions">
-              <button
-                className="chat-message__react-btn"
-                onClick={() => setShowReactions(!showReactions)}
-                title="リアクション"
+      <div className="chat-message__side-actions">
+        <div className="chat-message__reaction-list">
+          {Object.keys(reactionCounts).length > 0 && 
+            Object.entries(reactionCounts).map(([emoji, count]) => (
+              <span
+                key={emoji}
+                className="chat-message__reaction-badge"
+                onClick={() => handleReaction(emoji)}
               >
-                <EmojiAddIcon />
-              </button>
-              {showReactions && (
-                <div className="chat-message__reaction-picker">
-                  {PRESET_REACTIONS.map(emoji => (
-                    <button
-                      key={emoji}
-                      className="chat-message__reaction-option"
-                      onClick={() => handleReaction(emoji)}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                {emoji} {count > 1 && count}
+              </span>
+            ))
+          }
+          <div className="chat-message__actions">
+            <button
+              className="chat-message__react-btn"
+              onClick={() => setShowReactions(!showReactions)}
+              title="リアクション"
+            >
+              <EmojiAddIcon />
+            </button>
+            {showReactions && (
+              <div className="chat-message__reaction-picker">
+                {PRESET_REACTIONS.map(emoji => (
+                  <button
+                    key={emoji}
+                    className="chat-message__reaction-option"
+                    onClick={() => handleReaction(emoji)}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

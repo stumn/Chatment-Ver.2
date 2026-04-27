@@ -42,29 +42,31 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   return (
     <div className="chat-input" id="chat-input">
-      <textarea
-        ref={inputRef}
-        className="chat-input__textarea"
-        value={text}
-        onChange={e => setText(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="メッセージを入力... (Ctrl + Enter で送信)"
-        rows={1}
-        id="chat-input-textarea"
-      />
-      <div className="chat-input__buttons">
-        <button
-          className="chat-input__btn chat-input__btn--send"
-          onClick={sendMessage}
-          disabled={!text.trim()}
-          title="チャットとして送信"
-          id="send-chat-btn"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-          </svg>
-        </button>
+      <div className="chat-input__wrapper">
+        <textarea
+          ref={inputRef}
+          className="chat-input__textarea"
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="メッセージを入力... (Ctrl + Enter で送信)"
+          rows={1}
+          id="chat-input-textarea"
+        />
+        <div className="chat-input__buttons">
+          <button
+            className="chat-input__btn chat-input__btn--send"
+            onClick={sendMessage}
+            disabled={!text.trim()}
+            title="チャットとして送信"
+            id="send-chat-btn"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );

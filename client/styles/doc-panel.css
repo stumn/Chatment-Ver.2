@@ -38,10 +38,26 @@
 .doc-panel__content {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-md) var(--space-xl);
+  padding: var(--space-xl);
   display: flex;
   flex-direction: column;
-  gap: 0; /* エディタらしい行間にするためgapをゼロに */
+  background: var(--bg-tertiary);
+}
+
+.doc-paper {
+  margin: 0 auto;
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: 850px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-2xl) var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
 }
 
 .doc-panel__empty {
@@ -71,15 +87,32 @@
 
 .doc-block {
   display: flex;
-  gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-sm);
+  gap: 8px;
+  padding: 4px 12px;
   background: transparent;
-  border: 1px solid transparent; /* 枠線を透明にして隙間を埋めつつレイアウトを安定させる */
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
+  transition: all var(--transition-fast), margin var(--transition-base) ease-out;
   position: relative;
-  margin: 1px 0;
   animation: fadeSlideIn 0.3s ease;
+  width: 100%;
+}
+
+/* 未整理なブロック（チャット元など）の行間 */
+.doc-block--unorganized {
+  margin-top: 16px;
+  margin-bottom: 24px;
+}
+
+/* 整理済みのブロック（ドキュメント元、編集済み）の行間 */
+.doc-block--organized {
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+/* 整理済みブロック同士が連続する場合の連携感（行間をさらに狭く） */
+.doc-block--organized + .doc-block--organized {
+  margin-top: -2px; /* 少し重ねてパラグラフ感を強調 */
 }
 
 .doc-block:hover {
@@ -97,25 +130,7 @@
   border-radius: var(--radius-sm);
 }
 
-/* 引用線としての疑似要素 */
-.doc-block::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 4px;
-  bottom: 4px;
-  width: 3px;
-  border-radius: 2px;
-  opacity: 0.8;
-}
-
-.doc-block--chat::before {
-  background: var(--accent-secondary);
-}
-
-.doc-block--doc::before {
-  background: transparent;
-}
+/* 引用線としての疑似要素は廃止 */
 
 .doc-block--doc {
   cursor: default;
@@ -153,14 +168,26 @@
   justify-content: center;
   width: 24px;
   cursor: pointer;
-  opacity: 0.3;
-  font-size: 12px;
-  transition: opacity 0.2s ease;
   position: relative;
+  opacity: 1; /* Keep visible like the timeline */
 }
 
-.doc-block:hover .doc-block__meta-toggle {
-  opacity: 0.7;
+.doc-block__timeline-circle {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--bg-elevated); /* Hollow Doc style */
+  border: 2px solid var(--accent-secondary); 
+  transition: transform var(--transition-fast);
+}
+
+.doc-block--chat .doc-block__timeline-circle {
+  background: var(--accent-primary); /* Solid Chat style */
+  border-color: var(--accent-primary);
+}
+
+.doc-block:hover .doc-block__timeline-circle {
+  transform: scale(1.2);
 }
 
 .doc-block__meta-tooltip {
@@ -183,56 +210,51 @@
 
 .doc-block__context-menu {
   background: var(--bg-elevated);
-  border: 1px solid var(--border-medium);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  padding: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-sm);
+  padding: 4px;
   z-index: 50;
   display: flex;
-  flex-direction: column;
-  min-width: 150px;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  min-width: unset;
   animation: fadeSlideIn 0.15s ease;
 }
 
 .context-menu__header {
-  font-size: 11px;
-  color: var(--text-muted);
-  padding: 4px 8px 6px 8px;
-  border-bottom: 1px solid var(--border-subtle);
-  margin-bottom: 4px;
+  display: none;
 }
 
 .context-menu__item {
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: 8px;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid transparent;
   background: transparent;
-  border: none;
-  font-size: var(--font-size-sm);
-  color: var(--text-primary);
-  border-radius: var(--radius-sm);
   cursor: pointer;
-  text-align: left;
-  transition: background 0.15s;
+  transition: all 0.15s;
 }
 
 .context-menu__item:hover {
   background: var(--bg-secondary);
+  border-color: var(--border-medium);
 }
 
 .color-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  display: inline-block;
-  flex-shrink: 0;
+  display: none;
 }
 
 .context-menu__divider {
-  height: 1px;
+  width: 1px;
+  height: 16px;
   background: var(--border-subtle);
-  margin: 4px 0;
+  margin: 0 4px;
 }
 
 .doc-block--drop-target {
@@ -318,12 +340,12 @@
   word-break: break-word;
 }
 
-.doc-block--doc .doc-block__content {
+.doc-block__content {
   cursor: text;
 }
 
 /* focus時の青い背景色を削り、エディタらしくシンプルにする */
-.doc-block--doc .doc-block__content:focus {
+.doc-block__content:focus {
   background: transparent;
 }
 

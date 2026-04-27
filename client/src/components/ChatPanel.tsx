@@ -10,6 +10,7 @@ interface ChatPanelProps {
   userName: string;
   userId: string;
   panelRef: React.RefObject<HTMLDivElement | null>;
+  ratio: number;
   onAfterEdit: () => void;
 }
 
@@ -19,6 +20,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   userName,
   userId,
   panelRef,
+  ratio,
   onAfterEdit,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -27,6 +29,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [nodes.length]);
+
+  // Instant scroll to bottom when panel is resized via split-handle
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+  }, [ratio]);
 
   return (
     <div className="chat-panel" ref={panelRef as React.RefObject<HTMLDivElement>} id="chat-panel">

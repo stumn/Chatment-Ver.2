@@ -9,10 +9,11 @@
 .chat-panel__messages {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-md) var(--space-lg);
+  padding: 24px 48px; /* Match total doc padding exactly */
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm); /* Reduced from space-md */
+  align-items: center; /* Center children horizontally */
+  gap: 0;
 }
 
 .chat-panel__empty {
@@ -28,117 +29,97 @@
 
 .chat-message {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: flex-start;
+  padding: 10px 12px; /* Increased vertical padding to separate messages */
   position: relative;
   width: 100%;
+  max-width: 802px; /* Match inner doc-paper width precisely */
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
 }
 
-.chat-message--own {
-  align-self: flex-start;
-  align-items: flex-start;
+.chat-message:hover {
+  background: var(--bg-tertiary); /* Highlight row on hover */
 }
 
-.chat-message--other {
-  align-self: flex-start;
-  align-items: flex-start;
+/* Timeline Vertical Line */
+.chat-message::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 23px; /* Center precisely at 24px */
+  width: 2px;
+  background: var(--border-medium);
+  z-index: 1;
 }
 
-.chat-message__row {
+/* Timeline Circle */
+.chat-message::after {
+  content: '';
+  position: absolute;
+  top: 18px; /* Adjusted to match new 10px padding (was 14px with 4px padding) */
+  left: 19px; /* Center precisely at 24px */
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-primary); /* Chat origin is filled */
+  border: 2px solid var(--accent-primary);
+  z-index: 2;
+}
+
+.chat-message--doc::after {
+  background: var(--bg-elevated); /* Doc origin is hollow */
+  border-color: var(--accent-secondary);
+}
+
+.chat-message__body {
+  flex: 1;
   display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  gap: var(--space-sm);
-  width: 100%;
+  flex-direction: column;
+  gap: 0px; /* Narrowed gap between author and content */
+  min-width: 0;
+  margin-left: 60px; /* Text starts precisely at 72px from edge (12 padding + 60 margin) */
+}
+
+.chat-message__header {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 2px; /* Tiny separation between header and content line-height */
+}
+
+.chat-message__time {
+  position: absolute;
+  right: 100%;
+  margin-right: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .chat-message__author {
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  color: var(--accent-secondary);
-  margin-bottom: 2px;
-  padding-left: var(--space-sm);
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--text-primary);
 }
-
-.chat-message__bubble {
-  padding: 6px 12px; /* Reduced padding for slimmer appearance */
-  border-radius: var(--radius-md);
-
-  position: relative;
-  transition: background var(--transition-fast);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  width: calc(100% - 88px); /* Align perfectly with input textarea */
-}
-
-.chat-message--own .chat-message__bubble {
-  background: var(--bubble-own);
-  border-bottom-left-radius: var(--radius-sm);
-  color: #fff;
-}
-
-.chat-message--own .chat-message__bubble .chat-message__content {
-  color: #fff;
-}
-
-.chat-message--own .chat-message__time {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.chat-message--own .chat-message__bubble:hover {
-  background: var(--bubble-own-hover);
-}
-
-.chat-message--other .chat-message__bubble {
-  background: var(--bubble-other);
-  border-bottom-left-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
-}
-
-.chat-message--other .chat-message__bubble:hover {
-  background: var(--bubble-other-hover);
-}
-
-/* ── ドキュメント由来メッセージの表示 ── */
-/* ニュートラル状態では標準のチャットスタイルが適用されるため上書き不要 */
-
-/* チャットが大きい(dominant-chat)ときのみ、ドキュメント由来(-1)の表示を控える */
-.dominant-chat .chat-message--doc.chat-message--own .chat-message__bubble,
-.dominant-chat .chat-message--doc.chat-message--other .chat-message__bubble {
-  background: transparent;
-  border: 1px dashed var(--border-subtle);
-}
-
-.dominant-chat .chat-message--doc .chat-message__content {
-  color: var(--text-muted);
-}
-
-.dominant-chat .chat-message--doc.chat-message--own .chat-message__time,
-.dominant-chat .chat-message--doc.chat-message--other .chat-message__time {
-  color: var(--text-muted);
-}
-
-
 
 .chat-message__content {
   font-size: var(--font-size-base);
-  line-height: 1.55;
+  line-height: 1.5;
   color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-.chat-message__footer {
+.chat-message__side-actions {
+  flex-shrink: 0;
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-sm);
-  margin-top: 4px;
-}
-
-.chat-message__time {
-  font-size: 10px;
-  color: var(--text-muted);
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding-left: var(--space-md);
 }
 
 /* ─── Reactions ─── */
@@ -235,6 +216,7 @@
 .chat-input {
   display: flex;
   align-items: flex-end;
+  justify-content: center; /* Center inner content */
   gap: var(--space-sm);
   padding: 10px var(--space-lg);
   background: var(--glass-bg);
@@ -247,6 +229,14 @@
 /* dominant-doc 時はインプット非表示 */
 .dominant-doc .chat-input {
   display: none;
+}
+
+.chat-input__wrapper {
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
 }
 
 .chat-input__textarea {
