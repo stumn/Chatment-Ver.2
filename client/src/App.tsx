@@ -78,7 +78,6 @@ export const App: React.FC = () => {
       <header className="app-header" id="app-header">
         <div className="app-header__left">
           <h1 className="app-header__title">
-            <span className="app-header__icon">💬</span>
             Chatment ver.2 <span style={{ fontSize: '12px', opacity: 0.6, marginLeft: '8px' }}>#{docId}</span>
           </h1>
         </div>
@@ -124,7 +123,7 @@ export const App: React.FC = () => {
 
         <div className="app-header__right">
           <span className="app-header__user">
-            <span className="app-header__user-icon" title={`現在 ${userCount} 人が接続中`}>👤</span>
+            <span className="app-header__user-icon" title={`現在 ${userCount} 人が接続中`}></span>
             {userName}
           </span>
           <ConnectionStatus state={connectionState} />
