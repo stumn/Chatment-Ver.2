@@ -144,13 +144,13 @@ export const DocBlock: React.FC<DocBlockProps> = ({
 
       // Delete any remnants after the cursor and insert a new block with them
       const textAfterCursor = newText.substring(caretPos);
-      if (caretPos < newText.length) {
-        updateDocContent(doc, index, newText.substring(0, caretPos));
-      } else {
-        updateDocContent(doc, index, newText);
-      }
-
       if (doc) {
+        if (caretPos < newText.length) {
+          updateDocContent(doc, index, newText.substring(0, caretPos));
+        } else {
+          updateDocContent(doc, index, newText);
+        }
+
         insertDocNodeAfter(doc, index, textAfterCursor, userName, defaultEmphasis);
         onAfterEdit();
         // focus logic after render is deferred
@@ -273,7 +273,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
 
   // Calculate total reactions
   let totalReactions = 0;
-  if (node.reactions) {
+  if ('reactions' in node && node.reactions) {
     totalReactions = Object.values(node.reactions).length;
   }
 

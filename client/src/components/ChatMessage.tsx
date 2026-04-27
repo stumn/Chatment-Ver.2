@@ -70,9 +70,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
   // Group reactions by emoji
   const reactionCounts: Record<string, number> = {};
-  if (node.reactions) {
+  if ('reactions' in node && node.reactions) {
     Object.values(node.reactions).forEach(emoji => {
-      reactionCounts[emoji] = (reactionCounts[emoji] || 0) + 1;
+      const e = emoji as string;
+      reactionCounts[e] = (reactionCounts[e] || 0) + 1;
     });
   }
 

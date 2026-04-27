@@ -115,8 +115,8 @@ export const App: React.FC = () => {
               style={{ appearance: 'none', padding: '4px 12px', borderRadius: 'var(--radius-full)', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', fontSize: '11px', cursor: 'pointer', fontWeight: 600, outline: 'none' }}
             >
               <option value="all">すべて</option>
-              <option value="highlightAndStandard">標準＋ハイライト</option>
-              <option value="highlightOnly">ハイライトのみ</option>
+              <option value="highlightAndStandard">標準＋太字</option>
+              <option value="highlightOnly">太字のみ</option>
             </select>
           </div>
 
