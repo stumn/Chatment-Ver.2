@@ -124,12 +124,6 @@
   border-color: hsla(250, 30%, 50%, 0.2);
 }
 
-.doc-block--highly-reacted {
-  background: hsla(45, 100%, 50%, 0.08); /* Slackのリアクション多ハイライトのようなうっすらとしたゴールド背景 */
-  border-color: hsla(45, 100%, 50%, 0.2);
-  border-radius: var(--radius-sm);
-}
-
 /* 引用線としての疑似要素は廃止 */
 
 .doc-block--doc {
@@ -141,11 +135,6 @@
 .doc-block--doc .doc-block__content,
 .doc-block--chat .doc-block__content {
   color: var(--text-primary);
-}
-
-/* ドキュメントが大きい(dominant-doc)ときのみ、チャット由来(-1)を控える */
-.dominant-doc .doc-block--chat .doc-block__content {
-  color: var(--text-muted);
 }
 
 .doc-emphasis-1 .doc-block__content {

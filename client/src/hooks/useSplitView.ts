@@ -58,6 +58,7 @@ export function useSplitView() {
 
   return {
     ratio,
+    setRatio,
     containerRef,
     handleMouseDown,
     handleDoubleClick,

@@ -42,14 +42,17 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   return (
     <div className="chat-input" id="chat-input">
-      <div className="chat-input__wrapper">
+      <div className="chat-input__wrapper" style={{ display: 'flex', alignItems: 'center' }}>
+        <div style={{ padding: '0 8px 0 16px', display: 'flex', alignItems: 'center' }}>
+          <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--accent-primary)' }} title="チャット投稿" />
+        </div>
         <textarea
           ref={inputRef}
           className="chat-input__textarea"
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="メッセージを入力... (Ctrl + Enter で送信)"
+          placeholder="チャットメッセージを入力... (Ctrl + Enter で送信)"
           rows={1}
           id="chat-input-textarea"
         />

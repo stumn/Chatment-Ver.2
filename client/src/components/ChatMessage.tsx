@@ -2,7 +2,6 @@ import React, { useState, useCallback, useEffect } from 'react';
 import type { StreamNodeWithIndex } from '../types';
 import type { LoroDoc } from 'loro-crdt';
 import { addReaction } from '../loro/schema';
-import { PRESET_REACTIONS } from '../types';
 
 interface ChatMessageProps {
   nodeWithIndex: StreamNodeWithIndex;
@@ -10,18 +9,8 @@ interface ChatMessageProps {
   isOwn: boolean;
   userId: string;
   onAfterEdit: () => void;
+  onJumpToNode: (index: number, target: 'doc' | 'chat') => void;
 }
-
-const EmojiAddIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M11 2A10 10 0 1 0 21 12" />
-    <path d="M8 9.05v-.1" />
-    <path d="M14 9.05v-.1" />
-    <path d="M14 14c-1 1-3 1-4 0" />
-    <path d="M19 2v6" />
-    <path d="M16 5h6" />
-  </svg>
-);
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
   nodeWithIndex,
@@ -29,6 +18,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   isOwn,
   userId,
   onAfterEdit,
+  onJumpToNode,
 }) => {
   const { node, index } = nodeWithIndex;
   const [showReactions, setShowReactions] = useState(false);
@@ -60,21 +50,47 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     return d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const handleReaction = (emoji: string) => {
+  const handleReaction = (emoji: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (!doc) return;
-    addReaction(doc, index, userId, emoji);
+    // Toggle logic: if we already reacted with this emoji, remove it by sending empty string
+    const newEmoji = myReaction === emoji ? '' : emoji;
+    addReaction(doc, index, userId, newEmoji);
     onAfterEdit();
-    setShowReactions(false);
     setContextMenu(null);
   };
 
-  // Group reactions by emoji
-  const reactionCounts: Record<string, number> = {};
+  let upvotes = 0;
+  let downvotes = 0;
+  let myReaction = '';
+
   if ('reactions' in node && node.reactions) {
-    Object.values(node.reactions).forEach(emoji => {
-      const e = emoji as string;
-      reactionCounts[e] = (reactionCounts[e] || 0) + 1;
+    Object.entries(node.reactions).forEach(([uid, emoji]) => {
+      if (emoji === '⇧') upvotes++;
+      if (emoji === '⇩') downvotes++;
+      if (uid === userId) myReaction = emoji as string;
     });
+  }
+
+  const voteScore = upvotes - downvotes;
+  
+  // Base emphasis loaded from the right-click menu in the document panel
+  const baseEmphasis = 'emphasis' in node && node.emphasis !== undefined ? node.emphasis : 0;
+  const emphasisClass = baseEmphasis > 0 ? 'text-emphasis-1' : baseEmphasis < 0 ? 'text-emphasis-minus1' : 'text-emphasis-0';
+
+  let dynamicStyle: React.CSSProperties = {};
+  if (voteScore > 0) {
+    dynamicStyle = {
+      color: 'hsl(130, 60%, 45%)', // Green
+      fontSize: `calc(var(--font-size-base) + ${voteScore * 1.5}px)`,
+      transition: 'all 0.3s ease'
+    };
+  } else if (voteScore < 0) {
+    dynamicStyle = {
+      color: 'hsl(0, 70%, 55%)', // Red
+      fontSize: `max(10px, calc(var(--font-size-base) - ${Math.abs(voteScore)}px))`,
+      transition: 'all 0.3s ease'
+    };
   }
 
   const isChat = node.type === 'chat';
@@ -85,50 +101,34 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'} ${typeClass}`}
       id={`chat-message-${index}`}
       onContextMenu={handleContextMenu}
+      onClick={() => onJumpToNode(index, 'doc')}
+      style={{ cursor: 'pointer' }}
+      title="クリックしてドキュメントへジャンプ"
     >
       <div className="chat-message__body">
         <div className="chat-message__header">
           <span className="chat-message__time">{formatTime(node.timestamp)}</span>
           <span className="chat-message__author">{node.author}</span>
         </div>
-        <div className="chat-message__content">{node.content}</div>
+        <div className={`chat-message__content ${emphasisClass}`} style={dynamicStyle}>{node.content}</div>
       </div>
 
       <div className="chat-message__side-actions">
         <div className="chat-message__reaction-list">
-          {Object.keys(reactionCounts).length > 0 && 
-            Object.entries(reactionCounts).map(([emoji, count]) => (
-              <span
-                key={emoji}
-                className="chat-message__reaction-badge"
-                onClick={() => handleReaction(emoji)}
-              >
-                {emoji} {count > 1 && count}
-              </span>
-            ))
-          }
-          <div className="chat-message__actions">
-            <button
-              className="chat-message__react-btn"
-              onClick={() => setShowReactions(!showReactions)}
-              title="リアクション"
-            >
-              <EmojiAddIcon />
-            </button>
-            {showReactions && (
-              <div className="chat-message__reaction-picker">
-                {PRESET_REACTIONS.map(emoji => (
-                  <button
-                    key={emoji}
-                    className="chat-message__reaction-option"
-                    onClick={() => handleReaction(emoji)}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <button
+            className={`chat-message__reaction-badge ${myReaction === '⇧' ? 'chat-message__reaction-badge--active' : ''}`}
+            onClick={(e) => handleReaction('⇧', e)}
+            title="太字にする (Upvote)"
+          >
+            ⇧ {upvotes > 0 && upvotes}
+          </button>
+          <button
+            className={`chat-message__reaction-badge ${myReaction === '⇩' ? 'chat-message__reaction-badge--active' : ''}`}
+            onClick={(e) => handleReaction('⇩', e)}
+            title="控えめにする (Downvote)"
+          >
+            ⇩ {downvotes > 0 && downvotes}
+          </button>
         </div>
       </div>
       
@@ -141,15 +141,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         >
           <div className="context-menu__header">クイックリアクション</div>
           <div className="chat-message__reaction-picker" style={{ position: 'relative', top: 0, boxShadow: 'none', border: 'none', background: 'transparent', marginTop: 4 }}>
-            {PRESET_REACTIONS.map(emoji => (
-              <button
-                key={emoji}
-                className="chat-message__reaction-option"
-                onClick={() => handleReaction(emoji)}
-              >
-                {emoji}
-              </button>
-            ))}
+            <button className="chat-message__reaction-option" onClick={() => handleReaction('⇧')}>⇧</button>
+            <button className="chat-message__reaction-option" onClick={() => handleReaction('⇩')}>⇩</button>
           </div>
         </div>
       )}

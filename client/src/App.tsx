@@ -19,7 +19,7 @@ export const App: React.FC = () => {
   const chatPanelRef = useRef<HTMLDivElement>(null);
 
   const { doc, nodes, connectionState, userCount, isReady, triggerSave, docId } = useLoroDoc();
-  const { ratio, containerRef, handleMouseDown, handleDoubleClick } = useSplitView();
+  const { ratio, setRatio, containerRef, handleMouseDown, handleDoubleClick } = useSplitView();
   const { docNodes, chatNodes } = useOverflow(nodes, chatPanelRef, 36);
 
   let dominantClass = 'dominant-neutral';
@@ -30,6 +30,35 @@ export const App: React.FC = () => {
   } else if (ratio < 0.35) {
     dominantClass = 'dominant-chat';
   }
+
+  const handleJumpToNode = useCallback((index: number, targetPanel: 'doc' | 'chat') => {
+    let delay = 0;
+    if (targetPanel === 'doc' && ratio < 0.2) {
+      setRatio(0.4); // slightly leaning left so doc is visible
+      delay = 150;
+    } else if (targetPanel === 'chat' && ratio > 0.8) {
+      setRatio(0.5);
+      delay = 150;
+    }
+
+    setTimeout(() => {
+      const targetId = targetPanel === 'doc' ? `doc-block-${index}` : `chat-message-${index}`;
+      const elem = document.getElementById(targetId);
+      if (elem) {
+        elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Add flash animation via CSS class to prevent destroying inline properties
+        elem.classList.remove('jump-flash-animated');
+        // Force reflow to allow restarting animation if already present
+        void elem.offsetWidth;
+        elem.classList.add('jump-flash-animated');
+        
+        setTimeout(() => {
+          elem.classList.remove('jump-flash-animated');
+        }, 1000);
+      }
+    }, delay);
+  }, [ratio, setRatio]);
 
   const filteredDocNodes = docNodes.filter(({ node, loroMap }) => {
     let emphasis = 0;
@@ -150,6 +179,7 @@ export const App: React.FC = () => {
               onDrop={handleDrop}
               onDragEnd={handleDragEnd}
               onAfterEdit={handleAfterEdit}
+              onJumpToNode={handleJumpToNode}
             />
           }
           chatPanel={
@@ -161,6 +191,7 @@ export const App: React.FC = () => {
               panelRef={chatPanelRef}
               ratio={ratio}
               onAfterEdit={handleAfterEdit}
+              onJumpToNode={handleJumpToNode}
             />
           }
         />

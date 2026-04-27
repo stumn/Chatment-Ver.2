@@ -176,7 +176,11 @@ export function addReaction(
   } catch {
     reactions = nodeMap.setContainer('reactions', new LoroMap());
   }
-  reactions.set(userId, emoji);
+  if (emoji === '') {
+    reactions.delete(userId);
+  } else {
+    reactions.set(userId, emoji);
+  }
   doc.commit();
 }
 
@@ -293,9 +297,20 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
       }
       const content = loroText ? loroText.toString() : '';
       const isOrganized = (loroMap.get('isOrganized') as boolean) ?? true;
+      const emphasis = (loroMap.get('emphasis') as number) || 0;
+
+      let reactions: Record<string, string> = {};
+      try {
+        const reactionsMap = loroMap.get('reactions') as LoroMap | null;
+        if (reactionsMap && typeof reactionsMap.toJSON === 'function') {
+          reactions = reactionsMap.toJSON() as Record<string, string>;
+        }
+      } catch {
+        // no reactions
+      }
 
       nodes.push({
-        node: { type: 'doc', content, blockId, author, timestamp, isOrganized },
+        node: { type: 'doc', content, blockId, author, timestamp, isOrganized, reactions, emphasis: emphasis as any },
         id: blockId,
         index: i,
         loroMap,

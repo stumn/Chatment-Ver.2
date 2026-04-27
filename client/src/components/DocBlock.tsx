@@ -19,6 +19,7 @@ interface DocBlockProps {
   onDrop: (e: React.DragEvent) => void;
   onDragEnd: (e: React.DragEvent) => void;
   onAfterEdit: () => void;
+  onJumpToNode: (index: number, target: 'doc' | 'chat') => void;
 }
 
 export const DocBlock: React.FC<DocBlockProps> = ({
@@ -36,6 +37,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   onDrop,
   onDragEnd,
   onAfterEdit,
+  onJumpToNode,
 }) => {
   const { node, index, loroText, loroMap } = nodeWithIndex;
   const contentRef = useRef<HTMLDivElement>(null);
@@ -271,10 +273,28 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     textLength: loroText?.length
   });
 
-  // Calculate total reactions
+  // Calculate total reactions and dynamic vote emphasis
   let totalReactions = 0;
+  let upvotes = 0;
+  let downvotes = 0;
   if ('reactions' in node && node.reactions) {
     totalReactions = Object.values(node.reactions).length;
+    Object.values(node.reactions).forEach(emoji => {
+      if (emoji === '⇧') upvotes++;
+      if (emoji === '⇩') downvotes++;
+    });
+  }
+  
+  const voteScore = upvotes - downvotes;
+
+  let dynamicStyle: React.CSSProperties = {};
+  if (voteScore > 0) {
+    // 2 votes = 0.15 intensity step
+    const intensity = Math.min(1.0, Math.floor(voteScore / 2) * 0.15 + 0.1); 
+    dynamicStyle = { background: `hsla(130, 60%, 45%, ${intensity})`, transition: 'background 0.3s ease' };
+  } else if (voteScore < 0) {
+    const intensity = Math.min(1.0, Math.floor(Math.abs(voteScore) / 2) * 0.15 + 0.1);
+    dynamicStyle = { background: `hsla(0, 70%, 55%, ${intensity})`, transition: 'background 0.3s ease' };
   }
 
   const isOrganized = node.isOrganized ?? (isChat ? false : true);
@@ -285,7 +305,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     isOrganized ? 'doc-block--organized' : 'doc-block--unorganized',
     contextMenu ? 'doc-block--focused' : '',
     `doc-emphasis-${blockEmphasis}`,
-    totalReactions >= 5 ? 'doc-block--highly-reacted' : '',
     isDropTarget ? 'doc-block--drop-target' : '',
     isDragging ? 'doc-block--dragging' : '',
   ].filter(Boolean).join(' ');
@@ -310,6 +329,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   return (
     <div
       className={blockClass}
+      style={dynamicStyle}
       draggable={isDraggable}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
@@ -323,12 +343,14 @@ export const DocBlock: React.FC<DocBlockProps> = ({
         className="doc-block__meta-toggle"
         onMouseEnter={() => !isContentEmpty && setShowMeta(true)}
         onMouseLeave={() => setShowMeta(false)}
-        style={{ visibility: isContentEmpty ? 'hidden' : 'visible' }}
+        style={{ visibility: isContentEmpty ? 'hidden' : 'visible', cursor: 'pointer' }}
+        onClick={() => onJumpToNode(index, 'chat')}
+        title="チャット画面へジャンプ"
       >
         <div className="doc-block__timeline-circle"></div>
         {showMeta && !isContentEmpty && (
           <div className="doc-block__meta-tooltip">
-            <span className="doc-block__author">{node.author}</span>
+            <span className="doc-block__author" style={{ color: isChat ? 'var(--accent-primary)' : 'var(--accent-secondary)' }}>{node.author}</span>
             <span className="doc-block__time">{formatTime(node.timestamp)}</span>
             {totalReactions > 0 && <span className="doc-block__reaction-count">リアクション {totalReactions}件</span>}
           </div>

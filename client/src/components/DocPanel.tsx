@@ -16,6 +16,7 @@ interface DocPanelProps {
   onDrop: (index: number) => (e: React.DragEvent) => void;
   onDragEnd: (e: React.DragEvent) => void;
   onAfterEdit: () => void;
+  onJumpToNode: (index: number, target: 'doc' | 'chat') => void;
 }
 
 export const DocPanel: React.FC<DocPanelProps> = ({
@@ -30,6 +31,7 @@ export const DocPanel: React.FC<DocPanelProps> = ({
   onDrop,
   onDragEnd,
   onAfterEdit,
+  onJumpToNode,
 }) => {
   const [bgMenu, setBgMenu] = React.useState<{ x: number, y: number } | null>(null);
 
@@ -129,6 +131,7 @@ export const DocPanel: React.FC<DocPanelProps> = ({
               onDrop={onDrop(nodeWithIndex.index)}
               onDragEnd={onDragEnd}
               onAfterEdit={onAfterEdit}
+              onJumpToNode={onJumpToNode}
             />
           ))}
         </div>

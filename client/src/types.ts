@@ -17,6 +17,8 @@ export interface DocNodeData {
   blockId: string;
   author: string;
   timestamp: number;
+  reactions?: Record<string, string>;
+  emphasis?: EmphasisLevel;
   isOrganized?: boolean;
 }
 

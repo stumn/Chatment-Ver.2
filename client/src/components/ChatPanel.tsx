@@ -12,6 +12,7 @@ interface ChatPanelProps {
   panelRef: React.RefObject<HTMLDivElement | null>;
   ratio: number;
   onAfterEdit: () => void;
+  onJumpToNode: (index: number, target: 'doc' | 'chat') => void;
 }
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -22,6 +23,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   panelRef,
   ratio,
   onAfterEdit,
+  onJumpToNode,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -51,6 +53,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             isOwn={nodeWithIndex.node.author === userName}
             userId={userId}
             onAfterEdit={onAfterEdit}
+            onJumpToNode={onJumpToNode}
           />
         ))}
         <div ref={messagesEndRef} />
