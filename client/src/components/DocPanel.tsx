@@ -17,6 +17,9 @@ interface DocPanelProps {
   onDragEnd: (e: React.DragEvent) => void;
   onAfterEdit: () => void;
   onJumpToNode: (index: number, target: 'doc' | 'chat') => void;
+  isPlaybackActive?: boolean;
+  activeHighlightBlockId?: string | null;
+  activeDeletedIndex?: number | null;
 }
 
 export const DocPanel: React.FC<DocPanelProps> = ({
@@ -32,10 +35,15 @@ export const DocPanel: React.FC<DocPanelProps> = ({
   onDragEnd,
   onAfterEdit,
   onJumpToNode,
+  isPlaybackActive,
+  activeHighlightBlockId,
+  activeDeletedIndex,
 }) => {
   const [bgMenu, setBgMenu] = React.useState<{ x: number, y: number } | null>(null);
+  
 
   const handleBgContextMenu = React.useCallback((e: React.MouseEvent) => {
+    if (isPlaybackActive) return;
     // If the event isn't from the background itself, let it bubble if needed
     // Actually, DocBlock stops propagation on right-clicks.
     if ((e.target as HTMLElement).closest('.doc-block')) {
@@ -43,7 +51,7 @@ export const DocPanel: React.FC<DocPanelProps> = ({
     }
     e.preventDefault();
     setBgMenu({ x: e.clientX, y: e.clientY });
-  }, []);
+  }, [isPlaybackActive]);
 
   React.useEffect(() => {
     if (bgMenu) {
@@ -61,82 +69,103 @@ export const DocPanel: React.FC<DocPanelProps> = ({
   }, [bgMenu]);
 
   const insertBlock = React.useCallback(() => {
-    if (doc) {
+    if (doc && !isPlaybackActive) {
       addDocNode(doc, '', userName, defaultEmphasis);
       onAfterEdit();
     }
     setBgMenu(null);
-  }, [doc, userName, defaultEmphasis, onAfterEdit]);
+  }, [doc, userName, defaultEmphasis, onAfterEdit, isPlaybackActive]);
 
   if (nodes.length === 0) {
     return (
-      <div className="doc-panel" id="doc-panel" onContextMenu={handleBgContextMenu}>
-        {/* チャットが溢れる前の 1件目の仮書き込みエリア (CRDT上にはまだ追加されないが、入力で発火する想定) */}
-        <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-          <div className="doc-paper">
-            <div 
-              className={`doc-block doc-block--doc doc-emphasis-${defaultEmphasis}`}
-              style={{ border: '1px dashed var(--border-medium)', background: 'transparent', width: '100%' }}
-            >
-              <div className="doc-block__body">
-                <div 
-                  className="doc-block__content"
-                  contentEditable
-                  suppressContentEditableWarning
-                  data-placeholder="ここから書き始めることができます"
-                  style={{ opacity: 0.8 }}
-                  onInput={(e) => {
-                    const val = e.currentTarget.textContent || '';
-                    if (val.length > 0 && doc) {
-                      import('../loro/schema').then(({ addDocNode }) => {
-                        addDocNode(doc, val, userName, defaultEmphasis);
-                        onAfterEdit();
-                      });
-                    }
-                  }}
-                />
-              </div>
+      <div className="doc-panel" id="doc-panel" onContextMenu={handleBgContextMenu} style={{ position: 'relative' }}>
+        <div className="doc-panel__content">
+          {typeof activeDeletedIndex === 'number' ? (
+            <div className="doc-paper">
+              <div id="doc-block-deletion-line" className="doc-block-deletion-line" />
             </div>
-          </div>
-        </div>
+          ) : (
+            <>
+              {/* チャットが溢れる前の 1件目の仮書き込みエリア (CRDT上にはまだ追加されないが、入力で発火する想定) */}
+              <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                <div className="doc-paper">
+                  <div 
+                    className={`doc-block doc-block--doc doc-emphasis-${defaultEmphasis}`}
+                    style={{ border: '1px dashed var(--border-medium)', background: 'transparent', width: '100%' }}
+                  >
+                    <div className="doc-block__body">
+                      <div 
+                        className="doc-block__content"
+                        contentEditable={!isPlaybackActive}
+                        suppressContentEditableWarning
+                        data-placeholder="ここから書き始めることができます"
+                        style={{ opacity: 0.8 }}
+                        onInput={(e) => {
+                          if (isPlaybackActive) return;
+                          const val = e.currentTarget.textContent || '';
+                          if (val.length > 0 && doc) {
+                            import('../loro/schema').then(({ addDocNode }) => {
+                              addDocNode(doc, val, userName, defaultEmphasis);
+                              onAfterEdit();
+                            });
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-        <div className="doc-panel__empty">
-          <div className="doc-panel__empty-icon">📄</div>
-          <p className="doc-panel__empty-text">
-            チャットが溢れると、ここにドキュメントとして表示されます
-          </p>
+              <div className="doc-panel__empty">
+                <div className="doc-panel__empty-icon">📄</div>
+                <p className="doc-panel__empty-text">
+                  チャットが溢れると、ここにドキュメントとして表示されます
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="doc-panel" onContextMenu={handleBgContextMenu}>
+    <div className="doc-panel" onContextMenu={handleBgContextMenu} style={{ position: 'relative' }}>
       <div className="doc-panel__content">
         <div className="doc-paper">
           {nodes.map((nodeWithIndex, arrayIndex) => (
-            <DocBlock
-              key={nodeWithIndex.id}
-              nodeWithIndex={nodeWithIndex}
-              doc={doc}
-              userName={userName}
-              defaultEmphasis={defaultEmphasis}
-              isFirstInDoc={arrayIndex === 0}
-              isLastInDoc={arrayIndex === nodes.length - 1}
-              isDropTarget={dragState.dropIndex === nodeWithIndex.index}
-              isDragging={dragState.dragIndex === nodeWithIndex.index}
-              onDragStart={onDragStart(nodeWithIndex.index)}
-              onDragOver={onDragOver(nodeWithIndex.index)}
-              onDragLeave={onDragLeave}
-              onDrop={onDrop(nodeWithIndex.index)}
-              onDragEnd={onDragEnd}
-              onAfterEdit={onAfterEdit}
-              onJumpToNode={onJumpToNode}
-            />
+            <React.Fragment key={nodeWithIndex.id}>
+              {activeDeletedIndex === arrayIndex && (
+                <div id="doc-block-deletion-line" className="doc-block-deletion-line" />
+              )}
+              <DocBlock
+                nodeWithIndex={nodeWithIndex}
+                doc={doc}
+                userName={userName}
+                defaultEmphasis={defaultEmphasis}
+                isFirstInDoc={arrayIndex === 0}
+                isLastInDoc={arrayIndex === nodes.length - 1}
+                isDropTarget={dragState.dropIndex === nodeWithIndex.index}
+                isDragging={dragState.dragIndex === nodeWithIndex.index}
+                onDragStart={onDragStart(nodeWithIndex.index)}
+                onDragOver={onDragOver(nodeWithIndex.index)}
+                onDragLeave={onDragLeave}
+                onDrop={onDrop(nodeWithIndex.index)}
+                onDragEnd={onDragEnd}
+                onAfterEdit={onAfterEdit}
+                onJumpToNode={onJumpToNode}
+                isPlaybackActive={isPlaybackActive}
+                activeHighlightBlockId={activeHighlightBlockId}
+              />
+              {activeDeletedIndex === nodes.length && arrayIndex === nodes.length - 1 && (
+                <div id="doc-block-deletion-line" className="doc-block-deletion-line" />
+              )}
+            </React.Fragment>
           ))}
         </div>
       </div>
       
+
       {bgMenu && (
         <div 
           className="doc-block__context-menu"

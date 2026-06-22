@@ -10,6 +10,8 @@ interface ChatMessageProps {
   userId: string;
   onAfterEdit: () => void;
   onJumpToNode: (index: number, target: 'doc' | 'chat') => void;
+  isPlaybackActive?: boolean;
+  activeHighlightBlockId?: string | null;
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
@@ -19,6 +21,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   userId,
   onAfterEdit,
   onJumpToNode,
+  isPlaybackActive,
+  activeHighlightBlockId,
 }) => {
   const { node, index } = nodeWithIndex;
   const [showReactions, setShowReactions] = useState(false);
@@ -27,8 +31,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isPlaybackActive) return;
     setContextMenu({ x: e.clientX, y: e.clientY });
-  }, []);
+  }, [isPlaybackActive]);
 
   useEffect(() => {
     if (contextMenu) {
@@ -52,7 +57,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
   const handleReaction = (emoji: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!doc) return;
+    if (!doc || isPlaybackActive) return;
     // Toggle logic: if we already reacted with this emoji, remove it by sending empty string
     const newEmoji = myReaction === emoji ? '' : emoji;
     addReaction(doc, index, userId, newEmoji);
@@ -95,10 +100,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
   const isChat = node.type === 'chat';
   const typeClass = isChat ? 'chat-message--chat' : 'chat-message--doc';
+  const isHighlighted = activeHighlightBlockId === nodeWithIndex.id;
 
   return (
     <div
-      className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'} ${typeClass}`}
+      className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'} ${typeClass} ${isHighlighted ? 'playback-highlight' : ''}`}
       id={`chat-message-${index}`}
       onContextMenu={handleContextMenu}
       onClick={() => onJumpToNode(index, 'doc')}
@@ -118,14 +124,18 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           <button
             className={`chat-message__reaction-badge ${myReaction === '⇧' ? 'chat-message__reaction-badge--active' : ''}`}
             onClick={(e) => handleReaction('⇧', e)}
-            title="太字にする (Upvote)"
+            disabled={isPlaybackActive}
+            title={isPlaybackActive ? "プレイバック中は投票できません" : "太字にする (Upvote)"}
+            style={{ cursor: isPlaybackActive ? 'not-allowed' : 'pointer', opacity: isPlaybackActive ? 0.6 : 1 }}
           >
             ⇧ {upvotes > 0 && upvotes}
           </button>
           <button
             className={`chat-message__reaction-badge ${myReaction === '⇩' ? 'chat-message__reaction-badge--active' : ''}`}
             onClick={(e) => handleReaction('⇩', e)}
-            title="控えめにする (Downvote)"
+            disabled={isPlaybackActive}
+            title={isPlaybackActive ? "プレイバック中は投票できません" : "控えめにする (Downvote)"}
+            style={{ cursor: isPlaybackActive ? 'not-allowed' : 'pointer', opacity: isPlaybackActive ? 0.6 : 1 }}
           >
             ⇩ {downvotes > 0 && downvotes}
           </button>

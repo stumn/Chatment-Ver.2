@@ -3,7 +3,7 @@ import { LoroDoc } from 'loro-crdt';
 import { createDoc, getAllNodes } from '../loro/schema';
 import { initUndoManager, setupUndoKeyBindings, destroyUndoManager } from '../loro/undo-manager';
 import { loadSnapshot, saveSnapshot, createAutoSave } from '../loro/local-storage';
-import { initSyncClient, sendUpdate, type ConnectionState } from '../loro/sync-client';
+import { initSyncClient, sendUpdate, getSocketId, type ConnectionState } from '../loro/sync-client';
 import type { StreamNodeWithIndex } from '../types';
 
 const getDocIdFromHash = () => {
@@ -17,6 +17,7 @@ export function useLoroDoc() {
   const [nodes, setNodes] = useState<StreamNodeWithIndex[]>([]);
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [userCount, setUserCount] = useState<number>(0);
+  const [ratios, setRatios] = useState<{ id: string; ratio: number; docId: string }[]>([]);
   const [isReady, setIsReady] = useState(false);
   const autoSaveRef = useRef<ReturnType<typeof createAutoSave> | null>(null);
 
@@ -68,7 +69,8 @@ export function useLoroDoc() {
     const unsubscribe = doc.subscribe((event) => {
       refreshNodes();
       // Auto-save and broadcast local edits (like typing, D&D, or Undo/Redo)
-      if (event.by === 'local' || event.by === 'checkout') {
+      // Do not save when the document is in a detached / historical state
+      if (event.by === 'local' && !doc.isDetached()) {
         triggerSave();
       }
     });
@@ -82,6 +84,11 @@ export function useLoroDoc() {
       },
       onConnectionChange: setConnectionState,
       onUserCountChange: setUserCount,
+      onRatioChange: (ratioArray) => {
+        const myId = getSocketId();
+        const othersRatios = ratioArray.filter(r => r.id !== myId);
+        setRatios(othersRatios);
+      }
     });
 
     // 7. Initial render
@@ -108,5 +115,6 @@ export function useLoroDoc() {
     refreshNodes,
     triggerSave,
     docId,
+    ratios,
   };
 }

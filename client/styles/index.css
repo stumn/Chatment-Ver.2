@@ -416,3 +416,79 @@ body {
 .emphasis-toolbar__btn--minus .emphasis-toolbar__icon {
   color: var(--emphasis-minus);
 }
+
+/* ─── Segmented Control ─── */
+.segmented-control {
+  display: inline-flex;
+  background: var(--bg-tertiary);
+  padding: 3px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+  align-items: center;
+}
+
+.segmented-control__item {
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  outline: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.segmented-control__item:hover:not(.segmented-control__item--active) {
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.segmented-control__item--active {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.segmented-control__item--bold {
+  font-weight: bold;
+}
+
+.segmented-control__item--dimmed {
+  color: var(--text-muted);
+}
+
+/* ─── Responsive Header ─── */
+@media (max-width: 900px) {
+  .app-header {
+    padding: var(--space-sm) var(--space-sm);
+  }
+  .app-header__title {
+    font-size: var(--font-size-sm);
+  }
+  .app-header__right {
+    gap: var(--space-xs);
+  }
+  .app-header__user {
+    padding: var(--space-xs) var(--space-xs);
+  }
+  .connection-status__label {
+    display: none;
+  }
+  .btn-label-text {
+    display: none;
+  }
+  .header-doc-id {
+    display: none;
+  }
+  .segmented-control__item {
+    padding: 6px 8px;
+    font-size: 10px;
+    gap: 2px;
+  }
+}

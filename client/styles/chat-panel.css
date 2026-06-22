@@ -128,15 +128,18 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
 }
 
 .chat-message__reaction-badge {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 2px 8px;
-  font-size: var(--font-size-xs);
+  justify-content: center;
+  gap: 4px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 12px;
+  font-size: var(--font-size-md);
   background: var(--bg-tertiary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-full);
@@ -199,8 +202,8 @@
 }
 
 .chat-message__reaction-option {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -208,7 +211,7 @@
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 18px;
+  font-size: 20px;
   transition: all var(--transition-fast);
 }
 
@@ -224,7 +227,7 @@
   align-items: flex-end;
   justify-content: center; /* Center inner content */
   gap: var(--space-sm);
-  padding: 10px var(--space-lg);
+  padding: 10px 48px;
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
@@ -239,7 +242,7 @@
 
 .chat-input__wrapper {
   width: 100%;
-  max-width: 800px;
+  max-width: 802px;
   display: flex;
   align-items: flex-end;
   gap: var(--space-sm);
@@ -330,4 +333,47 @@
 
 .jump-flash-animated {
   animation: jump-flash-shadow 1s ease-out;
+}
+
+/* ─── Unread Message Banner ─── */
+.chat-panel__unread-banner {
+  position: absolute;
+  bottom: 84px; /* Float right above the input bar */
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 8px 16px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-md), 0 4px 12px rgba(59, 130, 246, 0.3);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  animation: bannerAppear 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.chat-panel__unread-banner:hover {
+  background: var(--accent-primary-hover);
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.chat-panel__unread-banner:active {
+  transform: translateX(-50%) translateY(0);
+}
+
+@keyframes bannerAppear {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }

@@ -42,6 +42,7 @@
   display: flex;
   flex-direction: column;
   background: var(--bg-tertiary);
+  position: relative;
 }
 
 .doc-paper {
@@ -92,27 +93,12 @@
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  transition: all var(--transition-fast), margin var(--transition-base) ease-out;
+  transition: all var(--transition-fast);
   position: relative;
   animation: fadeSlideIn 0.3s ease;
   width: 100%;
-}
-
-/* 未整理なブロック（チャット元など）の行間 */
-.doc-block--unorganized {
-  margin-top: 16px;
-  margin-bottom: 24px;
-}
-
-/* 整理済みのブロック（ドキュメント元、編集済み）の行間 */
-.doc-block--organized {
-  margin-top: 2px;
-  margin-bottom: 2px;
-}
-
-/* 整理済みブロック同士が連続する場合の連携感（行間をさらに狭く） */
-.doc-block--organized + .doc-block--organized {
-  margin-top: -2px; /* 少し重ねてパラグラフ感を強調 */
+  margin-top: 4px;
+  margin-bottom: 4px;
 }
 
 .doc-block:hover {
@@ -350,4 +336,14 @@
 
 .text-emphasis-minus1 {
   color: var(--text-muted);
+}
+
+/* ─── Doc Panel Deletion Line ─── */
+.doc-block-deletion-line {
+  height: 3px;
+  background: rgba(39, 121, 66, 0.8);
+  margin: 12px 0;
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 8px rgba(39, 121, 66, 0.4);
+  animation: playbackHighlightPulse 0.8s infinite alternate;
 }

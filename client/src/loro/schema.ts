@@ -53,14 +53,15 @@ export function addChatNode(
     }
   }
 
+  const chatId = `chat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const nodeMap = stream.insertContainer(insertChatPos, new LoroMap());
+  nodeMap.set('blockId', chatId);
   nodeMap.set('type', 'chat');
   const chatText = nodeMap.setContainer('content', new LoroText());
   chatText.insert(0, content);
   nodeMap.set('author', author);
   nodeMap.set('timestamp', Date.now());
   nodeMap.setContainer('reactions', new LoroMap());
-  nodeMap.set('isOrganized', false);
 
   if (appendEmptyDoc) {
     const emptyPos = insertChatPos + 1;
@@ -71,10 +72,9 @@ export function addChatNode(
     emptyDocMap.set('blockId', `blk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
     emptyDocMap.set('author', author);
     emptyDocMap.set('timestamp', Date.now());
-    emptyDocMap.set('isOrganized', true);
   }
 
-  doc.commit();
+  doc.commit({ message: `chat:${author}:${chatId}:${content}` });
 }
 
 /**
@@ -108,11 +108,11 @@ export function insertDocNodeAfter(
   }
   const loroText = nodeMap.setContainer('content', new LoroText());
   loroText.insert(0, text);
-  nodeMap.set('blockId', `blk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
+  const blockId = `blk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  nodeMap.set('blockId', blockId);
   nodeMap.set('author', author);
   nodeMap.set('timestamp', Date.now());
-  nodeMap.set('isOrganized', true);
-  doc.commit();
+  doc.commit({ message: `doc:${author}:${blockId}:${text}` });
 }
 
 /**
@@ -134,7 +134,7 @@ export function applyEmphasis(
   } else {
     loroText.mark({ start, end }, 'emphasis', level);
   }
-  doc.commit();
+  doc.commit({ message: `emphasis:${level}` });
 }
 
 /**
@@ -151,10 +151,8 @@ export function moveNode(
   stream.move(fromIndex, toIndex);
   
   const movedMap = stream.get(toIndex) as LoroMap;
-  if (movedMap) {
-    movedMap.set('isOrganized', true);
-  }
-  doc.commit();
+  const blockId = movedMap ? (movedMap.get('blockId') as string || '') : '';
+  doc.commit({ message: `move:${blockId}:${fromIndex}->${toIndex}` });
 }
 
 /**
@@ -181,7 +179,8 @@ export function addReaction(
   } else {
     reactions.set(userId, emoji);
   }
-  doc.commit();
+  const blockId = nodeMap ? (nodeMap.get('blockId') as string || '') : '';
+  doc.commit({ message: `reaction:${userId}:${blockId}:${emoji}` });
 }
 
 /**
@@ -219,7 +218,8 @@ export function updateDocContent(
     loroText.delete(0, currentLength);
   }
   loroText.insert(0, newText);
-  doc.commit();
+  const blockId = nodeMap ? (nodeMap.get('blockId') as string || '') : '';
+  doc.commit({ message: `edit:${blockId}:${newText}` });
 }
 
 /**
@@ -231,8 +231,10 @@ export function deleteDocNode(
 ): void {
   const stream = getStream(doc);
   if (nodeIndex >= 0 && nodeIndex < stream.length) {
+    const nodeMap = stream.get(nodeIndex) as LoroMap;
+    const blockId = nodeMap ? (nodeMap.get('blockId') as string || '') : '';
     stream.delete(nodeIndex, 1);
-    doc.commit();
+    doc.commit({ message: `delete:${blockId}:${nodeIndex}` });
   }
 }
 
@@ -280,10 +282,8 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
         // Optionally set it back if we want to persist it, but ephemeral is fine for keying
       }
 
-      const isOrganized = (loroMap.get('isOrganized') as boolean) ?? false;
-
       nodes.push({
-        node: { type: 'chat', content: contentStr, author, timestamp, reactions, isOrganized },
+        node: { type: 'chat', content: contentStr, author, timestamp, reactions },
         id,
         index: i,
         loroMap,
@@ -296,7 +296,6 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
         blockId = `doc-${timestamp}-${i}`;
       }
       const content = loroText ? loroText.toString() : '';
-      const isOrganized = (loroMap.get('isOrganized') as boolean) ?? true;
       const emphasis = (loroMap.get('emphasis') as number) || 0;
 
       let reactions: Record<string, string> = {};
@@ -310,7 +309,7 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
       }
 
       nodes.push({
-        node: { type: 'doc', content, blockId, author, timestamp, isOrganized, reactions, emphasis: emphasis as any },
+        node: { type: 'doc', content, blockId, author, timestamp, reactions, emphasis: emphasis as any },
         id: blockId,
         index: i,
         loroMap,

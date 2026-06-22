@@ -49,6 +49,8 @@ app.get('*', (req, res) => {
 
 // ─── Socket.IO ──────────────────────────────────────────
 
+let ratioMemory = []; // array of { id, ratio, docId }
+
 io.on('connection', (socket) => {
   console.log(`[WS] Client connected: ${socket.id}`);
 
@@ -67,6 +69,10 @@ io.on('connection', (socket) => {
     // Broadcast current user count to room
     const count = io.sockets.adapter.rooms.get(docId)?.size || 0;
     io.in(docId).emit('user-count', count);
+
+    // Send initial ratios to the new client
+    const roomRatios = ratioMemory.filter(item => item.docId === docId);
+    socket.emit('ratioChange', roomRatios);
   });
 
   socket.on('send-update', async ({ docId, update }) => {
@@ -79,11 +85,28 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('ratioChange', (ratio) => {
+    if (!socket.docId) return;
+    const existing = ratioMemory.find(item => item.id === socket.id);
+    if (existing) {
+      existing.ratio = ratio;
+    } else {
+      ratioMemory.push({ id: socket.id, ratio, docId: socket.docId });
+    }
+    const roomRatios = ratioMemory.filter(item => item.docId === socket.docId);
+    io.in(socket.docId).emit('ratioChange', roomRatios);
+  });
+
   socket.on('disconnect', () => {
     console.log(`[WS] Client disconnected: ${socket.id}`);
+    ratioMemory = ratioMemory.filter(item => item.id !== socket.id);
     if (socket.docId) {
       const count = io.sockets.adapter.rooms.get(socket.docId)?.size || 0;
       io.in(socket.docId).emit('user-count', count);
+
+      // Broadcast updated ratios to room
+      const roomRatios = ratioMemory.filter(item => item.docId === socket.docId);
+      io.in(socket.docId).emit('ratioChange', roomRatios);
     }
   });
 });

@@ -9,6 +9,7 @@ interface SyncClientOptions {
   onRemoteUpdate: () => void;
   onConnectionChange: (state: ConnectionState) => void;
   onUserCountChange?: (count: number) => void;
+  onRatioChange?: (ratios: { id: string; ratio: number; docId: string }[]) => void;
 }
 
 let socket: Socket | null = null;
@@ -18,7 +19,7 @@ let currentDocId: string | null = null;
  * Initialize the sync client and connect to the server.
  */
 export function initSyncClient(options: SyncClientOptions): () => void {
-  const { doc, docId, onRemoteUpdate, onConnectionChange, onUserCountChange } = options;
+  const { doc, docId, onRemoteUpdate, onConnectionChange, onUserCountChange, onRatioChange } = options;
 
   currentDocId = docId;
   onConnectionChange('connecting');
@@ -66,6 +67,10 @@ export function initSyncClient(options: SyncClientOptions): () => void {
     onUserCountChange?.(count);
   });
 
+  socket.on('ratioChange', (ratios: any[]) => {
+    onRatioChange?.(ratios);
+  });
+
   // Cleanup function
   return () => {
     if (socket) {
@@ -95,4 +100,20 @@ export function sendUpdate(doc: LoroDoc, docId: string): void {
  */
 export function isConnected(): boolean {
   return socket?.connected ?? false;
+}
+
+/**
+ * Send ratio updates to the server.
+ */
+export function emitRatioChange(ratio: number): void {
+  if (socket && socket.connected) {
+    socket.emit('ratioChange', ratio);
+  }
+}
+
+/**
+ * Get the current socket ID.
+ */
+export function getSocketId(): string | null {
+  return socket?.id ?? null;
 }

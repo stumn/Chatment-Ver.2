@@ -20,6 +20,8 @@ interface DocBlockProps {
   onDragEnd: (e: React.DragEvent) => void;
   onAfterEdit: () => void;
   onJumpToNode: (index: number, target: 'doc' | 'chat') => void;
+  isPlaybackActive?: boolean;
+  activeHighlightBlockId?: string | null;
 }
 
 export const DocBlock: React.FC<DocBlockProps> = ({
@@ -38,6 +40,8 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   onDragEnd,
   onAfterEdit,
   onJumpToNode,
+  isPlaybackActive,
+  activeHighlightBlockId,
 }) => {
   const { node, index, loroText, loroMap } = nodeWithIndex;
   const contentRef = useRef<HTMLDivElement>(null);
@@ -48,13 +52,13 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   const isChat = node.type === 'chat';
 
   const handleBlur = useCallback(() => {
-    if (!doc || !contentRef.current) return;
+    if (!doc || !contentRef.current || isPlaybackActive) return;
     const newText = contentRef.current.textContent || '';
     if (newText !== node.content) {
       updateDocContent(doc, index, newText);
       onAfterEdit();
     }
-  }, [doc, index, node.content, onAfterEdit]);
+  }, [doc, index, node.content, onAfterEdit, isPlaybackActive]);
 
   const moveUp = useCallback(() => {
     if (!doc || isFirstInDoc) return;
@@ -127,16 +131,20 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   }, []);
 
   const handleInput = useCallback(() => {
-    if (!doc || !isLastInDoc) return;
+    if (!doc || !isLastInDoc || isPlaybackActive) return;
     const currentText = contentRef.current?.textContent || '';
     // If we are at the very last block, and user types something, append an empty block below.
     if (currentText.length > 0) {
       insertDocNodeAfter(doc, index, '', userName, defaultEmphasis);
       onAfterEdit();
     }
-  }, [doc, isLastInDoc, index, userName, defaultEmphasis, onAfterEdit]);
+  }, [doc, isLastInDoc, index, userName, defaultEmphasis, onAfterEdit, isPlaybackActive]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (isPlaybackActive) {
+      e.preventDefault();
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       const selection = window.getSelection();
@@ -218,6 +226,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isPlaybackActive) return;
 
     // Ignore if right clicking the drag handle or info button
     if ((e.target as HTMLElement).closest('.doc-block__meta-toggle') ||
@@ -227,7 +236,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
 
     const sr = getSelectionRange();
     setContextMenu({ x: e.clientX, y: e.clientY, selectionRange: sr });
-  }, [getSelectionRange]);
+  }, [getSelectionRange, isPlaybackActive]);
 
   useEffect(() => {
     if (contextMenu) {
@@ -250,11 +259,12 @@ export const DocBlock: React.FC<DocBlockProps> = ({
 
     // Apply the block-level style mapping (simple key-value setting)
     loroMap.set('emphasis', level);
-    doc.commit();
+    const blockId = loroMap.get('blockId') as string || `blk-${index}`;
+    doc.commit({ message: `emphasis:${blockId}:${level}` });
 
     onAfterEdit();
     setContextMenu(null);
-  }, [doc, loroMap, onAfterEdit]);
+  }, [doc, loroMap, onAfterEdit, index]);
 
   // moveUp and moveDown have been moved up
   const formatTime = (ts: number) => {
@@ -297,16 +307,16 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     dynamicStyle = { background: `hsla(0, 70%, 55%, ${intensity})`, transition: 'background 0.3s ease' };
   }
 
-  const isOrganized = node.isOrganized ?? (isChat ? false : true);
+  const isHighlighted = activeHighlightBlockId === nodeWithIndex.id;
 
   const blockClass = [
     'doc-block',
     isChat ? 'doc-block--chat' : 'doc-block--doc',
-    isOrganized ? 'doc-block--organized' : 'doc-block--unorganized',
     contextMenu ? 'doc-block--focused' : '',
     `doc-emphasis-${blockEmphasis}`,
     isDropTarget ? 'doc-block--drop-target' : '',
     isDragging ? 'doc-block--dragging' : '',
+    isHighlighted ? 'playback-highlight' : '',
   ].filter(Boolean).join(' ');
 
   // Render content safely via HTML for contentEditable support without React child fights
@@ -330,7 +340,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     <div
       className={blockClass}
       style={dynamicStyle}
-      draggable={isDraggable}
+      draggable={isPlaybackActive ? false : isDraggable}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
@@ -358,21 +368,23 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       </div>
       <div
         className="doc-block__drag-handle"
-        title="ドラッグで並び替え"
-        onMouseEnter={() => setIsDraggable(true)}
+        title={isPlaybackActive ? "プレイバック中は並び替えできません" : "ドラッグで並び替え"}
+        onMouseEnter={() => !isPlaybackActive && setIsDraggable(true)}
         onMouseLeave={() => setIsDraggable(false)}
+        style={{ cursor: isPlaybackActive ? 'not-allowed' : 'grab', opacity: isPlaybackActive ? 0.4 : 1 }}
       >⣿</div>
       <div className="doc-block__body">
         <div
           ref={contentRef}
           className="doc-block__content"
-          contentEditable={true}
+          contentEditable={!isPlaybackActive}
           suppressContentEditableWarning
           onBlur={handleBlur}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           onContextMenu={handleContextMenu}
           dangerouslySetInnerHTML={{ __html: renderContentAsHTML() }}
+          style={{ cursor: isPlaybackActive ? 'default' : 'text' }}
         />
       </div>
 

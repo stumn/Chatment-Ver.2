@@ -13,6 +13,8 @@ interface ChatPanelProps {
   ratio: number;
   onAfterEdit: () => void;
   onJumpToNode: (index: number, target: 'doc' | 'chat') => void;
+  isPlaybackActive?: boolean;
+  activeHighlightBlockId?: string | null;
 }
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -24,22 +26,58 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   ratio,
   onAfterEdit,
   onJumpToNode,
+  isPlaybackActive,
+  activeHighlightBlockId,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
+  const [showUnreadBanner, setShowUnreadBanner] = React.useState(false);
 
-  // Auto-scroll to bottom on new messages
+  // Monitor user scrolling to toggle the bottom lock state
+  const handleScroll = React.useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const { scrollHeight, scrollTop, clientHeight } = container;
+    const S = scrollHeight - scrollTop - clientHeight;
+    
+    // threshold = 150px
+    const nearBottom = S < 150;
+    isNearBottomRef.current = nearBottom;
+
+    if (nearBottom) {
+      setShowUnreadBanner(false);
+    }
+  }, []);
+
+  // Auto-scroll to bottom on new messages, if not locked
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [nodes.length]);
+    if (isNearBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    } else if (!isPlaybackActive) {
+      // Show unread banner only if new messages arrive while scrolled up
+      setShowUnreadBanner(true);
+    }
+  }, [nodes.length, isPlaybackActive]);
 
   // Instant scroll to bottom when panel is resized via split-handle
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [ratio]);
 
+  const scrollToBottom = React.useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setShowUnreadBanner(false);
+    isNearBottomRef.current = true;
+  }, []);
+
   return (
-    <div className="chat-panel" ref={panelRef as React.RefObject<HTMLDivElement>} id="chat-panel">
-      <div className="chat-panel__messages">
+    <div className="chat-panel" ref={panelRef as React.RefObject<HTMLDivElement>} id="chat-panel" style={{ position: 'relative' }}>
+      <div 
+        className="chat-panel__messages" 
+        ref={messagesContainerRef}
+        onScroll={handleScroll}
+      >
         {nodes.length === 0 && (
           <div className="chat-panel__empty">
             <p>💬 メッセージを送信して会話を始めましょう</p>
@@ -54,11 +92,24 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             userId={userId}
             onAfterEdit={onAfterEdit}
             onJumpToNode={onJumpToNode}
+            isPlaybackActive={isPlaybackActive}
+            activeHighlightBlockId={activeHighlightBlockId}
           />
         ))}
         <div ref={messagesEndRef} />
       </div>
-      <ChatInput doc={doc} userName={userName} onAfterSend={onAfterEdit} />
+      
+      {showUnreadBanner && (
+        <button
+          className="chat-panel__unread-banner"
+          onClick={scrollToBottom}
+          id="unread-chat-banner"
+        >
+          ⬇️ 新しいメッセージがあります
+        </button>
+      )}
+
+      <ChatInput doc={doc} userName={userName} onAfterSend={onAfterEdit} isPlaybackActive={isPlaybackActive} />
     </div>
   );
 };

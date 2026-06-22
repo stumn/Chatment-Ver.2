@@ -6,6 +6,7 @@ import '../styles/split-view.css';
 import '../styles/doc-panel.css';
 import '../styles/chat-panel.css';
 import '../styles/animations.css';
+import '../styles/guide-modal.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
