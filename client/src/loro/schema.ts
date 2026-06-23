@@ -84,9 +84,12 @@ export function addDocNode(
   doc: LoroDoc,
   text: string,
   author: string,
-  emphasis?: number
+  emphasis?: number,
+  indent?: number,
+  heading?: 'h1' | null,
+  subAuthor?: string | null
 ): void {
-  insertDocNodeAfter(doc, getStream(doc).length - 1, text, author, emphasis);
+  insertDocNodeAfter(doc, getStream(doc).length - 1, text, author, emphasis, indent, heading, subAuthor);
 }
 
 /**
@@ -97,7 +100,10 @@ export function insertDocNodeAfter(
   targetIndex: number,
   text: string,
   author: string,
-  emphasis?: number
+  emphasis?: number,
+  indent?: number,
+  heading?: 'h1' | null,
+  subAuthor?: string | null
 ): void {
   const stream = getStream(doc);
   const insertPos = targetIndex >= 0 ? targetIndex + 1 : stream.length;
@@ -106,13 +112,27 @@ export function insertDocNodeAfter(
   if (emphasis !== undefined) {
     nodeMap.set('emphasis', emphasis);
   }
+  if (indent !== undefined) {
+    nodeMap.set('indent', indent);
+  }
+  if (heading !== undefined) {
+    nodeMap.set('heading', heading);
+  }
   const loroText = nodeMap.setContainer('content', new LoroText());
   loroText.insert(0, text);
   const blockId = `blk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   nodeMap.set('blockId', blockId);
-  nodeMap.set('author', author);
+
+  // Blank/whitespace-only check
+  const hasTextContent = text.replace(/[\s　]+/g, '').length > 0;
+  const initialAuthor = hasTextContent ? author : '';
+  nodeMap.set('author', initialAuthor);
+  if (subAuthor) {
+    nodeMap.set('subAuthor', subAuthor);
+  }
+
   nodeMap.set('timestamp', Date.now());
-  doc.commit({ message: `doc:${author}:${blockId}:${text}` });
+  doc.commit({ message: `doc:${initialAuthor || 'unknown'}:${blockId}:${text}` });
 }
 
 /**
@@ -140,6 +160,22 @@ export function applyEmphasis(
 /**
  * Move a node within the stream (for drag-and-drop reordering).
  */
+function getGroupRange(stream: any, parentIndex: number): number {
+  let childCount = 0;
+  const length = stream.length;
+  for (let i = parentIndex + 1; i < length; i++) {
+    const nodeMap = stream.get(i) as LoroMap;
+    if (!nodeMap) break;
+    const indent = (nodeMap.get('indent') as number) || 0;
+    if (indent > 0) {
+      childCount++;
+    } else {
+      break;
+    }
+  }
+  return childCount;
+}
+
 export function moveNode(
   doc: LoroDoc,
   fromIndex: number,
@@ -148,11 +184,47 @@ export function moveNode(
   const stream = getStream(doc);
   if (fromIndex < 0 || fromIndex >= stream.length) return;
   if (toIndex < 0 || toIndex >= stream.length) return;
-  stream.move(fromIndex, toIndex);
+  if (fromIndex === toIndex) return;
+
+  const fromChildCount = getGroupRange(stream, fromIndex);
+  const fromGroupSize = fromChildCount + 1;
+
+  let targetParentIndex = toIndex;
+  const targetMap = stream.get(toIndex) as LoroMap;
+  if (targetMap && ((targetMap.get('indent') as number) || 0) > 0) {
+    for (let i = toIndex - 1; i >= 0; i--) {
+      const pMap = stream.get(i) as LoroMap;
+      if (pMap && ((pMap.get('indent') as number) || 0) === 0) {
+        targetParentIndex = i;
+        break;
+      }
+    }
+  }
+
+  const toChildCount = getGroupRange(stream, targetParentIndex);
   
-  const movedMap = stream.get(toIndex) as LoroMap;
+  let finalToIndex = targetParentIndex;
+  if (fromIndex < targetParentIndex) {
+    finalToIndex = targetParentIndex + toChildCount;
+  } else {
+    finalToIndex = targetParentIndex;
+  }
+
+  if (finalToIndex >= fromIndex && finalToIndex < fromIndex + fromGroupSize) {
+    return;
+  }
+
+  for (let i = 0; i < fromGroupSize; i++) {
+    if (fromIndex < finalToIndex) {
+      stream.move(fromIndex, finalToIndex);
+    } else {
+      stream.move(fromIndex + i, finalToIndex + i);
+    }
+  }
+  
+  const movedMap = stream.get(finalToIndex) as LoroMap;
   const blockId = movedMap ? (movedMap.get('blockId') as string || '') : '';
-  doc.commit({ message: `move:${blockId}:${fromIndex}->${toIndex}` });
+  doc.commit({ message: `moveGroup:${blockId}:${fromIndex}->${finalToIndex}` });
 }
 
 /**
@@ -189,11 +261,15 @@ export function addReaction(
 export function updateDocContent(
   doc: LoroDoc,
   nodeIndex: number,
-  newText: string
+  newText: string,
+  editorName: string
 ): void {
   const stream = getStream(doc);
   const nodeMap = stream.get(nodeIndex) as LoroMap;
   if (!nodeMap) return;
+
+  const currentAuthor = (nodeMap.get('author') as string) || '';
+  const currentSubAuthor = (nodeMap.get('subAuthor') as string) || '';
 
   let contentVal = nodeMap.get('content');
   let loroText: LoroText;
@@ -204,6 +280,18 @@ export function updateDocContent(
     loroText = contentVal as LoroText;
   } else {
     return;
+  }
+
+  const currentText = loroText.toString();
+  const cleanOld = currentText.replace(/[\s　]+/g, '');
+  const cleanNew = newText.replace(/[\s　]+/g, '');
+  const hasSubstantialChange = cleanOld !== cleanNew;
+
+  // First Author resolution
+  if (hasSubstantialChange && !currentAuthor) {
+    nodeMap.set('author', editorName);
+  } else if (hasSubstantialChange && currentAuthor && currentAuthor !== editorName && currentSubAuthor !== editorName) {
+    nodeMap.set('subAuthor', editorName);
   }
 
   const currentLength = loroText.length;
@@ -297,6 +385,9 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
       }
       const content = loroText ? loroText.toString() : '';
       const emphasis = (loroMap.get('emphasis') as number) || 0;
+      const heading = loroMap.get('heading') as 'h1' | null | undefined;
+      const indent = loroMap.get('indent') as number | undefined;
+      const subAuthor = (loroMap.get('subAuthor') as string) || null;
 
       let reactions: Record<string, string> = {};
       try {
@@ -309,7 +400,7 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
       }
 
       nodes.push({
-        node: { type: 'doc', content, blockId, author, timestamp, reactions, emphasis: emphasis as any },
+        node: { type: 'doc', content, blockId, author, timestamp, reactions, emphasis: emphasis as any, heading, indent, subAuthor },
         id: blockId,
         index: i,
         loroMap,

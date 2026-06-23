@@ -8,7 +8,7 @@ interface DocPanelProps {
   nodes: StreamNodeWithIndex[];
   doc: LoroDoc | null;
   userName: string;
-  defaultEmphasis: number;
+  defaultEmphasis: number | 'h1';
   dragState: { dragIndex: number | null; dropIndex: number | null };
   onDragStart: (index: number) => (e: React.DragEvent) => void;
   onDragOver: (index: number) => (e: React.DragEvent) => void;
@@ -20,6 +20,7 @@ interface DocPanelProps {
   isPlaybackActive?: boolean;
   activeHighlightBlockId?: string | null;
   activeDeletedIndex?: number | null;
+  isCautiousMode?: boolean;
 }
 
 export const DocPanel: React.FC<DocPanelProps> = ({
@@ -38,6 +39,7 @@ export const DocPanel: React.FC<DocPanelProps> = ({
   isPlaybackActive,
   activeHighlightBlockId,
   activeDeletedIndex,
+  isCautiousMode,
 }) => {
   const [bgMenu, setBgMenu] = React.useState<{ x: number, y: number } | null>(null);
   
@@ -70,7 +72,11 @@ export const DocPanel: React.FC<DocPanelProps> = ({
 
   const insertBlock = React.useCallback(() => {
     if (doc && !isPlaybackActive) {
-      addDocNode(doc, '', userName, defaultEmphasis);
+      if (defaultEmphasis === 'h1') {
+        addDocNode(doc, '', userName, 0, 0, 'h1');
+      } else {
+        addDocNode(doc, '', userName, defaultEmphasis);
+      }
       onAfterEdit();
     }
     setBgMenu(null);
@@ -105,7 +111,11 @@ export const DocPanel: React.FC<DocPanelProps> = ({
                           const val = e.currentTarget.textContent || '';
                           if (val.length > 0 && doc) {
                             import('../loro/schema').then(({ addDocNode }) => {
-                              addDocNode(doc, val, userName, defaultEmphasis);
+                              if (defaultEmphasis === 'h1') {
+                                addDocNode(doc, val, userName, 0, 0, 'h1');
+                              } else {
+                                addDocNode(doc, val, userName, defaultEmphasis);
+                              }
                               onAfterEdit();
                             });
                           }
@@ -156,6 +166,7 @@ export const DocPanel: React.FC<DocPanelProps> = ({
                 onJumpToNode={onJumpToNode}
                 isPlaybackActive={isPlaybackActive}
                 activeHighlightBlockId={activeHighlightBlockId}
+                isCautiousMode={isCautiousMode}
               />
               {activeDeletedIndex === nodes.length && arrayIndex === nodes.length - 1 && (
                 <div id="doc-block-deletion-line" className="doc-block-deletion-line" />

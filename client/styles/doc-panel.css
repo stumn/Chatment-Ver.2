@@ -89,7 +89,7 @@
 .doc-block {
   display: flex;
   gap: 8px;
-  padding: 4px 12px;
+  padding: 2px 12px;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -97,8 +97,8 @@
   position: relative;
   animation: fadeSlideIn 0.3s ease;
   width: 100%;
-  margin-top: 4px;
-  margin-bottom: 4px;
+  margin-top: 1px;
+  margin-bottom: 1px;
 }
 
 .doc-block:hover {
@@ -139,12 +139,13 @@
 
 .doc-block__meta-toggle {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   width: 24px;
   cursor: pointer;
   position: relative;
   opacity: 1; /* Keep visible like the timeline */
+  padding-top: 5px;
 }
 
 .doc-block__timeline-circle {
@@ -154,6 +155,11 @@
   background: var(--bg-elevated); /* Hollow Doc style */
   border: 2px solid var(--accent-secondary); 
   transition: transform var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0px;
+  color: var(--accent-secondary);
 }
 
 .doc-block--chat .doc-block__timeline-circle {
@@ -245,7 +251,7 @@
 
 .doc-block__drag-handle {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   width: 20px;
   flex-shrink: 0;
@@ -256,6 +262,7 @@
   transition: opacity var(--transition-fast);
   user-select: none;
   letter-spacing: 2px;
+  padding-top: 4px;
 }
 
 .doc-block:hover .doc-block__drag-handle {
@@ -306,7 +313,7 @@
 .doc-block__content {
   font-size: var(--font-size-base);
   color: inherit;
-  line-height: 1.65;
+  line-height: 1.35;
   outline: none;
   padding: 0;
   border-radius: var(--radius-sm);
@@ -346,4 +353,20 @@
   border-radius: var(--radius-full);
   box-shadow: 0 0 8px rgba(39, 121, 66, 0.4);
   animation: playbackHighlightPulse 0.8s infinite alternate;
+}
+
+/* ─── Indent Indicators ─── */
+.doc-block__timeline-circle--indent-1,
+.doc-block__timeline-circle--indent-2 {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* インデントなしの最上位ブロックの上側マージンを少し広くして、話題の境界をわかりやすくする */
+.doc-block--indent-0:not(:first-child) {
+  margin-top: 5px;
 }

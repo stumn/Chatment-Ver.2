@@ -18,6 +18,9 @@ export interface DocNodeData {
   timestamp: number;
   reactions?: Record<string, string>;
   emphasis?: EmphasisLevel;
+  heading?: 'h1' | null;
+  indent?: number;
+  subAuthor?: string | null;
 }
 
 export type StreamNode = ChatNodeData | DocNodeData;

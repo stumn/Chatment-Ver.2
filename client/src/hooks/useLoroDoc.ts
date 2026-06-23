@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { LoroDoc } from 'loro-crdt';
 import { createDoc, getAllNodes } from '../loro/schema';
-import { initUndoManager, setupUndoKeyBindings, destroyUndoManager } from '../loro/undo-manager';
+import { initUndoManager, setupUndoKeyBindings, destroyUndoManager, getUndoManager, undo as loroUndo, redo as loroRedo } from '../loro/undo-manager';
 import { loadSnapshot, saveSnapshot, createAutoSave } from '../loro/local-storage';
 import { initSyncClient, sendUpdate, getSocketId, type ConnectionState } from '../loro/sync-client';
 import type { StreamNodeWithIndex } from '../types';
@@ -20,6 +20,16 @@ export function useLoroDoc() {
   const [ratios, setRatios] = useState<{ id: string; ratio: number; docId: string }[]>([]);
   const [isReady, setIsReady] = useState(false);
   const autoSaveRef = useRef<ReturnType<typeof createAutoSave> | null>(null);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  const updateUndoRedoStatus = useCallback(() => {
+    const um = getUndoManager();
+    if (um) {
+      setCanUndo(um.canUndo());
+      setCanRedo(um.canRedo());
+    }
+  }, []);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -68,6 +78,7 @@ export function useLoroDoc() {
     // 5. Subscribe to changes
     const unsubscribe = doc.subscribe((event) => {
       refreshNodes();
+      updateUndoRedoStatus();
       // Auto-save and broadcast local edits (like typing, D&D, or Undo/Redo)
       // Do not save when the document is in a detached / historical state
       if (event.by === 'local' && !doc.isDetached()) {
@@ -93,6 +104,7 @@ export function useLoroDoc() {
 
     // 7. Initial render
     refreshNodes();
+    updateUndoRedoStatus();
     setIsReady(true);
 
     return () => {
@@ -116,5 +128,17 @@ export function useLoroDoc() {
     triggerSave,
     docId,
     ratios,
+    canUndo,
+    canRedo,
+    undo: useCallback(() => {
+      const success = loroUndo();
+      updateUndoRedoStatus();
+      return success;
+    }, [updateUndoRedoStatus]),
+    redo: useCallback(() => {
+      const success = loroRedo();
+      updateUndoRedoStatus();
+      return success;
+    }, [updateUndoRedoStatus]),
   };
 }

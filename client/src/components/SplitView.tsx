@@ -12,6 +12,7 @@ interface SplitViewProps {
   isDominantDoc?: boolean;
   ratios: { id: string; ratio: number; docId: string }[];
   onSelectRatio: (ratio: number) => void;
+  isPlaybackActive?: boolean;
 }
 
 export const SplitView: React.FC<SplitViewProps> = ({
@@ -24,6 +25,7 @@ export const SplitView: React.FC<SplitViewProps> = ({
   isDominantDoc,
   ratios,
   onSelectRatio,
+  isPlaybackActive,
 }) => {
   const inputOffset = 78; // Approximate height of the chat input area
 
@@ -56,7 +58,9 @@ export const SplitView: React.FC<SplitViewProps> = ({
       <div className="split-panel split-panel--chat" style={{ height: chatHeight }}>
         {chatPanel}
       </div>
-      <Telomere ratioArray={ratios} myRatio={ratio} myId={getSocketId()} onSelectRatio={onSelectRatio} />
+      {!isPlaybackActive && (
+        <Telomere ratioArray={ratios} myRatio={ratio} myId={getSocketId()} onSelectRatio={onSelectRatio} />
+      )}
     </div>
   );
 };

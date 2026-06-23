@@ -8,7 +8,7 @@ interface DocBlockProps {
   nodeWithIndex: StreamNodeWithIndex;
   doc: LoroDoc | null;
   userName: string;
-  defaultEmphasis: number;
+  defaultEmphasis: number | 'h1';
   isFirstInDoc?: boolean;
   isLastInDoc?: boolean;
   isDropTarget: boolean;
@@ -22,6 +22,7 @@ interface DocBlockProps {
   onJumpToNode: (index: number, target: 'doc' | 'chat') => void;
   isPlaybackActive?: boolean;
   activeHighlightBlockId?: string | null;
+  isCautiousMode?: boolean;
 }
 
 export const DocBlock: React.FC<DocBlockProps> = ({
@@ -42,9 +43,13 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   onJumpToNode,
   isPlaybackActive,
   activeHighlightBlockId,
+  isCautiousMode,
 }) => {
   const { node, index, loroText, loroMap } = nodeWithIndex;
+  const blockIndent = node.type === 'doc' ? (node as any).indent || 0 : 0;
+  const blockHeading = node.type === 'doc' ? (node as any).heading || null : null;
   const contentRef = useRef<HTMLDivElement>(null);
+  const hasEditPermissionRef = useRef(false);
   const [isDraggable, setIsDraggable] = useState(false);
   const [showMeta, setShowMeta] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, selectionRange: { start: number, end: number } | null } | null>(null);
@@ -52,13 +57,30 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   const isChat = node.type === 'chat';
 
   const handleBlur = useCallback(() => {
+    hasEditPermissionRef.current = false;
     if (!doc || !contentRef.current || isPlaybackActive) return;
     const newText = contentRef.current.textContent || '';
-    if (newText !== node.content) {
-      updateDocContent(doc, index, newText);
+    const currentText = loroMap?.get('content')?.toString() || '';
+    
+    let isH1 = false;
+    if (newText.startsWith('#')) {
+      isH1 = true;
+    }
+    
+    const currentHeading = loroMap?.get('heading') || null;
+    const nextHeading = isH1 ? 'h1' : null;
+
+    const textChanged = newText !== currentText;
+    const headingChanged = nextHeading !== currentHeading;
+
+    if (textChanged || headingChanged) {
+      if (headingChanged && loroMap) {
+        loroMap.set('heading', nextHeading);
+      }
+      updateDocContent(doc, index, newText, userName);
       onAfterEdit();
     }
-  }, [doc, index, node.content, onAfterEdit, isPlaybackActive]);
+  }, [doc, index, loroMap, onAfterEdit, isPlaybackActive, userName]);
 
   const moveUp = useCallback(() => {
     if (!doc || isFirstInDoc) return;
@@ -135,7 +157,8 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     const currentText = contentRef.current?.textContent || '';
     // If we are at the very last block, and user types something, append an empty block below.
     if (currentText.length > 0) {
-      insertDocNodeAfter(doc, index, '', userName, defaultEmphasis);
+      const nextEmphasis = defaultEmphasis === 'h1' ? 0 : (defaultEmphasis as number);
+      insertDocNodeAfter(doc, index, '', userName, nextEmphasis);
       onAfterEdit();
     }
   }, [doc, isLastInDoc, index, userName, defaultEmphasis, onAfterEdit, isPlaybackActive]);
@@ -145,23 +168,99 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       e.preventDefault();
       return;
     }
+
+    const sel = window.getSelection();
+    const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    const caretPos = range ? range.startOffset : 0;
+    const isAtStart = range ? (
+      caretPos === 0 && (
+        range.startContainer === contentRef.current ||
+        range.startContainer.parentNode === contentRef.current ||
+        contentRef.current?.textContent === ''
+      )
+    ) : false;
+
+    // Tab キーの処理 (インデント増減, 最大2に制限)
+    if (e.key === 'Tab') {
+      if (isAtStart) {
+        e.preventDefault();
+        if (doc && loroMap) {
+          const currentIndent = loroMap.get('indent') as number || 0;
+          const nextIndent = e.shiftKey ? Math.max(0, currentIndent - 1) : Math.min(2, currentIndent + 1);
+          loroMap.set('indent', nextIndent);
+          const blockId = loroMap.get('blockId') as string || `blk-${index}`;
+          doc.commit({ message: `indent:${blockId}:${nextIndent}` });
+          onAfterEdit();
+        }
+        return;
+      }
+    }
+
+    // Space / 全角スペース キーの処理 (インデント増加, 最大2に制限)
+    if ((e.key === ' ' || e.key === '　') && !e.shiftKey) {
+      if (isAtStart) {
+        e.preventDefault();
+        if (doc && loroMap) {
+          const currentIndent = loroMap.get('indent') as number || 0;
+          const nextIndent = Math.min(2, currentIndent + 1);
+          loroMap.set('indent', nextIndent);
+          const blockId = loroMap.get('blockId') as string || `blk-${index}`;
+          doc.commit({ message: `indent:${blockId}:${nextIndent}` });
+          onAfterEdit();
+        }
+        return;
+      }
+    }
+
+    // Backspace キーの処理 (インデント減少)
+    if (e.key === 'Backspace' && !e.shiftKey) {
+      if (isAtStart && contentRef.current?.textContent !== '') {
+        const currentIndent = loroMap?.get('indent') as number || 0;
+        if (currentIndent > 0) {
+          e.preventDefault();
+          if (doc && loroMap) {
+            loroMap.set('indent', currentIndent - 1);
+            const blockId = loroMap.get('blockId') as string || `blk-${index}`;
+            doc.commit({ message: `indent:${blockId}:${currentIndent - 1}` });
+            onAfterEdit();
+          }
+          return;
+        }
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       const selection = window.getSelection();
-      const range = selection?.getRangeAt(0);
-      const caretPos = range?.startOffset || 0;
+      const sRange = selection?.getRangeAt(0);
+      const sCaretPos = sRange?.startOffset || 0;
       const newText = contentRef.current?.textContent || '';
+      
+      // # の検知を行って現在の行の見出し情報を更新する
+      let isH1 = false;
+      if (newText.startsWith('#')) {
+        isH1 = true;
+      }
+      if (loroMap) {
+        loroMap.set('heading', isH1 ? 'h1' : null);
+      }
+      
+      const textAfterCursor = newText.substring(sCaretPos);
+      const textBeforeCursor = newText.substring(0, sCaretPos);
 
-      // Delete any remnants after the cursor and insert a new block with them
-      const textAfterCursor = newText.substring(caretPos);
       if (doc) {
-        if (caretPos < newText.length) {
-          updateDocContent(doc, index, newText.substring(0, caretPos));
-        } else {
-          updateDocContent(doc, index, newText);
-        }
+        updateDocContent(doc, index, textBeforeCursor, userName);
+        
+        const currentIndent = loroMap?.get('indent') as number || 0;
+        const nextIndent = Math.min(2, currentIndent + 1); // 改行して新規ブロックを作成する際は前の行 + 1 のインデント (最大2に制限)
 
-        insertDocNodeAfter(doc, index, textAfterCursor, userName, defaultEmphasis);
+        const nextEmphasis = defaultEmphasis === 'h1' ? 0 : (defaultEmphasis as number);
+
+        const currentAuthor = node.author || userName;
+        const hasSubstantialAfter = textAfterCursor.replace(/[\s　]+/g, '').length > 0;
+        const nextSubAuthor = hasSubstantialAfter ? userName : null;
+
+        insertDocNodeAfter(doc, index, textAfterCursor, currentAuthor, nextEmphasis, nextIndent, null, nextSubAuthor);
         onAfterEdit();
         // focus logic after render is deferred
         setTimeout(() => focusNextBlock(1), 50);
@@ -185,7 +284,9 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     if (e.key === 'ArrowUp' && !e.shiftKey) {
       if (e.ctrlKey) {
         e.preventDefault();
-        moveUp();
+        if (blockIndent === 0) {
+          moveUp();
+        }
       } else {
         // focus previous block
         focusNextBlock(-1);
@@ -193,14 +294,16 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     } else if (e.key === 'ArrowDown' && !e.shiftKey) {
       if (e.ctrlKey) {
         e.preventDefault();
-        moveDown();
+        if (blockIndent === 0) {
+          moveDown();
+        }
       } else {
         // focus next block
         focusNextBlock(1);
       }
     } else if (e.key === 'ArrowLeft' && !e.shiftKey) {
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount > 0 && sel.isCollapsed) {
+      const sel2 = window.getSelection();
+      if (sel2 && sel2.rangeCount > 0 && sel2.isCollapsed) {
         const sr = getSelectionRange();
         if (sr && sr.start === 0 && sr.end === 0) {
           // At the very beginning of the line
@@ -210,8 +313,8 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       }
     } else if (e.key === 'ArrowRight' && !e.shiftKey) {
       const textLen = contentRef.current?.textContent?.length || 0;
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount > 0 && sel.isCollapsed) {
+      const sel2 = window.getSelection();
+      if (sel2 && sel2.rangeCount > 0 && sel2.isCollapsed) {
         const sr = getSelectionRange();
         if (sr && sr.start === textLen && sr.end === textLen) {
           // At the very end of the line
@@ -220,7 +323,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
         }
       }
     }
-  }, [doc, index, node, userName, defaultEmphasis, onAfterEdit, moveUp, moveDown, focusNextBlock, getSelectionRange]);
+  }, [doc, index, node, userName, defaultEmphasis, onAfterEdit, moveUp, moveDown, focusNextBlock, getSelectionRange, loroMap, blockIndent]);
 
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -253,6 +356,74 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       };
     }
   }, [contextMenu]);
+
+
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el || isPlaybackActive) return;
+
+    const handleBeforeInput = (e: Event) => {
+      const ie = e as InputEvent;
+      if (!isCautiousMode) return;
+
+      const isFirstAuthor = node.author === userName;
+      const isSubAuthor = (loroMap?.get('subAuthor') as string) === userName;
+      if (isFirstAuthor || isSubAuthor) return;
+
+      if (!node.author) return;
+
+      const inputData = ie.data || '';
+      const isWhitespaceOnly = ie.data !== null && inputData !== '' && inputData.trim().length === 0;
+
+      if (isWhitespaceOnly) {
+        return;
+      }
+
+      if (hasEditPermissionRef.current) return;
+
+      const subAuthorVal = loroMap?.get('subAuthor') as string | undefined;
+      const ownerName = node.author + (subAuthorVal ? ` と ${subAuthorVal}` : '');
+      const confirmMsg = `このブロックの所有者は「${ownerName}」です。編集（共同編集者として追加）しますか？`;
+      if (window.confirm(confirmMsg)) {
+        hasEditPermissionRef.current = true;
+      } else {
+        ie.preventDefault();
+        el.blur();
+      }
+    };
+
+    el.addEventListener('beforeinput', handleBeforeInput);
+    return () => {
+      el.removeEventListener('beforeinput', handleBeforeInput);
+    };
+  }, [doc, index, node, userName, isCautiousMode, isPlaybackActive, loroMap]);
+
+  // H1ボタンなどで見出し状態が変化した際にテキストの先頭の「# 」を同期する処理
+  useEffect(() => {
+    if (!doc || !loroText || !loroMap || isPlaybackActive) return;
+
+    const currentText = loroText.toString();
+    const currentHeading = loroMap.get('heading') as string | null;
+
+    if (currentHeading === 'h1') {
+      if (!currentText.startsWith('#')) {
+        loroText.insert(0, '# ');
+        doc.commit({ message: `add-hashtag:${loroMap.get('blockId')}` });
+        onAfterEdit();
+      }
+    } else {
+      if (currentText.startsWith('# ')) {
+        loroText.delete(0, 2);
+        doc.commit({ message: `remove-hashtag:${loroMap.get('blockId')}` });
+        onAfterEdit();
+      } else if (currentText.startsWith('#')) {
+        loroText.delete(0, 1);
+        doc.commit({ message: `remove-hashtag:${loroMap.get('blockId')}` });
+        onAfterEdit();
+      }
+    }
+  }, [blockHeading, doc, loroText, loroMap, onAfterEdit, isPlaybackActive]);
 
   const setEmphasis = useCallback((level: EmphasisLevel) => {
     if (!doc || !loroMap) return;
@@ -297,21 +468,34 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   
   const voteScore = upvotes - downvotes;
 
-  let dynamicStyle: React.CSSProperties = {};
+  const getIndentMargin = (indent: number) => {
+    if (indent === 1) return 56;
+    if (indent >= 2) return 84;
+    return 0;
+  };
+
+  let dynamicStyle: React.CSSProperties = {
+    marginLeft: `${getIndentMargin(blockIndent)}px`,
+    width: `calc(100% - ${getIndentMargin(blockIndent)}px)`,
+    transition: 'background 0.3s ease, margin-left 0.2s ease, width 0.2s ease',
+  };
   if (voteScore > 0) {
     // 2 votes = 0.15 intensity step
     const intensity = Math.min(1.0, Math.floor(voteScore / 2) * 0.15 + 0.1); 
-    dynamicStyle = { background: `hsla(130, 60%, 45%, ${intensity})`, transition: 'background 0.3s ease' };
+    dynamicStyle = { ...dynamicStyle, background: `hsla(130, 60%, 45%, ${intensity})` };
   } else if (voteScore < 0) {
     const intensity = Math.min(1.0, Math.floor(Math.abs(voteScore) / 2) * 0.15 + 0.1);
-    dynamicStyle = { background: `hsla(0, 70%, 55%, ${intensity})`, transition: 'background 0.3s ease' };
+    dynamicStyle = { ...dynamicStyle, background: `hsla(0, 70%, 55%, ${intensity})` };
   }
 
   const isHighlighted = activeHighlightBlockId === nodeWithIndex.id;
+  const showDragHandle = !isChat && blockIndent === 0;
 
   const blockClass = [
     'doc-block',
+    `doc-block--indent-${blockIndent}`,
     isChat ? 'doc-block--chat' : 'doc-block--doc',
+    blockHeading === 'h1' ? 'doc-block--h1' : '',
     contextMenu ? 'doc-block--focused' : '',
     `doc-emphasis-${blockEmphasis}`,
     isDropTarget ? 'doc-block--drop-target' : '',
@@ -357,22 +541,43 @@ export const DocBlock: React.FC<DocBlockProps> = ({
         onClick={() => onJumpToNode(index, 'chat')}
         title="チャット画面へジャンプ"
       >
-        <div className="doc-block__timeline-circle"></div>
+        {isChat ? (
+          <div className="doc-block__timeline-circle"></div>
+        ) : (
+          <div className={`doc-block__timeline-circle doc-block__timeline-circle--indent-${blockIndent >= 2 ? 2 : blockIndent}`}>
+            {blockIndent === 1 ? (
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                <path d="M3 1.5l4 3.5-4 3.5" />
+              </svg>
+            ) : blockIndent >= 2 ? (
+              <svg width="16" height="10" viewBox="0 0 16 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                <path d="M3 1.5l4 3.5-4 3.5 M9 1.5l4 3.5-4 3.5" />
+              </svg>
+            ) : null}
+          </div>
+        )}
         {showMeta && !isContentEmpty && (
           <div className="doc-block__meta-tooltip">
-            <span className="doc-block__author" style={{ color: isChat ? 'var(--accent-primary)' : 'var(--accent-secondary)' }}>{node.author}</span>
+            <span className="doc-block__author" style={{ color: isChat ? 'var(--accent-primary)' : 'var(--accent-secondary)' }}>
+              {node.author || '不明'}
+              {node.type === 'doc' && (node as any).subAuthor && ` (+${(node as any).subAuthor})`}
+            </span>
             <span className="doc-block__time">{formatTime(node.timestamp)}</span>
             {totalReactions > 0 && <span className="doc-block__reaction-count">リアクション {totalReactions}件</span>}
           </div>
         )}
       </div>
-      <div
-        className="doc-block__drag-handle"
-        title={isPlaybackActive ? "プレイバック中は並び替えできません" : "ドラッグで並び替え"}
-        onMouseEnter={() => !isPlaybackActive && setIsDraggable(true)}
-        onMouseLeave={() => setIsDraggable(false)}
-        style={{ cursor: isPlaybackActive ? 'not-allowed' : 'grab', opacity: isPlaybackActive ? 0.4 : 1 }}
-      >⣿</div>
+      {showDragHandle ? (
+        <div
+          className="doc-block__drag-handle"
+          title={isPlaybackActive ? "プレイバック中は並び替えできません" : "ドラッグで並び替え"}
+          onMouseEnter={() => !isPlaybackActive && setIsDraggable(true)}
+          onMouseLeave={() => setIsDraggable(false)}
+          style={{ cursor: isPlaybackActive ? 'not-allowed' : 'grab', opacity: isPlaybackActive ? 0.4 : 1 }}
+        >⣿</div>
+      ) : (
+        blockIndent === 0 && <div className="doc-block__drag-handle-placeholder" style={{ width: '20px', flexShrink: 0 }} />
+      )}
       <div className="doc-block__body">
         <div
           ref={contentRef}
@@ -404,14 +609,17 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           <button className="context-menu__item" title="控えめ" onMouseDown={(e) => e.preventDefault()} onClick={() => setEmphasis(-1)}>
             <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#aaa' }}></span>
           </button>
-          <div className="context-menu__divider"></div>
-
-          <button className="context-menu__item" title="上へ移動 (Ctrl+↑)" onMouseDown={(e) => e.preventDefault()} onClick={moveUp}>
-             <span style={{ fontSize: '12px', lineHeight: 1 }}>↑</span>
-          </button>
-          <button className="context-menu__item" title="下へ移動 (Ctrl+↓)" onMouseDown={(e) => e.preventDefault()} onClick={moveDown}>
-             <span style={{ fontSize: '12px', lineHeight: 1 }}>↓</span>
-          </button>
+          {blockIndent === 0 && (
+            <>
+              <div className="context-menu__divider"></div>
+              <button className="context-menu__item" title="上へ移動 (Ctrl+↑)" onMouseDown={(e) => e.preventDefault()} onClick={moveUp}>
+                 <span style={{ fontSize: '12px', lineHeight: 1 }}>↑</span>
+              </button>
+              <button className="context-menu__item" title="下へ移動 (Ctrl+↓)" onMouseDown={(e) => e.preventDefault()} onClick={moveDown}>
+                 <span style={{ fontSize: '12px', lineHeight: 1 }}>↓</span>
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

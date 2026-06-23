@@ -16,7 +16,7 @@ import { PlaybackControls } from './components/PlaybackControls';
 export const App: React.FC = () => {
   const [userName, setUserName] = useState<string | null>(null);
   const [userId] = useState(() => `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
-  const [defaultEmphasis, setDefaultEmphasis] = useState<EmphasisLevel>(0);
+  const [defaultEmphasis, setDefaultEmphasis] = useState<EmphasisLevel | 'h1'>(0);
   const [displayFilter, setDisplayFilter] = useState<'all' | 'highlightAndStandard' | 'highlightOnly'>('all');
 
   const [isGuideOpen, setIsGuideOpen] = useState(false);
@@ -26,9 +26,47 @@ export const App: React.FC = () => {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isAutoplay, setIsAutoplay] = useState(false);
 
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('chatment-header-collapsed') === 'true';
+  });
+
+  const [isCautiousMode, setIsCautiousMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('chatment-cautious-mode');
+    return saved !== 'false';
+  });
+
+  const toggleCautiousMode = useCallback(() => {
+    setIsCautiousMode(prev => {
+      const next = !prev;
+      localStorage.setItem('chatment-cautious-mode', String(next));
+      return next;
+    });
+  }, []);
+
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('chatment-theme') as 'light' | 'dark') || 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('chatment-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+  }, []);
+
+  const toggleHeader = useCallback(() => {
+    setIsHeaderCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('chatment-header-collapsed', String(next));
+      return next;
+    });
+  }, []);
+
   const chatPanelRef = useRef<HTMLDivElement>(null);
 
-  const { doc, nodes, connectionState, userCount, isReady, triggerSave, docId, ratios } = useLoroDoc();
+  const { doc, nodes, connectionState, userCount, isReady, triggerSave, docId, ratios, undo, redo, canUndo, canRedo } = useLoroDoc();
   const { ratio, setRatio, containerRef, handleMouseDown, handleDoubleClick } = useSplitView();
   const { docNodes, chatNodes } = useOverflow(nodes, chatPanelRef, 36);
 
@@ -437,95 +475,189 @@ export const App: React.FC = () => {
 
   return (
     <div className={`app ${isPlaybackMode ? 'playback-active' : ''}`} id="app">
-      <header className="app-header" id="app-header">
-        <div className="app-header__left">
-          <h1 className="app-header__title">
-            Chatment <span className="btn-label-text">ver.2</span> <span className="header-doc-id" style={{ fontSize: '12px', opacity: 0.6, marginLeft: '8px' }}>#{docId}</span>
-          </h1>
-        </div>
+      <header className={`app-header ${isHeaderCollapsed ? 'app-header--collapsed' : ''}`} id="app-header">
+        <div className="app-header__main-row">
+          <div className="app-header__left">
+            <h1 className="app-header__title">
+              Chatment <span className="btn-label-text">ver.2</span> <span className="header-doc-id" style={{ fontSize: '12px', opacity: 0.6, marginLeft: '8px' }}>#{docId}</span>
+            </h1>
+          </div>
 
-        <div className="app-header__center" style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+          <div className="app-header__meta-actions">
+            <button
+              className="guide-toggle-btn"
+              onClick={toggleCautiousMode}
+              title={isCautiousMode ? "慎重モードをオフにする" : "慎重モードをオンにする"}
+              style={{
+                background: isCautiousMode ? '#fff3cd' : '#f8f9fa',
+                borderColor: isCautiousMode ? '#ffeeba' : '#dee2e6',
+                color: isCautiousMode ? '#856404' : '#212529',
+                fontWeight: isCautiousMode ? 'bold' : 'normal',
+              }}
+            >
+              🛡️ <span className="btn-label-text">慎重モード: {isCautiousMode ? 'オン' : 'オフ'}</span>
+            </button>
 
-          <div className="segmented-control" title="新規ブロックの初期強調度">
             <button
-              title="太字"
-              onClick={() => setDefaultEmphasis(1)}
-              className={`segmented-control__item segmented-control__item--bold ${defaultEmphasis === 1 ? 'segmented-control__item--active' : ''}`}
+              className="guide-toggle-btn"
+              onClick={() => setIsGuideOpen(true)}
+              title="体験ガイドを表示"
             >
-              太<span className="btn-label-text">字</span>
+              💡 <span className="btn-label-text">ガイド</span>
             </button>
+
             <button
-              title="標準"
-              onClick={() => setDefaultEmphasis(0)}
-              className={`segmented-control__item ${defaultEmphasis === 0 ? 'segmented-control__item--active' : ''}`}
+              className="guide-toggle-btn"
+              onClick={isPlaybackMode ? exitPlayback : startPlayback}
+              title={isPlaybackMode ? "プレイバックを終了" : "プレイバック履歴を再生"}
+              style={{
+                background: isPlaybackMode ? 'var(--accent-primary)' : '#eaf3ff',
+                borderColor: isPlaybackMode ? 'var(--accent-primary)' : '#c8dfff',
+                color: isPlaybackMode ? 'white' : '#1e60c4',
+              }}
             >
-              標<span className="btn-label-text">準</span>
-            </button>
-            <button
-              title="控えめ"
-              onClick={() => setDefaultEmphasis(-1)}
-              className={`segmented-control__item segmented-control__item--dimmed ${defaultEmphasis === -1 ? 'segmented-control__item--active' : ''}`}
-            >
-              控<span className="btn-label-text">えめ</span>
+              ⏱️ <span className="btn-label-text">履歴再生</span>
             </button>
           </div>
 
-          <div className="segmented-control" title="表示フィルター">
-            <button
-              onClick={() => setDisplayFilter('all')}
-              disabled={isPlaybackMode}
-              className={`segmented-control__item ${displayFilter === 'all' ? 'segmented-control__item--active' : ''}`}
-              style={{ opacity: isPlaybackMode && displayFilter !== 'all' ? 0.5 : 1 }}
-            >
-              すべて
-            </button>
-            <button
-              onClick={() => setDisplayFilter('highlightAndStandard')}
-              disabled={isPlaybackMode}
-              className={`segmented-control__item ${displayFilter === 'highlightAndStandard' ? 'segmented-control__item--active' : ''}`}
-              style={{ opacity: isPlaybackMode && displayFilter !== 'highlightAndStandard' ? 0.5 : 1 }}
-            >
-              標準＋太<span className="btn-label-text">字</span>
-            </button>
-            <button
-              onClick={() => setDisplayFilter('highlightOnly')}
-              disabled={isPlaybackMode}
-              className={`segmented-control__item ${displayFilter === 'highlightOnly' ? 'segmented-control__item--active' : ''}`}
-              style={{ opacity: isPlaybackMode && displayFilter !== 'highlightOnly' ? 0.5 : 1 }}
-            >
-              太字<span className="btn-label-text">のみ</span>
-            </button>
+          <div className="app-header__right">
+            <span className="app-header__user">
+              {!isPlaybackMode && <span className="app-header__user-icon" title={`現在 ${userCount} 人が接続中`}></span>}
+              {userName}
+            </span>
+            {!isPlaybackMode && <ConnectionStatus state={connectionState} />}
           </div>
-
-          <button
-            className="guide-toggle-btn"
-            onClick={() => setIsGuideOpen(true)}
-            title="体験ガイドを表示"
-          >
-            💡 <span className="btn-label-text">ガイド</span>
-          </button>
-
-          <button
-            className="guide-toggle-btn"
-            onClick={isPlaybackMode ? exitPlayback : startPlayback}
-            title={isPlaybackMode ? "プレイバックを終了" : "プレイバック履歴を再生"}
-            style={{
-              background: isPlaybackMode ? 'var(--accent-primary)' : '#eaf3ff',
-              borderColor: isPlaybackMode ? 'var(--accent-primary)' : '#c8dfff',
-              color: isPlaybackMode ? 'white' : '#1e60c4',
-            }}
-          >
-            ⏱️ <span className="btn-label-text">履歴再生</span>
-          </button>
-
         </div>
 
-        <div className="app-header__right">
-          <span className="app-header__user">
-            <span className="app-header__user-icon" title={`現在 ${userCount} 人が接続中`}></span>
-            {userName}
-          </span>
-          <ConnectionStatus state={connectionState} />
+        <div className="app-header__toolbar-row">
+          <div className="app-header__toolbar-left">
+            <div className="toolbar-group" title="履歴操作">
+              <button
+                className="toolbar-btn"
+                onClick={undo}
+                disabled={!canUndo}
+                title="取り消し (Ctrl+Z)"
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16">
+                  <path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C23.77 10.96 18.66 8 12.5 8z"/>
+                </svg>
+              </button>
+              <button
+                className="toolbar-btn"
+                onClick={redo}
+                disabled={!canRedo}
+                title="やり直し (Ctrl+Y)"
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16">
+                  <path fill="currentColor" d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-6.16 0-11.27 2.96-12.87 7.22l2.37.78c1.05-3.19 4.06-5.5 7.6-5.5 1.96 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/>
+                </svg>
+              </button>
+            </div>
+
+            <div className="toolbar-divider" />
+
+            <div className="toolbar-group" title="新規ブロックの初期強調度 / 見出し">
+              <span className="toolbar-group__label">強調度:</span>
+              <div className="segmented-control">
+                <button
+                  title="見出し (H1)"
+                  onClick={() => setDefaultEmphasis('h1')}
+                  className={`segmented-control__item ${defaultEmphasis === 'h1' ? 'segmented-control__item--active' : ''}`}
+                  style={{ fontWeight: '800' }}
+                >
+                  H1
+                </button>
+                <button
+                  title="太字"
+                  onClick={() => setDefaultEmphasis(1)}
+                  className={`segmented-control__item segmented-control__item--bold ${defaultEmphasis === 1 ? 'segmented-control__item--active' : ''}`}
+                >
+                  太<span className="btn-label-text">字</span>
+                </button>
+                <button
+                  title="標準"
+                  onClick={() => setDefaultEmphasis(0)}
+                  className={`segmented-control__item ${defaultEmphasis === 0 ? 'segmented-control__item--active' : ''}`}
+                >
+                  標<span className="btn-label-text">準</span>
+                </button>
+                <button
+                  title="控えめ"
+                  onClick={() => setDefaultEmphasis(-1)}
+                  className={`segmented-control__item segmented-control__item--dimmed ${defaultEmphasis === -1 ? 'segmented-control__item--active' : ''}`}
+                >
+                  控<span className="btn-label-text">えめ</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="toolbar-divider" />
+
+            <div className="toolbar-group" title="表示フィルター">
+              <span className="toolbar-group__label">表示:</span>
+              <div className="segmented-control">
+                <button
+                  onClick={() => setDisplayFilter('all')}
+                  disabled={isPlaybackMode}
+                  className={`segmented-control__item ${displayFilter === 'all' ? 'segmented-control__item--active' : ''}`}
+                  style={{ opacity: isPlaybackMode && displayFilter !== 'all' ? 0.5 : 1 }}
+                >
+                  すべて
+                </button>
+                <button
+                  onClick={() => setDisplayFilter('highlightAndStandard')}
+                  disabled={isPlaybackMode}
+                  className={`segmented-control__item ${displayFilter === 'highlightAndStandard' ? 'segmented-control__item--active' : ''}`}
+                  style={{ opacity: isPlaybackMode && displayFilter !== 'highlightAndStandard' ? 0.5 : 1 }}
+                >
+                  標準＋太<span className="btn-label-text">字</span>
+                </button>
+                <button
+                  onClick={() => setDisplayFilter('highlightOnly')}
+                  disabled={isPlaybackMode}
+                  className={`segmented-control__item ${displayFilter === 'highlightOnly' ? 'segmented-control__item--active' : ''}`}
+                  style={{ opacity: isPlaybackMode && displayFilter !== 'highlightOnly' ? 0.5 : 1 }}
+                >
+                  太字<span className="btn-label-text">のみ</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="app-header__toolbar-right">
+            <button
+              className="toolbar-btn theme-toggle-btn"
+              onClick={toggleTheme}
+              title={theme === 'light' ? 'ダークモードに切り替え' : 'ライトモードに切り替え'}
+              style={{ marginRight: '8px' }}
+            >
+              {theme === 'light' ? (
+                <svg viewBox="0 0 24 24" width="16" height="16">
+                  <path fill="currentColor" d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" width="16" height="16">
+                  <path fill="currentColor" d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41l-1.06-1.06zm1.06-12.37c-.39-.39-1.02-.39-1.41 0l-1.06 1.06c-.39.38-.39 1.02 0 1.41s1.02.39 1.41 0l1.06-1.06c.38-.38.38-1.02 0-1.41zm-12.37 12.37l-1.06 1.06c-.39.39-.39 1.02 0 1.41s1.02.39 1.41 0l1.06-1.06c.39-.38.39-1.02 0-1.41z"/>
+                </svg>
+              )}
+            </button>
+
+            <button
+              className="toolbar-toggle-btn"
+              onClick={toggleHeader}
+              title={isHeaderCollapsed ? "ヘッダーを展開" : "ヘッダーを折りたたむ"}
+            >
+              {isHeaderCollapsed ? (
+                <svg className="toolbar-toggle-icon" viewBox="0 0 24 24" width="16" height="16">
+                  <path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/>
+                </svg>
+              ) : (
+                <svg className="toolbar-toggle-icon" viewBox="0 0 24 24" width="16" height="16">
+                  <path fill="currentColor" d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41z"/>
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -536,6 +668,7 @@ export const App: React.FC = () => {
           onHandleMouseDown={handleMouseDown}
           onHandleDoubleClick={handleDoubleClick}
           containerRef={containerRef}
+          isPlaybackActive={isPlaybackMode}
           docPanel={
             <DocPanel
               nodes={filteredDocNodes}
@@ -553,6 +686,7 @@ export const App: React.FC = () => {
               isPlaybackActive={isPlaybackMode}
               activeHighlightBlockId={activeHighlightBlockId}
               activeDeletedIndex={activeDeletedIndex}
+              isCautiousMode={isCautiousMode}
             />
           }
           chatPanel={
