@@ -18,7 +18,6 @@ export const App: React.FC = () => {
   const [userName, setUserName] = useState<string | null>(null);
   const [userId] = useState(() => `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
   const [defaultEmphasis, setDefaultEmphasis] = useState<EmphasisLevel | 'h1'>(0);
-  const [displayFilter, setDisplayFilter] = useState<'all' | 'highlightAndStandard' | 'highlightOnly'>('all');
 
   const [isGuideOpen, setIsGuideOpen] = useState(false);
 
@@ -30,19 +29,22 @@ export const App: React.FC = () => {
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState<boolean>(() => {
     return localStorage.getItem('chatment-header-collapsed') === 'true';
   });
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('chatment-sidebar-collapsed') === 'true';
+  });
 
   const [isCautiousMode, setIsCautiousMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('chatment-cautious-mode');
     return saved !== 'false';
   });
+  const [cautiousTooltip, setCautiousTooltip] = useState<string | null>(null);
 
   const toggleCautiousMode = useCallback(() => {
-    setIsCautiousMode(prev => {
-      const next = !prev;
-      localStorage.setItem('chatment-cautious-mode', String(next));
-      return next;
-    });
-  }, []);
+    const next = !isCautiousMode;
+    setIsCautiousMode(next);
+    localStorage.setItem('chatment-cautious-mode', String(next));
+    setCautiousTooltip(next ? '他の人が書いた行を編集するとき確認します' : 'オフになりました。');
+  }, [isCautiousMode]);
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('chatment-theme') as 'light' | 'dark') || 'light';
@@ -52,6 +54,17 @@ export const App: React.FC = () => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('chatment-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (!cautiousTooltip) return;
+
+    const timeoutMs = cautiousTooltip === 'オフになりました。' ? 5000 : 10000;
+    const timer = window.setTimeout(() => {
+      setCautiousTooltip(null);
+    }, timeoutMs);
+
+    return () => window.clearTimeout(timer);
+  }, [cautiousTooltip]);
 
   const toggleTheme = useCallback(() => {
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
@@ -63,6 +76,19 @@ export const App: React.FC = () => {
       localStorage.setItem('chatment-header-collapsed', String(next));
       return next;
     });
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('chatment-sidebar-collapsed', String(next));
+      return next;
+    });
+  }, []);
+
+  const openSidebar = useCallback(() => {
+    setIsSidebarCollapsed(false);
+    localStorage.setItem('chatment-sidebar-collapsed', 'false');
   }, []);
 
   const chatPanelRef = useRef<HTMLDivElement>(null);
@@ -425,24 +451,6 @@ export const App: React.FC = () => {
     }, delay);
   }, [ratio, setRatio]);
 
-  const filteredDocNodes = docNodes.filter(({ node, loroMap }) => {
-    if (isPlaybackMode) return true; // Bypassing filter during playback
-
-    let emphasis = 0;
-    if (loroMap) {
-      if (node.type === 'chat') {
-        // If the workspace is currently dominant-doc, chat nodes appear as muted (-1)
-        emphasis = isDominantDoc ? -1 : 0;
-      } else {
-        emphasis = (loroMap.get('emphasis') as number) || 0;
-      }
-    }
-
-    if (displayFilter === 'highlightOnly') return emphasis === 1;
-    if (displayFilter === 'highlightAndStandard') return emphasis >= 0;
-    return true; // all
-  });
-
   const handleAfterEdit = useCallback(() => {
     triggerSave();
   }, [triggerSave]);
@@ -476,13 +484,17 @@ export const App: React.FC = () => {
 
   return (
     <div className={`app ${isPlaybackMode ? 'playback-active' : ''}`} id="app">
+      <OutlineSidebar
+        nodes={nodes}
+        onJumpToNode={handleJumpToNode}
+        isCollapsed={isSidebarCollapsed}
+        onToggle={toggleSidebar}
+        onOpenSidebar={openSidebar}
+        docId={docId}
+      />
+
       <header className="app-header" id="app-header">
         <div className="app-header__main-row">
-          <div className="app-header__left">
-            <h1 className="app-header__title">
-              Chatment <span className="btn-label-text">ver.2</span> <span className="header-doc-id" style={{ fontSize: '11px', opacity: 0.6, marginLeft: '6px' }}>#{docId}</span>
-            </h1>
-          </div>
 
           <div className="app-header__center-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {/* 履歴操作 */}
@@ -494,7 +506,7 @@ export const App: React.FC = () => {
                 title="取り消し (Ctrl+Z)"
               >
                 <svg viewBox="0 0 24 24" width="14" height="14">
-                  <path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C23.77 10.96 18.66 8 12.5 8z"/>
+                  <path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C23.77 10.96 18.66 8 12.5 8z" />
                 </svg>
               </button>
               <button
@@ -504,41 +516,9 @@ export const App: React.FC = () => {
                 title="やり直し (Ctrl+Y)"
               >
                 <svg viewBox="0 0 24 24" width="14" height="14">
-                  <path fill="currentColor" d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-6.16 0-11.27 2.96-12.87 7.22l2.37.78c1.05-3.19 4.06-5.5 7.6-5.5 1.96 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/>
+                  <path fill="currentColor" d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-6.16 0-11.27 2.96-12.87 7.22l2.37.78c1.05-3.19 4.06-5.5 7.6-5.5 1.96 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z" />
                 </svg>
               </button>
-            </div>
-
-            <div className="toolbar-divider" style={{ width: '1px', height: '18px', background: 'var(--border-medium)' }} />
-
-            {/* 表示フィルター */}
-            <div className="toolbar-group" title="表示フィルター">
-              <div className="segmented-control" style={{ display: 'flex', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-sm)', padding: '2px' }}>
-                <button
-                  onClick={() => setDisplayFilter('all')}
-                  disabled={isPlaybackMode}
-                  className={`segmented-control__item ${displayFilter === 'all' ? 'segmented-control__item--active' : ''}`}
-                  style={{ opacity: isPlaybackMode && displayFilter !== 'all' ? 0.5 : 1, padding: '3px 8px', fontSize: '11px' }}
-                >
-                  すべて
-                </button>
-                <button
-                  onClick={() => setDisplayFilter('highlightAndStandard')}
-                  disabled={isPlaybackMode}
-                  className={`segmented-control__item ${displayFilter === 'highlightAndStandard' ? 'segmented-control__item--active' : ''}`}
-                  style={{ opacity: isPlaybackMode && displayFilter !== 'highlightAndStandard' ? 0.5 : 1, padding: '3px 8px', fontSize: '11px' }}
-                >
-                  標準＋太字
-                </button>
-                <button
-                  onClick={() => setDisplayFilter('highlightOnly')}
-                  disabled={isPlaybackMode}
-                  className={`segmented-control__item ${displayFilter === 'highlightOnly' ? 'segmented-control__item--active' : ''}`}
-                  style={{ opacity: isPlaybackMode && displayFilter !== 'highlightOnly' ? 0.5 : 1, padding: '3px 8px', fontSize: '11px' }}
-                >
-                  太字のみ
-                </button>
-              </div>
             </div>
 
             <div className="toolbar-divider" style={{ width: '1px', height: '18px', background: 'var(--border-medium)' }} />
@@ -547,11 +527,40 @@ export const App: React.FC = () => {
             <div className="app-header__meta-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div className="cautious-mode-container" title={isCautiousMode ? "慎重モードをオフにする" : "慎重モードをオンにする"} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <span className="cautious-mode-label" style={{ display: 'flex', alignItems: 'center' }}>
-                  <svg viewBox="0 0 24 24" width="13" height="13" style={{ marginRight: '4px' }}>
-                    {/* 若葉マーク（初心者マーク）の形：V字型で左右対称に色分け */}
-                    <path d="M12 2 L4 8 C4 15 8 20 12 22 C12 22 12 22 12 22 C12 22 12 22 12 22 L12 2 Z" fill="#4caf50" />
-                    <path d="M12 2 L12 22 C16 20 20 15 20 8 L12 2 Z" fill="#ffeb3b" />
-                    <path d="M12 2 L4 8 C4 15 8 20 12 22 C16 20 20 15 20 8 L12 2 Z" fill="none" stroke="#2e7d32" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <svg
+                    viewBox="0 0 24 24"
+                    width="13"
+                    height="13"
+                    style={{ marginRight: '4px' }}
+                  >
+                    <defs>
+                      <linearGradient id="leafGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#b8f05a" />
+                        <stop offset="100%" stopColor="#7ccf3d" />
+                      </linearGradient>
+                    </defs>
+
+                    <path
+                      d="M12 11
+       C11 6.5 7 5.2 3.5 6.2
+       C4.2 10.8 7.8 13 12 11Z"
+                      fill="url(#leafGradient)"
+                    />
+
+                    <path
+                      d="M12 11
+       C13 7.5 16.8 7.2 20.5 8.6
+       C19.8 12.2 16.5 13.4 12 11Z"
+                      fill="url(#leafGradient)"
+                    />
+
+                    {/* 茎 */}
+                    <path
+                      d="M12 11V20"
+                      stroke="#78c63a"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                    />
                   </svg>
                   <span className="btn-label-text">慎重モード</span>
                 </span>
@@ -563,9 +572,9 @@ export const App: React.FC = () => {
                 >
                   <span className="cautious-mode-switch__thumb" />
                 </button>
-                {isCautiousMode && (
+                {cautiousTooltip && (
                   <div className="cautious-mode-tooltip">
-                    他の人が書いた行を編集するとき確認します
+                    {cautiousTooltip}
                   </div>
                 )}
               </div>
@@ -574,7 +583,7 @@ export const App: React.FC = () => {
                 className="guide-toggle-btn"
                 onClick={() => setIsGuideOpen(true)}
                 title="体験ガイドを表示"
-                style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#fef3c7', borderColor: '#fbbf24', color: '#92400e' }}
               >
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10" />
@@ -617,25 +626,24 @@ export const App: React.FC = () => {
             >
               {theme === 'light' ? (
                 <svg viewBox="0 0 24 24" width="15" height="15">
-                  <path fill="currentColor" d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/>
+                  <path fill="currentColor" d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z" />
                 </svg>
               ) : (
                 <svg viewBox="0 0 24 24" width="15" height="15">
-                  <path fill="currentColor" d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41l-1.06-1.06zm1.06-12.37c-.39-.39-1.02-.39-1.41 0l-1.06 1.06c-.39.38-.39 1.02 0 1.41s1.02.39 1.41 0l1.06-1.06c.38-.38.38-1.02 0-1.41zm-12.37 12.37l-1.06 1.06c-.39.39-.39 1.02 0 1.41s1.02.39 1.41 0l1.06-1.06c.39-.38.39-1.02 0-1.41z"/>
+                  <path fill="currentColor" d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41l-1.06-1.06zm1.06-12.37c-.39-.39-1.02-.39-1.41 0l-1.06 1.06c-.39.38-.39 1.02 0 1.41s1.02.39 1.41 0l1.06-1.06c.38-.38.38-1.02 0-1.41zm-12.37 12.37l-1.06 1.06c-.39.39-.39 1.02 0 1.41s1.02.39 1.41 0l1.06-1.06c.39-.38.39-1.02 0-1.41z" />
                 </svg>
               )}
             </button>
             <span className="app-header__user">
               {!isPlaybackMode && <span className="app-header__user-icon" title={`現在 ${userCount} 人が接続中`}></span>}
-              {userName}
+              <span>{userName}</span>
+              {!isPlaybackMode && <ConnectionStatus state={connectionState} userName={userName} />}
             </span>
-            {!isPlaybackMode && <ConnectionStatus state={connectionState} />}
           </div>
         </div>
       </header>
 
       <main className={`app-main ${dominantClass}`} style={{ position: 'relative' }}>
-        <OutlineSidebar nodes={nodes} onJumpToNode={handleJumpToNode} />
         <SplitView
           ratio={ratio}
           isDominantDoc={isDominantDoc}
@@ -645,7 +653,7 @@ export const App: React.FC = () => {
           isPlaybackActive={isPlaybackMode}
           docPanel={
             <DocPanel
-              nodes={filteredDocNodes}
+              nodes={docNodes}
               doc={doc}
               userName={userName}
               defaultEmphasis={defaultEmphasis}

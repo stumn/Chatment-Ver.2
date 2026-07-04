@@ -133,6 +133,7 @@ body {
   flex-direction: column;
   height: 100%;
   background: var(--bg-primary);
+  position: relative;
 }
 
 .app-header {
@@ -141,11 +142,12 @@ body {
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   border-bottom: 1px solid var(--border-subtle);
-  z-index: 100;
+  z-index: 90;
   flex-shrink: 0;
   width: 100%;
   height: 48px;
-  overflow: visible; /* 慎重モードのツールチップを正しく下にはみ出させる */
+  overflow: visible;
+  /* 慎重モードのツールチップを正しく下にはみ出させる */
 }
 
 /* メイン行（1段構造） */
@@ -156,7 +158,8 @@ body {
   width: 100%;
   height: 100%;
   padding: 0 var(--space-xl);
-  overflow: visible; /* 慎重モードのツールチップを正しく下にはみ出させる */
+  overflow: visible;
+  /* 慎重モードのツールチップを正しく下にはみ出させる */
   flex-shrink: 0;
 }
 
@@ -183,6 +186,69 @@ body {
   align-items: center;
   gap: var(--space-sm);
   flex-shrink: 0;
+  min-width: 56px;
+}
+
+.app-header__sidebar-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.app-header__sidebar-trigger:hover,
+.app-header__sidebar-trigger:focus-visible {
+  background: var(--bg-tertiary);
+  border-color: var(--border-medium);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.app-header__title-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  padding: 6px 10px;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-full);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.app-header__title-toggle:hover,
+.app-header__title-toggle:focus-visible {
+  background: var(--bg-tertiary);
+  border-color: var(--border-medium);
+  transform: translateY(-1px);
+}
+
+.app-header__title-toggle__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  opacity: 0.8;
+  transition: opacity var(--transition-fast), background-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.app-header__title-toggle:hover .app-header__title-toggle__icon,
+.app-header__title-toggle:focus-visible .app-header__title-toggle__icon {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.04);
+  transform: scale(1.03);
 }
 
 .app-header__title {
@@ -229,6 +295,20 @@ body {
   font-size: var(--font-size-base);
 }
 
+.app-header__user {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.app-header__user .connection-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
 .app-main {
   flex: 1;
   overflow: hidden;
@@ -249,8 +329,12 @@ body {
 }
 
 .connection-status__dot {
-  font-size: 8px;
-  line-height: 1;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
 }
 
 .connection-status--connecting .connection-status__dot {
@@ -506,34 +590,44 @@ body {
   .app-header__main-row {
     padding: 0 var(--space-sm);
   }
+
   .app-header__toolbar-row {
     padding: 0 var(--space-sm);
   }
+
   .app-header__title {
     font-size: var(--font-size-sm);
   }
+
   .app-header__right {
     gap: var(--space-xs);
   }
+
   .app-header__user {
     padding: var(--space-xs) var(--space-sm);
   }
+
   .connection-status__label {
     display: none;
   }
+
   .btn-label-text {
     display: none;
   }
+
   .header-doc-id {
     display: none;
   }
+
   .cautious-mode-label {
     display: none;
   }
+
   .cautious-mode-container {
     padding: 4px;
     gap: 0;
   }
+
   .segmented-control__item {
     padding: 4px 6px;
     font-size: 10px;
@@ -547,12 +641,14 @@ body {
   align-items: center;
   gap: var(--space-lg);
   overflow-x: auto;
-  scrollbar-width: none; /* Firefox用 */
+  scrollbar-width: none;
+  /* Firefox用 */
   flex: 1;
 }
 
 .app-header__toolbar-left::-webkit-scrollbar {
-  display: none; /* Safari/Chrome用 */
+  display: none;
+  /* Safari/Chrome用 */
 }
 
 .app-header__toolbar-right {
@@ -746,19 +842,20 @@ body {
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
-  background: var(--bg-tertiary);
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
   padding: 4px 10px;
   border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
+  border: 1px solid #86efac;
   height: 30px;
   flex-shrink: 0;
   transition: all var(--transition-base);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .cautious-mode-label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: #166534;
   white-space: nowrap;
   user-select: none;
 }
@@ -784,7 +881,7 @@ body {
 }
 
 .cautious-mode-switch.is-active {
-  background-color: #007aff; /* 画像のような鮮やかな青色 */
+  background-color: #22c55e;
 }
 
 .cautious-mode-switch__thumb {

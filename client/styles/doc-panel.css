@@ -144,7 +144,8 @@
   width: 24px;
   cursor: pointer;
   position: relative;
-  opacity: 1; /* Keep visible like the timeline */
+  opacity: 1;
+  /* Keep visible like the timeline */
   padding-top: 5px;
 }
 
@@ -152,8 +153,9 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--bg-elevated); /* Hollow Doc style */
-  border: 2px solid var(--accent-secondary); 
+  background: var(--bg-elevated);
+  /* Hollow Doc style */
+  border: 2px solid var(--accent-secondary);
   transition: transform var(--transition-fast);
   display: flex;
   align-items: center;
@@ -163,7 +165,8 @@
 }
 
 .doc-block--chat .doc-block__timeline-circle {
-  background: var(--accent-primary); /* Solid Chat style */
+  background: var(--accent-primary);
+  /* Solid Chat style */
   border-color: var(--accent-primary);
 }
 
@@ -379,7 +382,8 @@
   position: absolute;
   left: 0;
   top: 0;
-  z-index: 999; /* 全ての上に重なるように最前面に配置 */
+  z-index: 110;
+  /* 全ての上に重なるように最前面に配置 */
   border-right: 1px solid var(--border-subtle);
   background: var(--bg-secondary);
   transition: width var(--transition-slow), box-shadow var(--transition-slow);
@@ -388,31 +392,106 @@
 }
 
 .outline-sidebar.is-collapsed {
-  width: 32px;
+  width: 48px;
   box-shadow: none;
 }
 
 .outline-sidebar.is-expanded {
-  width: 180px;
+  width: 220px;
   /* 展開時にチャットやドキュメントの上に重なっていることがわかるように綺麗な影を落とす */
   box-shadow: var(--shadow-lg), 4px 0 24px rgba(0, 0, 0, 0.08);
 }
 
 .outline-sidebar__header {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  min-height: 84px;
+  padding: 12px 12px 12px 12px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.outline-sidebar__header-main {
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 48px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--border-subtle);
+  gap: 8px;
+  min-height: 40px;
+}
+
+.outline-sidebar__brand {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.outline-sidebar__brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--accent-primary);
   flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.outline-sidebar__brand-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.outline-sidebar__brand-name {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+  font-family: 'Rubik', 'Quicksand', sans-serif;
+}
+
+.outline-sidebar__brand-room {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.outline-sidebar__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding-top: 6px;
+}
+
+.outline-sidebar__divider {
+  width: 100%;
+  height: 1px;
+  background: var(--border-subtle);
+  margin-bottom: 2px;
 }
 
 .outline-sidebar__title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.01em;
+  color: var(--text-secondary);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   user-select: none;
 }
 
@@ -424,12 +503,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: var(--radius-sm);
   transition: all var(--transition-fast);
-  margin: 0 auto;
+  margin: 0;
   outline: none;
+  position: absolute;
+  right: 8px;
+  padding: 0;
 }
 
 .outline-sidebar__toggle-btn:hover {
@@ -447,7 +529,8 @@
   overflow-x: hidden;
   width: 100%;
   position: relative;
-  scrollbar-width: none; /* スクロールバー非表示 */
+  scrollbar-width: none;
+  /* スクロールバー非表示 */
 }
 
 .outline-sidebar__body::-webkit-scrollbar {
@@ -711,9 +794,9 @@
   transform: translateX(-50%);
   z-index: 1000;
   width: 240px;
-  background: #fff3cd; /* 優しい黄色 */
-  border: 1px solid #ffeeba;
-  color: #856404;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border: 1px solid #86efac;
+  color: #166534;
   padding: 8px 12px;
   border-radius: var(--radius-md);
   font-size: 11px;
@@ -723,7 +806,7 @@
   animation: tooltipFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
   text-align: center;
-  border-top: 3px solid #ffc107;
+  border-top: 3px solid #4ade80;
 }
 
 .cautious-mode-tooltip::before {
@@ -734,7 +817,7 @@
   transform: translateX(-50%);
   border-width: 6px;
   border-style: solid;
-  border-color: transparent transparent #ffc107 transparent;
+  border-color: transparent transparent #4ade80 transparent;
 }
 
 [data-theme="dark"] .cautious-mode-tooltip {
@@ -753,6 +836,7 @@
     opacity: 0;
     transform: translateX(-50%) translateY(4px);
   }
+
   to {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
@@ -762,7 +846,8 @@
 /* ─── DocBlock Hover Toolbars (紙の外側へはみ出し配置) ─── */
 .doc-block__action-toolbar {
   position: absolute;
-  right: -125px; /* 紙の外側（余白部分）へ十分にはみ出し */
+  right: -125px;
+  /* 紙の外側（余白部分）へ十分にはみ出し */
   top: 50%;
   transform: translateY(-50%) scale(0.96);
   display: flex;
@@ -770,7 +855,8 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border-medium);
   padding: 4px;
-  border-radius: var(--radius-md); /* 2段構造に適した角丸 */
+  border-radius: var(--radius-md);
+  /* 2段構造に適した角丸 */
   box-shadow: var(--shadow-md), 0 4px 12px rgba(0, 0, 0, 0.08);
   z-index: 20;
   opacity: 0;
@@ -832,16 +918,20 @@
     padding: 2px;
     border-radius: var(--radius-sm);
   }
+
   .action-toolbar__controls-grid {
-    flex-direction: row !important; /* 横一列に並べて高さを抑える */
+    flex-direction: row !important;
+    /* 横一列に並べて高さを抑える */
     gap: 2px !important;
   }
+
   .action-toolbar__btn {
     width: 20px;
     height: 18px;
     font-size: 9px;
     border-radius: 2px;
   }
+
   .action-toolbar__drag-handle {
     padding: 0 2px !important;
     font-size: 11px !important;

@@ -55,17 +55,36 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   const [renderKey, setRenderKey] = useState(0); // Used to forcefully remount contentEditable
   const isChat = node.type === 'chat';
 
+  const requestCautiousEdit = useCallback((actionLabel: string) => {
+    if (!isCautiousMode) return true;
+
+    const isFirstAuthor = node.author === userName;
+    const isSubAuthor = (loroMap?.get('subAuthor') as string | undefined) === userName;
+    if (isFirstAuthor || isSubAuthor) return true;
+    if (!node.author) return true;
+    if (hasEditPermissionRef.current) return true;
+
+    const subAuthorVal = loroMap?.get('subAuthor') as string | undefined;
+    const ownerName = node.author + (subAuthorVal ? ` と ${subAuthorVal}` : '');
+    const confirmMessage = `${actionLabel}を行いますか？\nこのブロックの所有者は「${ownerName}」です。編集（共同編集者として追加）しますか？`;
+    if (window.confirm(confirmMessage)) {
+      hasEditPermissionRef.current = true;
+      return true;
+    }
+    return false;
+  }, [isCautiousMode, node.author, loroMap, userName]);
+
   const handleBlur = useCallback(() => {
     hasEditPermissionRef.current = false;
     if (!doc || !contentRef.current || isPlaybackActive) return;
     const newText = contentRef.current.textContent || '';
     const currentText = loroMap?.get('content')?.toString() || '';
-    
+
     let isH1 = false;
     if (newText.startsWith('#')) {
       isH1 = true;
     }
-    
+
     const currentHeading = loroMap?.get('heading') || null;
     const nextHeading = isH1 ? 'h1' : null;
 
@@ -181,6 +200,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     if (e.key === 'Tab') {
       if (isAtStart) {
         e.preventDefault();
+        if (!requestCautiousEdit('インデント')) return;
         if (doc && loroMap) {
           const currentIndent = loroMap.get('indent') as number || 0;
           const nextIndent = e.shiftKey ? Math.max(0, currentIndent - 1) : Math.min(2, currentIndent + 1);
@@ -197,6 +217,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     if ((e.key === ' ' || e.key === '　') && !e.shiftKey) {
       if (isAtStart) {
         e.preventDefault();
+        if (!requestCautiousEdit('インデント')) return;
         if (doc && loroMap) {
           const currentIndent = loroMap.get('indent') as number || 0;
           const nextIndent = Math.min(2, currentIndent + 1);
@@ -215,6 +236,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
         const currentIndent = loroMap?.get('indent') as number || 0;
         if (currentIndent > 0) {
           e.preventDefault();
+          if (!requestCautiousEdit('インデント')) return;
           if (doc && loroMap) {
             loroMap.set('indent', currentIndent - 1);
             const blockId = loroMap.get('blockId') as string || `blk-${index}`;
@@ -232,7 +254,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       const sRange = selection?.getRangeAt(0);
       const sCaretPos = sRange?.startOffset || 0;
       const newText = contentRef.current?.textContent || '';
-      
+
       // # の検知を行って現在の行の見出し情報を更新する
       let isH1 = false;
       if (newText.startsWith('#')) {
@@ -241,13 +263,13 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       if (loroMap) {
         loroMap.set('heading', isH1 ? 'h1' : null);
       }
-      
+
       const textAfterCursor = newText.substring(sCaretPos);
       const textBeforeCursor = newText.substring(0, sCaretPos);
 
       if (doc) {
         updateDocContent(doc, index, textBeforeCursor, userName);
-        
+
         const currentIndent = loroMap?.get('indent') as number || 0;
         const nextIndent = Math.min(2, currentIndent + 1); // 改行して新規ブロックを作成する際は前の行 + 1 のインデント (最大2に制限)
 
@@ -320,7 +342,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
         }
       }
     }
-  }, [doc, index, node, userName, defaultEmphasis, onAfterEdit, moveUp, moveDown, focusNextBlock, getSelectionRange, loroMap, blockIndent]);
+  }, [doc, index, node, userName, defaultEmphasis, onAfterEdit, moveUp, moveDown, focusNextBlock, getSelectionRange, loroMap, blockIndent, requestCautiousEdit]);
 
 
 
@@ -345,14 +367,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
         return;
       }
 
-      if (hasEditPermissionRef.current) return;
-
-      const subAuthorVal = loroMap?.get('subAuthor') as string | undefined;
-      const ownerName = node.author + (subAuthorVal ? ` と ${subAuthorVal}` : '');
-      const confirmMsg = `このブロックの所有者は「${ownerName}」です。編集（共同編集者として追加）しますか？`;
-      if (window.confirm(confirmMsg)) {
-        hasEditPermissionRef.current = true;
-      } else {
+      if (!requestCautiousEdit('編集')) {
         ie.preventDefault();
         el.blur();
       }
@@ -362,7 +377,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     return () => {
       el.removeEventListener('beforeinput', handleBeforeInput);
     };
-  }, [doc, index, node, userName, isCautiousMode, isPlaybackActive, loroMap]);
+  }, [doc, index, node, userName, isCautiousMode, isPlaybackActive, loroMap, requestCautiousEdit]);
 
   // H1ボタンなどで見出し状態が変化した際にテキストの先頭の「# 」を同期する処理
   useEffect(() => {
@@ -392,17 +407,19 @@ export const DocBlock: React.FC<DocBlockProps> = ({
 
   const toggleH1 = useCallback(() => {
     if (!doc || !loroMap || isPlaybackActive) return;
+    if (!requestCautiousEdit('見出し')) return;
     const currentHeading = loroMap.get('heading') as string | null;
     const nextHeading = currentHeading === 'h1' ? null : 'h1';
     loroMap.set('heading', nextHeading);
-    
+
     const blockId = loroMap.get('blockId') as string || `blk-${index}`;
     doc.commit({ message: `toggle-h1:${blockId}:${nextHeading}` });
     onAfterEdit();
-  }, [doc, loroMap, index, onAfterEdit, isPlaybackActive]);
+  }, [doc, loroMap, index, onAfterEdit, isPlaybackActive, requestCautiousEdit]);
 
   const setEmphasis = useCallback((level: EmphasisLevel) => {
     if (!doc || !loroMap) return;
+    if (!requestCautiousEdit('強調')) return;
 
     // Apply the block-level style mapping (simple key-value setting)
     loroMap.set('emphasis', level);
@@ -410,17 +427,18 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     doc.commit({ message: `emphasis:${blockId}:${level}` });
 
     onAfterEdit();
-  }, [doc, loroMap, onAfterEdit, index]);
+  }, [doc, loroMap, onAfterEdit, index, requestCautiousEdit]);
 
   const adjustIndent = useCallback((direction: number) => {
     if (!doc || !loroMap || isPlaybackActive) return;
+    if (!requestCautiousEdit('インデント')) return;
     const currentIndent = loroMap.get('indent') as number || 0;
     const nextIndent = Math.max(0, Math.min(2, currentIndent + direction));
     loroMap.set('indent', nextIndent);
     const blockId = loroMap.get('blockId') as string || `blk-${index}`;
     doc.commit({ message: `indent:${blockId}:${nextIndent}` });
     onAfterEdit();
-  }, [doc, index, loroMap, onAfterEdit, isPlaybackActive]);
+  }, [doc, index, loroMap, onAfterEdit, isPlaybackActive, requestCautiousEdit]);
 
   // moveUp and moveDown have been moved up
   const formatTime = (ts: number) => {
@@ -450,7 +468,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       if (emoji === '⇩') downvotes++;
     });
   }
-  
+
   const voteScore = upvotes - downvotes;
 
   const getIndentMargin = (indent: number) => {
@@ -466,7 +484,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   };
   if (voteScore > 0) {
     // 2 votes = 0.15 intensity step
-    const intensity = Math.min(1.0, Math.floor(voteScore / 2) * 0.15 + 0.1); 
+    const intensity = Math.min(1.0, Math.floor(voteScore / 2) * 0.15 + 0.1);
     dynamicStyle = { ...dynamicStyle, background: `hsla(130, 60%, 45%, ${intensity})` };
   } else if (voteScore < 0) {
     const intensity = Math.min(1.0, Math.floor(Math.abs(voteScore) / 2) * 0.15 + 0.1);
@@ -574,54 +592,54 @@ export const DocBlock: React.FC<DocBlockProps> = ({
               title="ドラッグしてこの行を並び替え"
               onMouseEnter={() => !isPlaybackActive && setIsDraggable(true)}
               onMouseLeave={() => setIsDraggable(false)}
-              style={{ 
-                cursor: isPlaybackActive ? 'not-allowed' : 'grab', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                padding: '0 6px', 
-                fontSize: '13px', 
-                color: 'var(--text-muted)', 
-                userSelect: 'none', 
-                borderRight: '1px solid var(--border-medium)', 
-                marginRight: '6px' 
+              style={{
+                cursor: isPlaybackActive ? 'not-allowed' : 'grab',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 6px',
+                fontSize: '13px',
+                color: 'var(--text-muted)',
+                userSelect: 'none',
+                borderRight: '1px solid var(--border-medium)',
+                marginRight: '6px'
               }}
             >
               ⣿
             </div>
           )}
-          
+
           <div className="action-toolbar__controls-grid" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {/* 上段：インデント切替 (現在のインデント状態を◯/›/»で表現し、クリックで選択) */}
             <div className="action-toolbar__row" style={{ display: 'flex', gap: '2px' }}>
-              <button 
+              <button
                 className={`action-toolbar__btn ${blockIndent === 0 ? 'is-active' : ''}`}
-                title="インデントなし (◯)" 
+                title="インデントなし (◯)"
                 onClick={() => adjustIndent(-blockIndent)}
               >
                 ◯
               </button>
-              <button 
+              <button
                 className={`action-toolbar__btn ${blockIndent === 1 ? 'is-active' : ''}`}
-                title="インデント1段階 (›)" 
+                title="インデント1段階 (›)"
                 onClick={() => adjustIndent(1 - blockIndent)}
               >
                 ›
               </button>
-              <button 
+              <button
                 className={`action-toolbar__btn ${blockIndent === 2 ? 'is-active' : ''}`}
-                title="インデント2段階 (»)" 
+                title="インデント2段階 (»)"
                 onClick={() => adjustIndent(2 - blockIndent)}
               >
                 »
               </button>
             </div>
-            
-            {/* 下段：強調・見出しスタイル */}
+
+            {/* 下段：見出し・標準・控えめ */}
             <div className="action-toolbar__row" style={{ display: 'flex', gap: '2px' }}>
-              <button 
+              <button
                 className={`action-toolbar__btn ${blockHeading === 'h1' ? 'is-active' : ''}`}
-                title="見出し (H1)" 
+                title="見出し (H1)"
                 onClick={() => {
                   if (blockHeading !== 'h1' && blockEmphasis !== 0) setEmphasis(0);
                   toggleH1();
@@ -630,19 +648,9 @@ export const DocBlock: React.FC<DocBlockProps> = ({
               >
                 H1
               </button>
-              <button 
-                className={`action-toolbar__btn action-toolbar__btn--bold ${blockHeading !== 'h1' && blockEmphasis === 1 ? 'is-active' : ''}`} 
-                title="太字 (B)" 
-                onClick={() => {
-                  if (blockHeading === 'h1') toggleH1();
-                  setEmphasis(blockEmphasis === 1 ? 0 : 1);
-                }}
-              >
-                B
-              </button>
-              <button 
-                className={`action-toolbar__btn ${blockHeading !== 'h1' && blockEmphasis === 0 ? 'is-active' : ''}`} 
-                title="標準 (●)" 
+              <button
+                className={`action-toolbar__btn ${blockHeading !== 'h1' && blockEmphasis === 0 ? 'is-active' : ''}`}
+                title="標準 (●)"
                 onClick={() => {
                   if (blockHeading === 'h1') toggleH1();
                   if (blockEmphasis !== 0) setEmphasis(0);
@@ -651,9 +659,9 @@ export const DocBlock: React.FC<DocBlockProps> = ({
               >
                 ●
               </button>
-              <button 
-                className={`action-toolbar__btn ${blockHeading !== 'h1' && blockEmphasis === -1 ? 'is-active' : ''}`} 
-                title="控えめ (●)" 
+              <button
+                className={`action-toolbar__btn ${blockHeading !== 'h1' && blockEmphasis === -1 ? 'is-active' : ''}`}
+                title="控えめ (●)"
                 onClick={() => {
                   if (blockHeading === 'h1') toggleH1();
                   setEmphasis(-1);

@@ -82,10 +82,17 @@ export const DocPanel: React.FC<DocPanelProps> = ({
   }, [doc, userName, defaultEmphasis, onAfterEdit, isPlaybackActive]);
 
   const outlineItems = nodes
-    .filter(({ node }) => node.type === 'doc' && (node.heading === 'h1' || node.emphasis === 1))
+    .filter(({ node }) => {
+      if (node.type !== 'doc') return false;
+      const text = node.content?.trim() ?? '';
+      if (!text) return false;
+      const hasReactions = !!node.reactions && Object.keys(node.reactions).length > 0;
+      const isTopLevel = (node.indent ?? 0) === 0;
+      return node.heading === 'h1' || isTopLevel || hasReactions;
+    })
     .map(({ node, index, id }) => ({
       index,
-      text: node.content?.trim() || '(空の見出し)',
+      text: node.content?.trim() ?? '',
       isH1: 'heading' in node && node.heading === 'h1',
       blockId: id,
     }));
@@ -103,12 +110,12 @@ export const DocPanel: React.FC<DocPanelProps> = ({
               {/* チャットが溢れる前の 1件目の仮書き込みエリア (CRDT上にはまだ追加されないが、入力で発火する想定) */}
               <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
                 <div className="doc-paper">
-                  <div 
+                  <div
                     className={`doc-block doc-block--doc doc-emphasis-${defaultEmphasis}`}
                     style={{ border: '1px dashed var(--border-medium)', background: 'transparent', width: '100%' }}
                   >
                     <div className="doc-block__body">
-                      <div 
+                      <div
                         className="doc-block__content"
                         contentEditable={!isPlaybackActive}
                         suppressContentEditableWarning
@@ -184,10 +191,10 @@ export const DocPanel: React.FC<DocPanelProps> = ({
           ))}
         </div>
       </div>
-      
+
 
       {bgMenu && (
-        <div 
+        <div
           className="doc-block__context-menu"
           style={{ position: 'fixed', top: bgMenu.y, left: bgMenu.x, zIndex: 100000 }}
           onClick={(e) => e.stopPropagation()}

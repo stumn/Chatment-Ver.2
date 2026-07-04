@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import type { StreamNodeWithIndex } from '../types';
 
 interface OutlineItem {
@@ -6,43 +6,57 @@ interface OutlineItem {
   text: string;
   isH1: boolean;
   blockId: string;
+  positiveReactionCount: number;
 }
 
 interface OutlineSidebarProps {
   nodes: StreamNodeWithIndex[];
   onJumpToNode: (index: number, target: 'doc' | 'chat') => void;
+  isCollapsed: boolean;
+  onToggle: () => void;
+  onOpenSidebar?: () => void;
+  docId?: string;
 }
 
-export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToNode }) => {
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    const saved = localStorage.getItem('chatment-sidebar-collapsed');
-    return saved === 'true';
-  });
+const POSITIVE_REACTIONS = new Set(['👍', '❤️', '😂', '🎉', '👀', '⇧']);
 
-  const toggleSidebar = () => {
-    setIsCollapsed(prev => {
-      const next = !prev;
-      localStorage.setItem('chatment-sidebar-collapsed', String(next));
-      return next;
-    });
-  };
-
-  // 見出し(H1)または太字(emphasis: 1)のノードを抽出
+export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToNode, isCollapsed, onToggle, onOpenSidebar, docId }) => {
   const outlineItems: OutlineItem[] = nodes
-    .filter(({ node }) => node.type === 'doc' && (node.heading === 'h1' || node.emphasis === 1))
+    .filter(({ node }) => {
+      if (node.type !== 'doc') return false;
+      const text = node.content?.trim() ?? '';
+      if (!text) return false;
+      const hasReactions = !!node.reactions && Object.keys(node.reactions).length > 0;
+      const isTopLevel = (node.indent ?? 0) === 0;
+      return node.heading === 'h1' || isTopLevel || hasReactions;
+    })
     .map(({ node, index, id }) => ({
       index,
-      text: node.content?.trim() || '(空の見出し)',
+      text: node.content?.trim() ?? '',
       isH1: 'heading' in node && node.heading === 'h1',
       blockId: id,
+      positiveReactionCount: Object.values(node.reactions ?? {}).filter((emoji) => POSITIVE_REACTIONS.has(emoji)).length,
     }));
+
+  const prioritizedItems = (() => {
+    if (outlineItems.length <= 14) return outlineItems;
+
+    const withReactions = outlineItems
+      .filter((item) => item.positiveReactionCount > 0)
+      .sort((a, b) => b.positiveReactionCount - a.positiveReactionCount || a.index - b.index);
+    const withoutReactions = outlineItems
+      .filter((item) => item.positiveReactionCount === 0)
+      .sort((a, b) => a.index - b.index);
+
+    return [...withReactions, ...withoutReactions].slice(0, 14);
+  })();
 
   // ミニマップドットの衝突回避アルゴリズム
   // 近接するドット同士が重なり合って隠れるのを防ぐため、最小間隔（4.5%）をあけて自動配置します。
-  const sortedItems = [...outlineItems].sort((a, b) => a.index - b.index);
+  const sortedItems = [...prioritizedItems].sort((a, b) => a.index - b.index);
   const minSpacing = 4.5;
   let prevPos = -100;
-  
+
   const positionedItems = sortedItems.map((item) => {
     let rawPos = nodes.length > 1 ? (item.index / (nodes.length - 1)) * 80 + 10 : 50;
     if (rawPos - prevPos < minSpacing) {
@@ -55,28 +69,39 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToN
   return (
     <aside className={`outline-sidebar ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`}>
       <div className="outline-sidebar__header">
-        {!isCollapsed && <span className="outline-sidebar__title">目次</span>}
-        <button 
-          className="outline-sidebar__toggle-btn" 
-          onClick={toggleSidebar}
-          title={isCollapsed ? "目次を開く" : "目次を閉じる"}
-          aria-expanded={!isCollapsed}
-        >
-          {isCollapsed ? (
-            /* シンプルなメニュー/目次アイコン */
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="18" x2="21" y2="18" />
+        <div className="outline-sidebar__header-main">
+          <button
+            type="button"
+            className="outline-sidebar__brand"
+            onClick={isCollapsed ? onOpenSidebar : undefined}
+            title={isCollapsed ? '目次を開く' : undefined}
+            aria-label={isCollapsed ? '目次を開く' : 'Chatment'}
+          >
+            {!isCollapsed && (
+              <span className="outline-sidebar__brand-text">
+                <span className="outline-sidebar__brand-name">Chatment</span>
+                {docId ? <span className="outline-sidebar__brand-room">#{docId}</span> : null}
+              </span>
+            )}
+          </button>
+          <button
+            className="outline-sidebar__toggle-btn"
+            onClick={onToggle}
+            title={isCollapsed ? '目次を開く' : '目次を閉じる'}
+            aria-expanded={!isCollapsed}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 48" width="18" height="18" fill="none">
+              <rect x="4" y="4" width="56" height="40" rx="10" stroke="currentColor" strokeWidth="4" />
+              <line x1="22" y1="4" x2="22" y2="44" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
             </svg>
-          ) : (
-            /* ChatGPTライクな閉じるアイコン (縦バーつき折りたたみシンボルに似たシンプルな✕) */
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          )}
-        </button>
+          </button>
+        </div>
+        {!isCollapsed && (
+          <div className="outline-sidebar__section">
+            <div className="outline-sidebar__divider" />
+            <span className="outline-sidebar__title">目次</span>
+          </div>
+        )}
       </div>
 
       <div className="outline-sidebar__body">
@@ -100,12 +125,12 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToN
         ) : (
           /* 展開時：見出しリスト */
           <div className="outline-sidebar__list">
-            {outlineItems.length === 0 ? (
+            {prioritizedItems.length === 0 ? (
               <div className="outline-sidebar__empty">
                 見出しがありません
               </div>
             ) : (
-              outlineItems.map((item) => (
+              prioritizedItems.map((item) => (
                 <button
                   key={item.blockId}
                   className={`outline-sidebar__item ${item.isH1 ? 'outline-sidebar__item--h1' : 'outline-sidebar__item--bold'}`}
