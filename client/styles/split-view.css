@@ -67,36 +67,96 @@
   background: var(--accent-primary);
 }
 
-/* ─── Telomere Split Ratio Sync Tags ─── */
-.telomere-divider-tag {
+/* ─── Telomere Split Ratio Sync Groups (グループ化デザイン) ─── */
+.telomere-group-bar {
   position: absolute;
-  z-index: 100; /* Bring to front so clicking tags always works */
-  width: 28px;
-  height: 14px;
+  right: 12px;
+  z-index: 100; /* つまみクリックを優先するため高めに設定 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  padding: 2px 6px;
   border-radius: var(--radius-full);
-  background: var(--user-color, var(--accent-primary));
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15), 0 0 6px var(--user-color, var(--accent-primary-glow));
-  opacity: 0.65;
-  transform: translateY(-50%); /* Center vertically on the split line position */
-  pointer-events: auto; /* Allow clicking the tag */
+  background: var(--bg-glass);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1.5px solid var(--border-medium);
+  box-shadow: var(--shadow-sm), 0 2px 8px rgba(0, 0, 0, 0.06);
+  transform: translateY(-50%);
   cursor: pointer;
-  transition: top 0.15s ease-out, transform var(--transition-fast) ease, opacity var(--transition-fast) ease, box-shadow var(--transition-fast) ease;
+  pointer-events: auto;
+  transition: top 0.15s ease-out, transform var(--transition-fast) ease, background var(--transition-fast) ease, border-color var(--transition-fast) ease, box-shadow var(--transition-fast) ease;
 }
 
-.telomere-divider-tag:hover {
-  opacity: 0.95;
-  transform: translateY(-50%) scale(1.15);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), 0 0 10px var(--user-color, var(--accent-primary-glow));
+.telomere-group-bar:hover {
+  transform: translateY(-50%) scale(1.08);
+  background: var(--bg-secondary);
+  border-color: var(--border-focus);
+  box-shadow: var(--shadow-md), 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* 自分のつまみ用のスタイル定義 */
-.telomere-divider-tag--me {
-  border: 1.5px solid #ffffff;
-  opacity: 0.8;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2), 0 0 8px var(--user-color, var(--accent-primary-glow));
+/* 自分がいるグループの位置は青い枠線でハイライト */
+.telomere-group-bar.is-me {
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-sm), 0 0 6px var(--accent-primary-glow);
 }
 
-.telomere-divider-tag--me:hover {
-  opacity: 1;
+.telomere-group-bar.is-me:hover {
+  box-shadow: var(--shadow-md), 0 0 10px 2px var(--accent-primary-glow);
+}
+
+/* 複数ユーザーで共有されている位置はうっすら明滅させる */
+.telomere-group-bar.is-shared {
+  animation: telomereSharedPulse 3s infinite ease-in-out;
+}
+
+.telomere-group-bar__dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.telomere-user-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  flex-shrink: 0;
+  box-shadow: 0 0.5px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* 自分のドットは少し目立たせる */
+.telomere-user-dot.is-me {
+  width: 10px;
+  height: 10px;
+  border-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* ダークモード対応 */
+[data-theme="dark"] .telomere-group-bar {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: var(--border-subtle);
+}
+
+[data-theme="dark"] .telomere-group-bar.is-me {
+  border-color: var(--accent-primary);
+}
+
+@keyframes telomereSharedPulse {
+  0% {
+    opacity: 0.9;
+    box-shadow: var(--shadow-sm), 0 0 4px rgba(59, 130, 246, 0.05);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: var(--shadow-md), 0 0 10px 1px rgba(59, 130, 246, 0.15);
+  }
+  100% {
+    opacity: 0.9;
+    box-shadow: var(--shadow-sm), 0 0 4px rgba(59, 130, 246, 0.05);
+  }
 }
 

@@ -7,6 +7,18 @@ interface TelomereProps {
   onSelectRatio: (ratio: number) => void;
 }
 
+interface TelomereUser {
+  id: string;
+  isMe: boolean;
+  color: string;
+}
+
+interface TelomereGroup {
+  ratio: number;
+  users: TelomereUser[];
+  isMe: boolean;
+}
+
 const getHash = (str: string) => {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -15,62 +27,100 @@ const getHash = (str: string) => {
   return Math.abs(hash);
 };
 
-const getHashColor = (str: string) => {
+// 初心者向けアプリに適合する、調和の取れた上品なパステルカラーパレット
+const PALETTE = [
+  '#3b82f6', // ソフトブルー
+  '#a78bfa', // パステルパープル
+  '#10b981', // エメラルド
+  '#f59e0b', // ソフトアンバー
+  '#ec4899', // 優しいピンク
+  '#14b8a6', // ターコイズ
+  '#f97316', // ソフトオレンジ
+];
+
+const getPaletteColor = (str: string) => {
   const hash = getHash(str);
-  const h = hash % 360;
-  return `hsl(${h}, 70%, 60%)`;
+  return PALETTE[hash % PALETTE.length];
 };
 
 export const Telomere: React.FC<TelomereProps> = ({ ratioArray, myRatio, myId, onSelectRatio }) => {
-  const inputOffset = 78; // Approximate height of the chat input area
+  const inputOffset = 78; // チャット入力エリアの概算高さ
 
-  // 自分自身と他人の表示アイテムを合成 (キー重複を防ぐため、他人のリストから自身のIDを確実に除外)
+  // 自分のIDと他人のIDの重複を防ぎリスト化
   const myEffectiveId = myId || 'me';
   const othersList = ratioArray.filter(item => item.id !== myId && item.id !== 'me');
 
-  const allItems = [
-    ...othersList.map(item => ({ ...item, isMe: false })),
-    { id: myEffectiveId, ratio: myRatio, docId: '', isMe: true }
+  const allUsers = [
+    ...othersList.map(item => ({ id: item.id, ratio: item.ratio, isMe: false, color: getPaletteColor(item.id) })),
+    { id: myEffectiveId, ratio: myRatio, isMe: true, color: getPaletteColor(myEffectiveId) }
   ];
+
+  // 比率（ratio）が極めて近いユーザーをグループ化 (2%以内の差をグループにする)
+  const groups: TelomereGroup[] = [];
+  const tolerance = 0.02;
+
+  allUsers.forEach(user => {
+    const matchingGroup = groups.find(g => Math.abs(g.ratio - user.ratio) < tolerance);
+    if (matchingGroup) {
+      matchingGroup.users.push({ id: user.id, isMe: user.isMe, color: user.color });
+      if (user.isMe) {
+        matchingGroup.isMe = true;
+        // 自分の比率をグループの代表比率にする
+        matchingGroup.ratio = user.ratio;
+      }
+    } else {
+      groups.push({
+        ratio: user.ratio,
+        users: [{ id: user.id, isMe: user.isMe, color: user.color }],
+        isMe: user.isMe
+      });
+    }
+  });
 
   return (
     <>
-      {allItems.map((item) => {
+      {groups.map((group, index) => {
         // 滑らかな補間処理 (ratio 0.6 ~ 0.7 の間で 0 から inputOffset に滑らかに移行させる)
         let w = 0;
-        if (item.ratio > 0.7) {
+        if (group.ratio > 0.7) {
           w = 1;
-        } else if (item.ratio > 0.6) {
-          w = (item.ratio - 0.6) * 10;
+        } else if (group.ratio > 0.6) {
+          w = (group.ratio - 0.6) * 10;
         }
         const currentOffset = inputOffset * w;
-        // 高さをスプリットハンドルの中心 (16px の半分である 8px) に合わせる補正
-        const topPosition = `calc(${item.ratio * 100}% + ${currentOffset}px + 8px)`;
-        const color = getHashColor(item.id);
-        const hashVal = getHash(item.id);
-        const rightOffset = `${8 + (hashVal % 3) * 16}px`;
+        // 高さ補正
+        const topPosition = `calc(${group.ratio * 100}% + ${currentOffset}px + 8px)`;
+        const count = group.users.length;
 
         return (
           <div
-            key={item.id}
-            className={`telomere-divider-tag ${item.isMe ? 'telomere-divider-tag--me' : ''}`}
+            key={index}
+            className={`telomere-group-bar ${group.isMe ? 'is-me' : ''} ${count > 1 ? 'is-shared' : ''}`}
             style={{
               top: topPosition,
-              right: rightOffset,
-              '--user-color': color,
-            } as React.CSSProperties}
-            title={item.isMe ? "あなたの仕切り位置" : "他のユーザーの仕切り位置 (クリックでこの高さに揃える)"}
-            onClick={(e) => {
-              console.log("[Telomere] tag clicked, item:", item);
-              e.stopPropagation();
-              onSelectRatio(item.ratio);
             }}
-          />
+            title={
+              group.isMe
+                ? (count > 1 ? `あなたと他の ${count - 1} 人が同じ仕切り位置にいます` : "あなたの仕切り位置")
+                : `${count} 人の仕切り位置がここに揃っています (クリックして同期)`
+            }
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectRatio(group.ratio);
+            }}
+          >
+            <div className="telomere-group-bar__dots">
+              {group.users.map((user) => (
+                <span
+                  key={user.id}
+                  className={`telomere-user-dot ${user.isMe ? 'is-me' : ''}`}
+                  style={{ backgroundColor: user.color }}
+                />
+              ))}
+            </div>
+          </div>
         );
       })}
     </>
   );
 };
-
-
-

@@ -52,7 +52,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   const hasEditPermissionRef = useRef(false);
   const [isDraggable, setIsDraggable] = useState(false);
   const [showMeta, setShowMeta] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, selectionRange: { start: number, end: number } | null } | null>(null);
   const [renderKey, setRenderKey] = useState(0); // Used to forcefully remount contentEditable
   const isChat = node.type === 'chat';
 
@@ -86,7 +85,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     if (!doc || isFirstInDoc) return;
     moveNode(doc, index, index - 1);
     onAfterEdit();
-    setContextMenu(null);
     setTimeout(() => {
       const nextBlock = document.getElementById(`doc-block-${index - 1}`);
       const nextContent = nextBlock?.querySelector('.doc-block__content') as HTMLElement;
@@ -98,7 +96,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     if (!doc || isLastInDoc) return;
     moveNode(doc, index, index + 1);
     onAfterEdit();
-    setContextMenu(null);
     setTimeout(() => {
       const nextBlock = document.getElementById(`doc-block-${index + 1}`);
       const nextContent = nextBlock?.querySelector('.doc-block__content') as HTMLElement;
@@ -326,38 +323,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   }, [doc, index, node, userName, defaultEmphasis, onAfterEdit, moveUp, moveDown, focusNextBlock, getSelectionRange, loroMap, blockIndent]);
 
 
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (isPlaybackActive) return;
-
-    // Ignore if right clicking the drag handle or info button
-    if ((e.target as HTMLElement).closest('.doc-block__meta-toggle') ||
-      (e.target as HTMLElement).closest('.doc-block__drag-handle')) {
-      return;
-    }
-
-    const sr = getSelectionRange();
-    setContextMenu({ x: e.clientX, y: e.clientY, selectionRange: sr });
-  }, [getSelectionRange, isPlaybackActive]);
-
-  useEffect(() => {
-    if (contextMenu) {
-      const closeMenu = () => setContextMenu(null);
-      // Slight delay to avoid immediate closure if triggered weirdly
-      const timer = setTimeout(() => {
-        window.addEventListener('click', closeMenu);
-        window.addEventListener('contextmenu', closeMenu);
-      }, 10);
-      return () => {
-        clearTimeout(timer);
-        window.removeEventListener('click', closeMenu);
-        window.removeEventListener('contextmenu', closeMenu);
-      };
-    }
-  }, [contextMenu]);
-
-
 
   useEffect(() => {
     const el = contentRef.current;
@@ -425,6 +390,17 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     }
   }, [blockHeading, doc, loroText, loroMap, onAfterEdit, isPlaybackActive]);
 
+  const toggleH1 = useCallback(() => {
+    if (!doc || !loroMap || isPlaybackActive) return;
+    const currentHeading = loroMap.get('heading') as string | null;
+    const nextHeading = currentHeading === 'h1' ? null : 'h1';
+    loroMap.set('heading', nextHeading);
+    
+    const blockId = loroMap.get('blockId') as string || `blk-${index}`;
+    doc.commit({ message: `toggle-h1:${blockId}:${nextHeading}` });
+    onAfterEdit();
+  }, [doc, loroMap, index, onAfterEdit, isPlaybackActive]);
+
   const setEmphasis = useCallback((level: EmphasisLevel) => {
     if (!doc || !loroMap) return;
 
@@ -434,8 +410,17 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     doc.commit({ message: `emphasis:${blockId}:${level}` });
 
     onAfterEdit();
-    setContextMenu(null);
   }, [doc, loroMap, onAfterEdit, index]);
+
+  const adjustIndent = useCallback((direction: number) => {
+    if (!doc || !loroMap || isPlaybackActive) return;
+    const currentIndent = loroMap.get('indent') as number || 0;
+    const nextIndent = Math.max(0, Math.min(2, currentIndent + direction));
+    loroMap.set('indent', nextIndent);
+    const blockId = loroMap.get('blockId') as string || `blk-${index}`;
+    doc.commit({ message: `indent:${blockId}:${nextIndent}` });
+    onAfterEdit();
+  }, [doc, index, loroMap, onAfterEdit, isPlaybackActive]);
 
   // moveUp and moveDown have been moved up
   const formatTime = (ts: number) => {
@@ -496,7 +481,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     `doc-block--indent-${blockIndent}`,
     isChat ? 'doc-block--chat' : 'doc-block--doc',
     blockHeading === 'h1' ? 'doc-block--h1' : '',
-    contextMenu ? 'doc-block--focused' : '',
     `doc-emphasis-${blockEmphasis}`,
     isDropTarget ? 'doc-block--drop-target' : '',
     isDragging ? 'doc-block--dragging' : '',
@@ -531,7 +515,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       onDrop={onDrop}
       onDragEnd={onDragEnd}
       id={`doc-block-${index}`}
-      onContextMenu={handleContextMenu}
     >
       <div
         className="doc-block__meta-toggle"
@@ -567,17 +550,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           </div>
         )}
       </div>
-      {showDragHandle ? (
-        <div
-          className="doc-block__drag-handle"
-          title={isPlaybackActive ? "プレイバック中は並び替えできません" : "ドラッグで並び替え"}
-          onMouseEnter={() => !isPlaybackActive && setIsDraggable(true)}
-          onMouseLeave={() => setIsDraggable(false)}
-          style={{ cursor: isPlaybackActive ? 'not-allowed' : 'grab', opacity: isPlaybackActive ? 0.4 : 1 }}
-        >⣿</div>
-      ) : (
-        blockIndent === 0 && <div className="doc-block__drag-handle-placeholder" style={{ width: '20px', flexShrink: 0 }} />
-      )}
       <div className="doc-block__body">
         <div
           ref={contentRef}
@@ -587,39 +559,111 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           onBlur={handleBlur}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
-          onContextMenu={handleContextMenu}
           dangerouslySetInnerHTML={{ __html: renderContentAsHTML() }}
           style={{ cursor: isPlaybackActive ? 'default' : 'text' }}
         />
       </div>
 
-      {contextMenu && (
-        <div
-          className="doc-block__context-menu"
-          style={{ position: 'fixed', top: contextMenu.y - 40, left: contextMenu.x, zIndex: 100000 }}
-          onClick={(e) => e.stopPropagation()}
-          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
-        >
-          <button className="context-menu__item" title="太字" onMouseDown={(e) => e.preventDefault()} onClick={() => setEmphasis(1)}>
-            <span style={{ fontWeight: 'bold', fontSize: '11px', color: 'var(--text-primary)' }}>B</span>
-          </button>
-          <button className="context-menu__item" title="標準" onMouseDown={(e) => e.preventDefault()} onClick={() => setEmphasis(0)}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#666' }}></span>
-          </button>
-          <button className="context-menu__item" title="控えめ" onMouseDown={(e) => e.preventDefault()} onClick={() => setEmphasis(-1)}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#aaa' }}></span>
-          </button>
-          {blockIndent === 0 && (
-            <>
-              <div className="context-menu__divider"></div>
-              <button className="context-menu__item" title="上へ移動 (Ctrl+↑)" onMouseDown={(e) => e.preventDefault()} onClick={moveUp}>
-                 <span style={{ fontSize: '12px', lineHeight: 1 }}>↑</span>
-              </button>
-              <button className="context-menu__item" title="下へ移動 (Ctrl+↓)" onMouseDown={(e) => e.preventDefault()} onClick={moveDown}>
-                 <span style={{ fontSize: '12px', lineHeight: 1 }}>↓</span>
-              </button>
-            </>
+      {/* ホバー時に用紙の右側外側（余白）に出っ張って表示される直感的な2段アクションツールバー */}
+      {!isPlaybackActive && !isChat && (
+        <div className="doc-block__action-toolbar" onClick={(e) => e.stopPropagation()}>
+          {/* ドラッグハンドルをツールバーの左側に配置し、高さを縦全体に持たせる */}
+          {showDragHandle && (
+            <div
+              className="action-toolbar__drag-handle"
+              title="ドラッグしてこの行を並び替え"
+              onMouseEnter={() => !isPlaybackActive && setIsDraggable(true)}
+              onMouseLeave={() => setIsDraggable(false)}
+              style={{ 
+                cursor: isPlaybackActive ? 'not-allowed' : 'grab', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                padding: '0 6px', 
+                fontSize: '13px', 
+                color: 'var(--text-muted)', 
+                userSelect: 'none', 
+                borderRight: '1px solid var(--border-medium)', 
+                marginRight: '6px' 
+              }}
+            >
+              ⣿
+            </div>
           )}
+          
+          <div className="action-toolbar__controls-grid" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {/* 上段：インデント切替 (現在のインデント状態を◯/›/»で表現し、クリックで選択) */}
+            <div className="action-toolbar__row" style={{ display: 'flex', gap: '2px' }}>
+              <button 
+                className={`action-toolbar__btn ${blockIndent === 0 ? 'is-active' : ''}`}
+                title="インデントなし (◯)" 
+                onClick={() => adjustIndent(-blockIndent)}
+              >
+                ◯
+              </button>
+              <button 
+                className={`action-toolbar__btn ${blockIndent === 1 ? 'is-active' : ''}`}
+                title="インデント1段階 (›)" 
+                onClick={() => adjustIndent(1 - blockIndent)}
+              >
+                ›
+              </button>
+              <button 
+                className={`action-toolbar__btn ${blockIndent === 2 ? 'is-active' : ''}`}
+                title="インデント2段階 (»)" 
+                onClick={() => adjustIndent(2 - blockIndent)}
+              >
+                »
+              </button>
+            </div>
+            
+            {/* 下段：強調・見出しスタイル */}
+            <div className="action-toolbar__row" style={{ display: 'flex', gap: '2px' }}>
+              <button 
+                className={`action-toolbar__btn ${blockHeading === 'h1' ? 'is-active' : ''}`}
+                title="見出し (H1)" 
+                onClick={() => {
+                  if (blockHeading !== 'h1' && blockEmphasis !== 0) setEmphasis(0);
+                  toggleH1();
+                }}
+                style={{ fontSize: '10px' }}
+              >
+                H1
+              </button>
+              <button 
+                className={`action-toolbar__btn action-toolbar__btn--bold ${blockHeading !== 'h1' && blockEmphasis === 1 ? 'is-active' : ''}`} 
+                title="太字 (B)" 
+                onClick={() => {
+                  if (blockHeading === 'h1') toggleH1();
+                  setEmphasis(blockEmphasis === 1 ? 0 : 1);
+                }}
+              >
+                B
+              </button>
+              <button 
+                className={`action-toolbar__btn ${blockHeading !== 'h1' && blockEmphasis === 0 ? 'is-active' : ''}`} 
+                title="標準 (●)" 
+                onClick={() => {
+                  if (blockHeading === 'h1') toggleH1();
+                  if (blockEmphasis !== 0) setEmphasis(0);
+                }}
+                style={{ fontSize: '10px' }}
+              >
+                ●
+              </button>
+              <button 
+                className={`action-toolbar__btn ${blockHeading !== 'h1' && blockEmphasis === -1 ? 'is-active' : ''}`} 
+                title="控えめ (●)" 
+                onClick={() => {
+                  if (blockHeading === 'h1') toggleH1();
+                  setEmphasis(-1);
+                }}
+                style={{ fontSize: '10px', color: '#999' }}
+              >
+                ●
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { StreamNodeWithIndex } from '../types';
 import type { LoroDoc } from 'loro-crdt';
 import { DocBlock } from './DocBlock';
@@ -42,7 +42,6 @@ export const DocPanel: React.FC<DocPanelProps> = ({
   isCautiousMode,
 }) => {
   const [bgMenu, setBgMenu] = React.useState<{ x: number, y: number } | null>(null);
-  
 
   const handleBgContextMenu = React.useCallback((e: React.MouseEvent) => {
     if (isPlaybackActive) return;
@@ -81,6 +80,15 @@ export const DocPanel: React.FC<DocPanelProps> = ({
     }
     setBgMenu(null);
   }, [doc, userName, defaultEmphasis, onAfterEdit, isPlaybackActive]);
+
+  const outlineItems = nodes
+    .filter(({ node }) => node.type === 'doc' && (node.heading === 'h1' || node.emphasis === 1))
+    .map(({ node, index, id }) => ({
+      index,
+      text: node.content?.trim() || '(空の見出し)',
+      isH1: 'heading' in node && node.heading === 'h1',
+      blockId: id,
+    }));
 
   if (nodes.length === 0) {
     return (
@@ -141,6 +149,7 @@ export const DocPanel: React.FC<DocPanelProps> = ({
 
   return (
     <div className="doc-panel" onContextMenu={handleBgContextMenu} style={{ position: 'relative' }}>
+
       <div className="doc-panel__content">
         <div className="doc-paper">
           {nodes.map((nodeWithIndex, arrayIndex) => (

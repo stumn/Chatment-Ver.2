@@ -370,3 +370,480 @@
 .doc-block--indent-0:not(:first-child) {
   margin-top: 5px;
 }
+
+/* ─── Outline Sidebar (オーバーレイ表示) ─── */
+.outline-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 999; /* 全ての上に重なるように最前面に配置 */
+  border-right: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+  transition: width var(--transition-slow), box-shadow var(--transition-slow);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.outline-sidebar.is-collapsed {
+  width: 32px;
+  box-shadow: none;
+}
+
+.outline-sidebar.is-expanded {
+  width: 180px;
+  /* 展開時にチャットやドキュメントの上に重なっていることがわかるように綺麗な影を落とす */
+  box-shadow: var(--shadow-lg), 4px 0 24px rgba(0, 0, 0, 0.08);
+}
+
+.outline-sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.outline-sidebar__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  user-select: none;
+}
+
+.outline-sidebar__toggle-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  margin: 0 auto;
+  outline: none;
+}
+
+.outline-sidebar__toggle-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .outline-sidebar__toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.outline-sidebar__body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  width: 100%;
+  position: relative;
+  scrollbar-width: none; /* スクロールバー非表示 */
+}
+
+.outline-sidebar__body::-webkit-scrollbar {
+  display: none;
+}
+
+.outline-sidebar__list {
+  padding: var(--space-md) var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.outline-sidebar__item {
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  font-family: var(--font-family);
+  outline: none;
+}
+
+.outline-sidebar__item:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .outline-sidebar__item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.outline-sidebar__item--h1 {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.outline-sidebar__item--bold {
+  padding-left: 24px;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.outline-sidebar__empty {
+  padding: var(--space-xl) var(--space-md);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+  user-select: none;
+}
+
+/* ─── Minimap Dots ─── */
+.outline-sidebar__minimap {
+  position: absolute;
+  inset: 0;
+  padding: var(--space-xl) 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.outline-sidebar__minimap-dot {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--text-muted);
+  opacity: 0.4;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: transform var(--transition-fast), background-color var(--transition-fast), opacity var(--transition-fast);
+  outline: none;
+}
+
+.outline-sidebar__minimap-dot:hover {
+  transform: translateX(-50%) scale(1.4);
+  background-color: var(--accent-primary);
+  opacity: 1;
+}
+
+.outline-sidebar__minimap-dot.is-h1 {
+  width: 8px;
+  height: 8px;
+  background-color: var(--accent-secondary);
+}
+
+/* ツールチップポップアップ */
+.outline-sidebar__tooltip {
+  position: absolute;
+  left: 32px;
+  top: 50%;
+  transform: translateY(-50%) scale(0.95);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-medium);
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+  z-index: 100;
+  font-family: var(--font-family);
+}
+
+.outline-sidebar__tooltip::before {
+  content: '';
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: transparent var(--border-medium) transparent transparent;
+}
+
+.outline-sidebar__tooltip::after {
+  content: '';
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-right: -1px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: transparent var(--bg-elevated) transparent transparent;
+}
+
+.outline-sidebar__minimap-dot:hover .outline-sidebar__tooltip {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+
+/* ─── Floating Table-of-Contents Dropdown ─── */
+.doc-outline-dropdown-container {
+  position: absolute;
+  top: 12px;
+  right: 24px;
+  z-index: 99;
+}
+
+.doc-outline-dropdown-btn {
+  background: var(--bg-glass);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-subtle);
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+  font-family: var(--font-family);
+  outline: none;
+  user-select: none;
+}
+
+.doc-outline-dropdown-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-color: var(--border-medium);
+  transform: translateY(-0.5px);
+  box-shadow: var(--shadow-md);
+}
+
+.doc-outline-dropdown-arrow {
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.doc-outline-dropdown-btn[aria-expanded="true"] .doc-outline-dropdown-arrow {
+  transform: rotate(180deg);
+}
+
+.doc-outline-dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  width: 250px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: modalAppear 0.15s var(--transition-fast);
+}
+
+.doc-outline-dropdown-item {
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  font-family: var(--font-family);
+  outline: none;
+}
+
+.doc-outline-dropdown-item:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.doc-outline-dropdown-item.is-h1 {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.doc-outline-dropdown-item.is-bold {
+  padding-left: 24px;
+  font-size: 12px;
+}
+
+.doc-outline-dropdown-item.is-empty {
+  color: var(--text-muted);
+  text-align: center;
+  padding: 12px;
+  cursor: default;
+  background: transparent !important;
+}
+
+/* ─── Cautious Mode Tooltip (ヘッダーのトグルスイッチ下) ─── */
+.cautious-mode-tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  width: 240px;
+  background: #fff3cd; /* 優しい黄色 */
+  border: 1px solid #ffeeba;
+  color: #856404;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg), 0 6px 20px rgba(0, 0, 0, 0.08);
+  animation: tooltipFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  text-align: center;
+  border-top: 3px solid #ffc107;
+}
+
+.cautious-mode-tooltip::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: transparent transparent #ffc107 transparent;
+}
+
+[data-theme="dark"] .cautious-mode-tooltip {
+  background: #2c2514;
+  border-color: #4a3e20;
+  color: #ffe082;
+  border-top-color: #ffb300;
+}
+
+[data-theme="dark"] .cautious-mode-tooltip::before {
+  border-color: transparent transparent #ffb300 transparent;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* ─── DocBlock Hover Toolbars (紙の外側へはみ出し配置) ─── */
+.doc-block__action-toolbar {
+  position: absolute;
+  right: -125px; /* 紙の外側（余白部分）へ十分にはみ出し */
+  top: 50%;
+  transform: translateY(-50%) scale(0.96);
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  padding: 4px;
+  border-radius: var(--radius-md); /* 2段構造に適した角丸 */
+  box-shadow: var(--shadow-md), 0 4px 12px rgba(0, 0, 0, 0.08);
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast) ease, transform var(--transition-fast) ease;
+}
+
+.doc-block:hover .doc-block__action-toolbar {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%) scale(1);
+}
+
+.action-toolbar__btn {
+  background: transparent;
+  border: 1px solid transparent;
+  width: 24px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-full);
+  transition: all var(--transition-fast);
+  outline: none;
+  font-family: var(--font-family);
+  user-select: none;
+}
+
+.action-toolbar__btn:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* アクティブなボタン (適用中の見出し/太字スタイルなど) */
+.action-toolbar__btn.is-active {
+  background: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+  font-weight: bold;
+}
+
+.action-toolbar__btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.action-toolbar__btn--bold {
+  font-weight: 800;
+}
+
+/* 画面幅が狭いモバイル環境でのアクションバーの見栄え調整 */
+@media (max-width: 900px) {
+  .doc-block__action-toolbar {
+    right: 4px;
+    padding: 2px;
+    border-radius: var(--radius-sm);
+  }
+  .action-toolbar__controls-grid {
+    flex-direction: row !important; /* 横一列に並べて高さを抑える */
+    gap: 2px !important;
+  }
+  .action-toolbar__btn {
+    width: 20px;
+    height: 18px;
+    font-size: 9px;
+    border-radius: 2px;
+  }
+  .action-toolbar__drag-handle {
+    padding: 0 2px !important;
+    font-size: 11px !important;
+  }
+}

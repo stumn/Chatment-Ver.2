@@ -137,7 +137,6 @@ body {
 
 .app-header {
   display: flex;
-  flex-direction: column;
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
@@ -145,22 +144,30 @@ body {
   z-index: 100;
   flex-shrink: 0;
   width: 100%;
-  transition: all var(--transition-slow);
+  height: 48px;
+  overflow: visible; /* 慎重モードのツールチップを正しく下にはみ出させる */
 }
 
-/* メイン行（1段目） */
+/* メイン行（1段構造） */
 .app-header__main-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  height: 48px;
+  height: 100%;
   padding: 0 var(--space-xl);
-  overflow: hidden;
-  transition: height var(--transition-slow), opacity var(--transition-base), padding var(--transition-slow);
-  opacity: 1;
-  border-bottom: 1px solid var(--border-subtle);
+  overflow: visible; /* 慎重モードのツールチップを正しく下にはみ出させる */
   flex-shrink: 0;
+}
+
+.app-header__center-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  justify-content: center;
+  margin: 0 20px;
+  overflow: visible;
 }
 
 .app-header__meta-actions {
@@ -168,29 +175,7 @@ body {
   align-items: center;
   gap: var(--space-md);
   flex-shrink: 0;
-}
-
-/* ツールバー行（2段目） */
-.app-header__toolbar-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  height: 40px;
-  padding: 0 var(--space-xl);
-  background: rgba(240, 244, 249, 0.7); /* Google Docs風の薄いブルーグレー */
-  transition: background-color var(--transition-base);
-  flex-shrink: 0;
-}
-
-/* 折りたたみ状態のスタイル */
-.app-header--collapsed .app-header__main-row {
-  height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  opacity: 0;
-  border-bottom: none;
-  pointer-events: none;
+  overflow: visible;
 }
 
 .app-header__left {
@@ -542,6 +527,13 @@ body {
   .header-doc-id {
     display: none;
   }
+  .cautious-mode-label {
+    display: none;
+  }
+  .cautious-mode-container {
+    padding: 4px;
+    gap: 0;
+  }
   .segmented-control__item {
     padding: 4px 6px;
     font-size: 10px;
@@ -747,4 +739,75 @@ body {
 
 [data-theme="dark"] .doc-block--h1 {
   border-left-color: var(--accent-secondary) !important;
+}
+
+/* ─── Cautious Mode Switch ─── */
+.cautious-mode-container {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: var(--bg-tertiary);
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  height: 30px;
+  flex-shrink: 0;
+  transition: all var(--transition-base);
+}
+
+.cautious-mode-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.cautious-mode-switch {
+  position: relative;
+  width: 38px;
+  height: 20px;
+  background-color: #bdc3c7;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  padding: 0;
+  transition: background-color var(--transition-base), box-shadow var(--transition-fast);
+  outline: none;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.cautious-mode-switch:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent-primary-glow);
+}
+
+.cautious-mode-switch.is-active {
+  background-color: #007aff; /* 画像のような鮮やかな青色 */
+}
+
+.cautious-mode-switch__thumb {
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 16px;
+  height: 16px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform var(--transition-base);
+}
+
+.cautious-mode-switch.is-active .cautious-mode-switch__thumb {
+  transform: translateX(18px);
+}
+
+/* ダークモード調整 */
+[data-theme="dark"] .cautious-mode-switch {
+  background-color: #475569;
+}
+
+[data-theme="dark"] .cautious-mode-switch.is-active {
+  background-color: var(--accent-primary);
 }
