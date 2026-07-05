@@ -75,6 +75,28 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const typeClass = isChat ? 'chat-message--chat' : 'chat-message--doc';
   const isHighlighted = activeHighlightBlockId === nodeWithIndex.id;
 
+  // URL を検出してリンクに変換
+  const renderWithLinks = (text: string) => {
+    const urlRegex = /(https?:\/\/[^\s\u3000-\u9fff\uff00-\uffef]+)/g;
+    const parts = text.split(urlRegex);
+    return parts.map((part, i) =>
+      urlRegex.test(part) ? (
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={e => e.stopPropagation()}
+          style={{ color: 'var(--accent-primary)', textDecoration: 'underline', wordBreak: 'break-all' }}
+        >
+          {part}
+        </a>
+      ) : (
+        <React.Fragment key={i}>{part}</React.Fragment>
+      )
+    );
+  };
+
   return (
     <div
       className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'} ${typeClass} ${isHighlighted ? 'playback-highlight' : ''}`}
@@ -88,7 +110,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           <span className="chat-message__time">{formatTime(node.timestamp)}</span>
           <span className="chat-message__author">{node.author}</span>
         </div>
-        <div className={`chat-message__content ${emphasisClass}`} style={dynamicStyle}>{node.content}</div>
+        <div className={`chat-message__content ${emphasisClass}`} style={dynamicStyle}>{renderWithLinks(node.content)}</div>
       </div>
 
       <div className="chat-message__side-actions">

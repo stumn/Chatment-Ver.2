@@ -4,39 +4,42 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const { connectDB, User, SystemLog, UserActionLog } = require('./db');
+const { connectDB, User, Room, SystemLog, UserActionLog, DocumentSnapshot } = require('./db');
 const { getSnapshot, applyUpdate } = require('./snapshot-manager');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
-  maxHttpBufferSize: 10 * 1024 * 1024, // 10MB for large snapshots
+  maxHttpBufferSize: 10 * 1024 * 1024,
 });
 
 app.use(cors());
 app.use(express.json());
 
-// Helper to save system log
-async function saveSystemLog(level, event, details = {}) {
+// ─── Helpers ────────────────────────────────────────────
+
+async function saveSystemLog(level, event, details = {}, roomId = null, docId = null) {
   try {
-    const log = new SystemLog({ level, event, details });
+    const log = new SystemLog({ level, event, details, roomId, docId });
     await log.save();
   } catch (err) {
     console.error('[DB] Failed to save system log:', err.message);
   }
 }
 
-// Helper to save user action log
-async function saveUserActionLog(docId, type, author, targetId, contentPreview, actionDetails) {
+async function saveUserActionLog({ docId, roomId, type, author, userAttribute = '', userAgeGroup = '', targetId, contentPreview, actionDetails }) {
   try {
     const log = new UserActionLog({
       docId,
+      roomId,
       type,
       author,
+      userAttribute,
+      userAgeGroup,
       targetId,
       contentPreview,
-      actionDetails
+      actionDetails,
     });
     await log.save();
   } catch (err) {
@@ -45,6 +48,70 @@ async function saveUserActionLog(docId, type, author, targetId, contentPreview, 
 }
 
 // ─── REST API ───────────────────────────────────────────
+
+// ルーム新規作成
+app.post('/api/rooms', async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    const docId = new mongoose.Types.ObjectId().toString();
+    const title = req.body?.title || '';
+    const room = new Room({ docId, title, status: 'open', userIds: [] });
+    await room.save();
+    await saveSystemLog('info', 'room-created', { docId, title }, room._id.toString(), docId);
+    res.json(room);
+  } catch (err) {
+    console.error('[API] POST room error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ルーム一覧取得
+app.get('/api/rooms', async (req, res) => {
+  try {
+    const rooms = await Room.find({}).sort({ updatedAt: -1 });
+    res.json(rooms);
+  } catch (err) {
+    console.error('[API] GET rooms error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ルーム検証
+app.get('/api/rooms/:roomId', async (req, res) => {
+  try {
+    const room = await Room.findOne({ docId: req.params.roomId });
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+    res.json(room);
+  } catch (err) {
+    console.error('[API] GET room error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ルームステータス更新
+app.post('/api/rooms/:roomId/status', async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!['open', 'closed', 'hidden'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+    const room = await Room.findOneAndUpdate(
+      { docId: req.params.roomId },
+      { status },
+      { new: true }
+    );
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+    await saveSystemLog('info', 'room-status-changed', { status }, room._id.toString(), req.params.roomId);
+    res.json(room);
+  } catch (err) {
+    console.error('[API] POST room status error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.get('/api/snapshot/:docId', async (req, res) => {
   try {
@@ -61,31 +128,32 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
 
-// 静的ファイルの配信 (ビルドされたフロントエンド)
+// 静的ファイルの配信はAPIルートより後に置く
 const path = require('path');
 const clientDistPath = path.join(__dirname, '../client/dist');
 app.use(express.static(clientDistPath));
 
 app.get('*', (req, res) => {
-  if (req.path.startsWith('/api/') || req.path.startsWith('/socket.io/')) {
-    return res.status(404).send('Not Found');
-  }
   res.sendFile(path.join(clientDistPath, 'index.html'));
 });
 
 // ─── Socket.IO ──────────────────────────────────────────
 
-let ratioMemory = []; // array of { id, ratio, docId }
+let ratioMemory = [];
 
 io.on('connection', (socket) => {
   console.log(`[WS] Client connected: ${socket.id}`);
   saveSystemLog('info', 'client-connected', { socketId: socket.id });
 
-  socket.on('login', async ({ userName, colorIndex }) => {
+  socket.on('login', async ({ userName, colorIndex, attribute = '', ageGroup = '' }) => {
     try {
       let user = await User.findOne({ userName });
       let isNew = false;
       if (user) {
+        // 既存ユーザーの属性・年代を更新
+        user.colorIndex = user.colorIndex;
+        if (attribute) user.attribute = attribute;
+        if (ageGroup) user.ageGroup = ageGroup;
         socket.colorIndex = user.colorIndex;
       } else {
         isNew = true;
@@ -95,33 +163,96 @@ io.on('connection', (socket) => {
           const maxIndex = allUsers.reduce((max, u) => u.colorIndex > max ? u.colorIndex : max, -1);
           assignedColorIndex = maxIndex + 1;
         }
-        user = new User({ userName, colorIndex: assignedColorIndex });
-        await user.save();
+        user = new User({ userName, colorIndex: assignedColorIndex, attribute, ageGroup });
         socket.colorIndex = assignedColorIndex;
       }
+
+      // ルームへの紐付け
+      if (socket.docId && socket.roomId) {
+        const alreadyInRoom = user.rooms.some(r => r.docId === socket.docId);
+        if (!alreadyInRoom) {
+          user.rooms.push({ roomId: socket.roomId, docId: socket.docId });
+        }
+      }
+
+      await user.save();
       socket.userName = userName;
+      socket.userAttribute = attribute;
+      socket.userAgeGroup = ageGroup;
       socket.emit('login-ack', { userName, colorIndex: socket.colorIndex });
 
-      // Save system log for login (new or existing user)
-      await saveSystemLog('info', isNew ? 'login-new' : 'login-existing', { socketId: socket.id, userName });
+      await saveSystemLog(
+        'info',
+        isNew ? 'login-new' : 'login-existing',
+        { socketId: socket.id, userName, attribute, ageGroup },
+        socket.roomId || null,
+        socket.docId || null
+      );
+
+      // 既にルームにいる場合、userIdsにも追加
+      if (socket.docId) {
+        const room = await Room.findOne({ docId: socket.docId });
+        if (room && !room.userIds.includes(userName)) {
+          room.userIds.push(userName);
+          await room.save();
+        }
+      }
     } catch (err) {
       console.error('[WS] Login error:', err.message);
       await saveSystemLog('error', 'error', { socketId: socket.id, message: `Login error: ${err.message}` });
     }
   });
 
-  socket.on('join-doc', async (docId) => {
-    socket.join(docId);
-    socket.docId = docId;
-    console.log(`[WS] ${socket.id} joined doc "${docId}"`);
-    await saveSystemLog('info', 'join-doc', { socketId: socket.id, userName: socket.userName, docId });
+  socket.on('join-doc', async (data) => {
+    const docId = typeof data === 'string' ? data : data?.docId;
+    const isAdmin = typeof data === 'object' ? !!data?.isAdmin : false;
+
+    if (!docId) return;
 
     try {
+      const room = await Room.findOne({ docId });
+      if (!room) {
+        socket.emit('room-error', '指定されたルームが存在しません。');
+        return;
+      }
+      if (room.status !== 'open' && !isAdmin) {
+        socket.emit('room-error', 'このルームは終了しているか、アクセスできません。');
+        return;
+      }
+
+      socket.join(docId);
+      socket.docId = docId;
+      socket.roomId = room._id.toString();
+      console.log(`[WS] ${socket.id} joined doc "${docId}" (admin: ${isAdmin})`);
+      await saveSystemLog(
+        'info',
+        'join-doc',
+        { socketId: socket.id, userName: socket.userName, isAdmin },
+        socket.roomId,
+        docId
+      );
+
       const snapshot = await getSnapshot(docId);
       socket.emit('sync-snapshot', snapshot);
+
+      // ユーザーがログイン済みなら userIds と rooms に追加
+      if (socket.userName) {
+        if (!room.userIds.includes(socket.userName)) {
+          room.userIds.push(socket.userName);
+          await room.save();
+        }
+        const user = await User.findOne({ userName: socket.userName });
+        if (user) {
+          const alreadyInRoom = user.rooms.some(r => r.docId === docId);
+          if (!alreadyInRoom) {
+            user.rooms.push({ roomId: socket.roomId, docId });
+            await user.save();
+          }
+        }
+      }
     } catch (err) {
       console.error(`[WS] Error sending snapshot for "${docId}":`, err.message);
-      await saveSystemLog('error', 'error', { socketId: socket.id, docId, message: `Error sending snapshot: ${err.message}` });
+      await saveSystemLog('error', 'error', { socketId: socket.id, message: `Error sending snapshot: ${err.message}` }, socket.roomId, docId);
     }
 
     const count = io.sockets.adapter.rooms.get(docId)?.size || 0;
@@ -137,7 +268,7 @@ io.on('connection', (socket) => {
       socket.to(docId).emit('receive-update', update);
     } catch (err) {
       console.error(`[WS] Error applying update for "${docId}":`, err.message);
-      await saveSystemLog('error', 'error', { socketId: socket.id, docId, message: `Error applying update: ${err.message}` });
+      await saveSystemLog('error', 'error', { socketId: socket.id, message: `Error applying update: ${err.message}` }, socket.roomId, docId);
     }
   });
 
@@ -158,26 +289,25 @@ io.on('connection', (socket) => {
     const roomRatios = ratioMemory.filter(item => item.docId === socket.docId);
     io.in(socket.docId).emit('ratioChange', roomRatios);
 
-    // Save split view ratio change to UserActionLog
-    await saveUserActionLog(
-      socket.docId,
-      'ratio-change',
-      socket.userName || 'unknown',
-      '',
-      String(ratio),
-      `スプリット比率を ${Math.round(ratio * 100)}% に変更しました`
-    );
+    await saveUserActionLog({
+      docId: socket.docId,
+      roomId: socket.roomId,
+      type: 'ratio-change',
+      author: socket.userName || 'unknown',
+      userAttribute: socket.userAttribute || '',
+      userAgeGroup: socket.userAgeGroup || '',
+      contentPreview: String(ratio),
+      actionDetails: `スプリット比率を ${Math.round(ratio * 100)}% に変更しました`,
+    });
   });
 
   socket.on('disconnect', () => {
     console.log(`[WS] Client disconnected: ${socket.id}`);
-    saveSystemLog('info', 'disconnect', { socketId: socket.id, userName: socket.userName, docId: socket.docId });
+    saveSystemLog('info', 'disconnect', { socketId: socket.id, userName: socket.userName }, socket.roomId, socket.docId);
     ratioMemory = ratioMemory.filter(item => item.id !== socket.id);
     if (socket.docId) {
       const count = io.sockets.adapter.rooms.get(socket.docId)?.size || 0;
       io.in(socket.docId).emit('user-count', count);
-
-      // Broadcast updated ratios to room
       const roomRatios = ratioMemory.filter(item => item.docId === socket.docId);
       io.in(socket.docId).emit('ratioChange', roomRatios);
     }
@@ -188,9 +318,33 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3001;
 
+async function migrateLegacyRooms() {
+  try {
+    const snapshots = await DocumentSnapshot.find({});
+    let created = 0;
+    for (const snap of snapshots) {
+      const exists = await Room.findOne({ docId: snap.docId });
+      if (!exists) {
+        const room = new Room({ docId: snap.docId, status: 'open', userIds: [] });
+        await room.save();
+        created++;
+        console.log(`[Migration] Created room for legacy docId: ${snap.docId}`);
+      }
+    }
+    if (created > 0) {
+      console.log(`[Migration] Done: ${created} rooms created from legacy DocumentSnapshots.`);
+    } else {
+      console.log('[Migration] No migration needed.');
+    }
+  } catch (err) {
+    console.error('[Migration] Failed:', err.message);
+  }
+}
+
 async function start() {
   await connectDB();
-  await saveSystemLog('info', 'db-connect');
+  await migrateLegacyRooms();
+  await saveSystemLog('info', 'server-start');
   server.listen(PORT, () => {
     console.log(`[Server] Chatment server running on port ${PORT}`);
   });

@@ -5,6 +5,7 @@ export type ConnectionState = 'connected' | 'connecting' | 'disconnected';
 interface SyncClientOptions {
   doc: LoroDoc;
   docId: string;
+  isAdmin?: boolean;
   onRemoteUpdate: () => void;
   onConnectionChange: (state: ConnectionState) => void;
   onUserCountChange?: (count: number) => void;
@@ -31,7 +32,7 @@ export function initSyncClient(options: SyncClientOptions): () => void {
   socket.on('connect', () => {
     console.log('[Sync] Connected to server');
     onConnectionChange('connected');
-    socket!.emit('join-doc', docId);
+    socket!.emit('join-doc', { docId, isAdmin: !!options.isAdmin });
   });
 
   socket.on('sync-snapshot', (snapshotData: ArrayBuffer) => {
@@ -114,9 +115,9 @@ export function emitRatioChange(ratio: number): void {
 export function getSocketId(): string | null {
   return socket?.id ?? null;
 }
-export function login(userName: string, colorIndex?: number): void {
+export function login(userName: string, colorIndex?: number, attribute?: string, ageGroup?: string): void {
   if (socket && socket.connected) {
-    socket.emit('login', { userName, colorIndex });
+    socket.emit('login', { userName, colorIndex, attribute, ageGroup });
   }
 }
 

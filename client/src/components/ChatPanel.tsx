@@ -77,9 +77,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         ref={messagesContainerRef}
         onScroll={handleScroll}
       >
-        {nodes.length === 0 && (
+        {nodes.length < 3 && (
           <div className="chat-panel__empty">
-            <p>💬 メッセージを送信して会話を始めましょう</p>
+            <p>チャット入力欄からメッセージを書き込んで送信してみましょう</p>
           </div>
         )}
         {nodes.map((nodeWithIndex) => (

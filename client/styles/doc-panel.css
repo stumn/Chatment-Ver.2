@@ -334,6 +334,18 @@
   background: transparent;
 }
 
+/* ドキュメント内インラインリンク */
+.doc-inline-link {
+  color: var(--accent-primary);
+  text-decoration: underline;
+  word-break: break-all;
+  cursor: pointer;
+}
+
+.doc-inline-link:hover {
+  opacity: 0.8;
+}
+
 .text-emphasis-1 {
   color: var(--emphasis-plus);
   font-weight: 600;

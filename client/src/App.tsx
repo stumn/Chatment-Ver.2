@@ -15,7 +15,9 @@ import { GuideModal } from './components/GuideModal';
 import { PlaybackControls } from './components/PlaybackControls';
 import { OutlineSidebar } from './components/OutlineSidebar';
 
-export const App: React.FC = () => {
+import { AdminPanel } from './components/AdminPanel';
+
+export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ docId, isAdmin }) => {
   const [userName, setUserName] = useState<string | null>(null);
   const [userId] = useState(() => `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
   const [defaultEmphasis, setDefaultEmphasis] = useState<EmphasisLevel | 'h1'>(0);
@@ -93,7 +95,7 @@ export const App: React.FC = () => {
   }, []);
   const chatPanelRef = useRef<HTMLDivElement>(null);
 
-  const { doc, nodes, connectionState, userCount, isReady, triggerSave, docId, ratios, undo, redo, canUndo, canRedo, myColorIndex } = useLoroDoc(userName);
+  const { doc, nodes, connectionState, userCount, isReady, triggerSave, ratios, undo, redo, canUndo, canRedo, myColorIndex } = useLoroDoc(userName, docId, isAdmin);
   const { ratio, setRatio, containerRef, handleMouseDown, handleDoubleClick } = useSplitView();
   const { docNodes, chatNodes } = useOverflow(nodes, chatPanelRef, 36);
 
@@ -706,4 +708,109 @@ export const App: React.FC = () => {
       )}
     </div>
   );
+};
+
+export const App: React.FC = () => {
+  const [isAdminPanel, setIsAdminPanel] = useState(() => {
+    const h = window.location.hash;
+    return h === '#admin' || h === '#/admin';
+  });
+
+  const [roomState, setRoomState] = useState<{
+    loading: boolean;
+    error: string | null;
+    verifiedDocId: string | null;
+    isAdmin: boolean;
+  }>({
+    loading: true,
+    error: null,
+    verifiedDocId: null,
+    isAdmin: false,
+  });
+
+  const verifyRoom = useCallback(async (targetDocId: string) => {
+    try {
+      setRoomState(prev => ({ ...prev, loading: true, error: null }));
+      
+      const res = await fetch(`/api/rooms/${targetDocId}`);
+      if (!res.ok) {
+        if (res.status === 404) {
+          throw new Error('指定されたルームが存在しないか、アクセスできません。');
+        }
+        throw new Error('ルームの接続確認に失敗しました。');
+      }
+      const room = await res.json();
+      
+      // Check closed/hidden status
+      const searchParams = new URLSearchParams(window.location.search);
+      const isAdminParam = searchParams.get('admin') === 'true';
+      
+      if (room.status !== 'open' && !isAdminParam) {
+        throw new Error('このルームは終了しているか、アクセスできません。');
+      }
+      
+      setRoomState({
+        loading: false,
+        error: null,
+        verifiedDocId: targetDocId,
+        isAdmin: isAdminParam,
+      });
+    } catch (err: any) {
+      setRoomState({
+        loading: false,
+        error: err.message || 'エラーが発生しました。',
+        verifiedDocId: null,
+        isAdmin: false,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleHash = () => {
+      const h = window.location.hash;
+      setIsAdminPanel(h === '#admin' || h === '#/admin');
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
+  useEffect(() => {
+    if (isAdminPanel) return;
+    const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0];
+    if (!hash) {
+      // ハッシュが空＝ルームIDなし → エラー
+      setRoomState({ loading: false, error: 'ルームURLが指定されていません。管理者からルームのURLを受け取ってください。', verifiedDocId: null, isAdmin: false });
+      return;
+    }
+    verifyRoom(hash);
+  }, [isAdminPanel, verifyRoom, window.location.hash, window.location.search]);
+
+  if (isAdminPanel) {
+    return <AdminPanel />;
+  }
+
+  if (roomState.loading) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-spinner" />
+        <p>ルームを確認中...</p>
+      </div>
+    );
+  }
+
+  if (roomState.error) {
+    return (
+      <div className="loading-screen" style={{ gap: '24px', padding: '48px', textAlign: 'center' }}>
+        <div style={{ fontSize: '3rem' }}>⚠️</div>
+        <h2 style={{ color: 'var(--text-primary)' }}>アクセスできません</h2>
+        <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', lineHeight: '1.6' }}>{roomState.error}</p>
+      </div>
+    );
+  }
+
+  if (roomState.verifiedDocId) {
+    return <ChatWorkspace docId={roomState.verifiedDocId} isAdmin={roomState.isAdmin} />;
+  }
+
+  return null;
 };

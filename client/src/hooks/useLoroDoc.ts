@@ -10,8 +10,7 @@ const getDocIdFromHash = () => {
   const hash = window.location.hash.replace(/^#\/?/, '');
   return hash || 'default';
 };
-export function useLoroDoc(userName: string | null) {
-  const [docId, setDocId] = useState(() => getDocIdFromHash());
+export function useLoroDoc(userName: string | null, docId: string, isAdmin?: boolean) {
   const docRef = useRef<LoroDoc | null>(null);
   const [nodes, setNodes] = useState<StreamNodeWithIndex[]>([]);
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
@@ -28,14 +27,6 @@ export function useLoroDoc(userName: string | null) {
       setCanUndo(um.canUndo());
       setCanRedo(um.canRedo());
     }
-  }, []);
-
-  useEffect(() => {
-    const handleHashChange = () => {
-      setDocId(getDocIdFromHash());
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
   const refreshNodes = useCallback(() => {
@@ -87,6 +78,7 @@ export function useLoroDoc(userName: string | null) {
     const cleanupSync = initSyncClient({
       doc,
       docId,
+      isAdmin,
       onRemoteUpdate: () => {
         refreshNodes();
       },
@@ -96,8 +88,10 @@ export function useLoroDoc(userName: string | null) {
         if (state === 'connected' && userName) {
           import('../loro/local-storage').then(({ loadUserColorIndex }) => {
             const saved = loadUserColorIndex(userName);
+            const attribute = localStorage.getItem('compact-chatment-user-attribute') ?? '';
+            const ageGroup = localStorage.getItem('compact-chatment-user-age') ?? '';
             import('../loro/sync-client').then(({ login }) => {
-              login(userName, saved ?? undefined);
+              login(userName, saved ?? undefined, attribute, ageGroup);
             });
           });
         }
@@ -136,7 +130,7 @@ export function useLoroDoc(userName: string | null) {
       setIsReady(false);
       setUserCount(0);
     };
-  }, [refreshNodes, docId, userName]);
+  }, [refreshNodes, docId, userName, isAdmin]);
 
   return {
     doc: docRef.current,

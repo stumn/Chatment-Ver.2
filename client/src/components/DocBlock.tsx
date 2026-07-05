@@ -506,8 +506,17 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   };
 
   const renderContentAsHTML = (): string => {
-    // インライン装飾(LoroTextデルタ等)は廃止されたため、単純なプレーンテキストとして出力
-    return escapeHtml(node.content || '');
+    const text = node.content || '';
+    // URLを検出して<a>タグに変換（半角スペース・全角文字手前で区切る）
+    const urlRegex = /(https?:\/\/[^\s\u3000-\u9fff\uff00-\uffef<>"]+)/g;
+    return text.replace(/&/g, '&amp;')
+               .replace(/</g, '&lt;')
+               .replace(/>/g, '&gt;')
+               .replace(/"/g, '&quot;')
+               .replace(/'/g, '&#039;')
+               .replace(urlRegex, (url) =>
+                 `<a href="${url}" target="_blank" rel="noopener noreferrer" class="doc-inline-link" onclick="event.stopPropagation()">${url}</a>`
+               );
   };
 
   const isContentEmpty = node.content === '';
