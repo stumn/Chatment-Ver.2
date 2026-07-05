@@ -25,6 +25,12 @@ interface DocBlockProps {
   isCautiousMode?: boolean;
 }
 
+const getIndentMargin = (indent: number) => {
+  if (indent === 1) return 32;
+  if (indent >= 2) return 60;
+  return 0;
+};
+
 export const DocBlock: React.FC<DocBlockProps> = ({
   nodeWithIndex,
   doc,
@@ -102,7 +108,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
 
   const moveUp = useCallback(() => {
     if (!doc || isFirstInDoc) return;
-    moveNode(doc, index, index - 1);
+    moveNode(doc, index, index - 1, userName);
     onAfterEdit();
     setTimeout(() => {
       const nextBlock = document.getElementById(`doc-block-${index - 1}`);
@@ -113,7 +119,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
 
   const moveDown = useCallback(() => {
     if (!doc || isLastInDoc) return;
-    moveNode(doc, index, index + 1);
+    moveNode(doc, index, index + 1, userName);
     onAfterEdit();
     setTimeout(() => {
       const nextBlock = document.getElementById(`doc-block-${index + 1}`);
@@ -206,7 +212,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           const nextIndent = e.shiftKey ? Math.max(0, currentIndent - 1) : Math.min(2, currentIndent + 1);
           loroMap.set('indent', nextIndent);
           const blockId = loroMap.get('blockId') as string || `blk-${index}`;
-          doc.commit({ message: `indent:${blockId}:${nextIndent}` });
+          doc.commit({ message: `indent:${userName}:${blockId}:${nextIndent}` });
           onAfterEdit();
         }
         return;
@@ -223,7 +229,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           const nextIndent = Math.min(2, currentIndent + 1);
           loroMap.set('indent', nextIndent);
           const blockId = loroMap.get('blockId') as string || `blk-${index}`;
-          doc.commit({ message: `indent:${blockId}:${nextIndent}` });
+          doc.commit({ message: `indent:${userName}:${blockId}:${nextIndent}` });
           onAfterEdit();
         }
         return;
@@ -240,7 +246,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           if (doc && loroMap) {
             loroMap.set('indent', currentIndent - 1);
             const blockId = loroMap.get('blockId') as string || `blk-${index}`;
-            doc.commit({ message: `indent:${blockId}:${currentIndent - 1}` });
+            doc.commit({ message: `indent:${userName}:${blockId}:${currentIndent - 1}` });
             onAfterEdit();
           }
           return;
@@ -293,7 +299,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
         // Remove block and focus previous
         focusNextBlock(-1);
         if (doc) {
-          deleteDocNode(doc, index);
+          deleteDocNode(doc, index, userName);
           onAfterEdit();
         }
         return;
@@ -413,7 +419,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     loroMap.set('heading', nextHeading);
 
     const blockId = loroMap.get('blockId') as string || `blk-${index}`;
-    doc.commit({ message: `toggle-h1:${blockId}:${nextHeading}` });
+    doc.commit({ message: `toggle-h1:${userName}:${blockId}:${nextHeading}` });
     onAfterEdit();
   }, [doc, loroMap, index, onAfterEdit, isPlaybackActive, requestCautiousEdit]);
 
@@ -424,7 +430,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     // Apply the block-level style mapping (simple key-value setting)
     loroMap.set('emphasis', level);
     const blockId = loroMap.get('blockId') as string || `blk-${index}`;
-    doc.commit({ message: `emphasis:${blockId}:${level}` });
+    doc.commit({ message: `emphasis:${userName}:${blockId}:${level}` });
 
     onAfterEdit();
   }, [doc, loroMap, onAfterEdit, index, requestCautiousEdit]);
@@ -436,7 +442,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     const nextIndent = Math.max(0, Math.min(2, currentIndent + direction));
     loroMap.set('indent', nextIndent);
     const blockId = loroMap.get('blockId') as string || `blk-${index}`;
-    doc.commit({ message: `indent:${blockId}:${nextIndent}` });
+    doc.commit({ message: `indent:${userName}:${blockId}:${nextIndent}` });
     onAfterEdit();
   }, [doc, index, loroMap, onAfterEdit, isPlaybackActive, requestCautiousEdit]);
 
@@ -449,13 +455,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   // Read emphasis level from Map for doc blocks (block level styling)
   const blockEmphasis = loroMap?.get('emphasis') as EmphasisLevel || 0;
 
-  console.log(`[DocBlock Debug] Block ${index} Connection:`, {
-    hasDoc: !!doc,
-    hasMap: !!loroMap,
-    hasText: !!loroText,
-    blockEmphasis,
-    textLength: loroText?.length
-  });
 
   // Calculate total reactions and dynamic vote emphasis
   let totalReactions = 0;
@@ -468,14 +467,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       if (emoji === '⇩') downvotes++;
     });
   }
-
   const voteScore = upvotes - downvotes;
-
-  const getIndentMargin = (indent: number) => {
-    if (indent === 1) return 56;
-    if (indent >= 2) return 84;
-    return 0;
-  };
 
   let dynamicStyle: React.CSSProperties = {
     marginLeft: `${getIndentMargin(blockIndent)}px`,
@@ -490,10 +482,8 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     const intensity = Math.min(1.0, Math.floor(Math.abs(voteScore) / 2) * 0.15 + 0.1);
     dynamicStyle = { ...dynamicStyle, background: `hsla(0, 70%, 55%, ${intensity})` };
   }
-
   const isHighlighted = activeHighlightBlockId === nodeWithIndex.id;
-  const showDragHandle = !isChat && blockIndent === 0;
-
+  const showDragHandle = true;
   const blockClass = [
     'doc-block',
     `doc-block--indent-${blockIndent}`,
@@ -581,9 +571,8 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           style={{ cursor: isPlaybackActive ? 'default' : 'text' }}
         />
       </div>
-
       {/* ホバー時に用紙の右側外側（余白）に出っ張って表示される直感的な2段アクションツールバー */}
-      {!isPlaybackActive && !isChat && (
+      {!isPlaybackActive && (
         <div className="doc-block__action-toolbar" onClick={(e) => e.stopPropagation()}>
           {/* ドラッグハンドルをツールバーの左側に配置し、高さを縦全体に持たせる */}
           {showDragHandle && (

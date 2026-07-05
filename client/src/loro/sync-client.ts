@@ -2,16 +2,15 @@ import { io, Socket } from 'socket.io-client';
 import type { LoroDoc } from 'loro-crdt';
 
 export type ConnectionState = 'connected' | 'connecting' | 'disconnected';
-
 interface SyncClientOptions {
   doc: LoroDoc;
   docId: string;
   onRemoteUpdate: () => void;
   onConnectionChange: (state: ConnectionState) => void;
   onUserCountChange?: (count: number) => void;
-  onRatioChange?: (ratios: { id: string; ratio: number; docId: string }[]) => void;
+  onRatioChange?: (ratios: { id: string; ratio: number; docId: string; userName?: string; colorIndex?: number }[]) => void;
+  onLoginAck?: (ack: { userName: string; colorIndex: number }) => void;
 }
-
 let socket: Socket | null = null;
 let currentDocId: string | null = null;
 
@@ -66,11 +65,13 @@ export function initSyncClient(options: SyncClientOptions): () => void {
   socket.on('user-count', (count: number) => {
     onUserCountChange?.(count);
   });
-
   socket.on('ratioChange', (ratios: any[]) => {
     onRatioChange?.(ratios);
   });
 
+  socket.on('login-ack', (ack: { userName: string; colorIndex: number }) => {
+    options.onLoginAck?.(ack);
+  });
   // Cleanup function
   return () => {
     if (socket) {
@@ -110,10 +111,36 @@ export function emitRatioChange(ratio: number): void {
     socket.emit('ratioChange', ratio);
   }
 }
-
-/**
- * Get the current socket ID.
- */
 export function getSocketId(): string | null {
   return socket?.id ?? null;
+}
+export function login(userName: string, colorIndex?: number): void {
+  if (socket && socket.connected) {
+    socket.emit('login', { userName, colorIndex });
+  }
+}
+
+const PALETTE = [
+  '#3b82f6', // 0: ソフトブルー
+  '#a78bfa', // 1: パステルパープル
+  '#10b981', // 2: エメラルド
+  '#f59e0b', // 3: ソフトアンバー
+  '#ec4899', // 4: 優しいピンク
+  '#14b8a6', // 5: ターコイズ
+  '#f97316', // 6: ソフトオレンジ
+];
+
+const COLOR_MAP = [0, 4, 2, 6, 1, 5, 3];
+
+export function getUserColor(colorIndex: number | undefined, idOrName: string): string {
+  if (colorIndex !== undefined && colorIndex >= 0) {
+    return PALETTE[COLOR_MAP[colorIndex % COLOR_MAP.length]];
+  }
+  let hash = 0;
+  for (let i = 0; i < idOrName.length; i += 1) {
+    hash = (hash << 5) - hash + idOrName.charCodeAt(i);
+    hash |= 0;
+  }
+  const idx = Math.abs(hash) % PALETTE.length;
+  return PALETTE[COLOR_MAP[idx]];
 }

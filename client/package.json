@@ -2,7 +2,7 @@
   "name": "chatment-ver2-client",
   "version": "1.0.0",
   "private": true,
-  "description": "Chatment ver.2 — Serial Stream collaborative UI",
+  "description": "Chatment — Serial Stream collaborative UI",
   "type": "module",
   "scripts": {
     "dev": "vite",

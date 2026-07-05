@@ -49,14 +49,20 @@ export function loadSplitRatio(): number | null {
 export function saveUserName(name: string): void {
   localStorage.setItem('compact-chatment-username', name);
 }
-
-/**
- * Load user info from LocalStorage.
- */
 export function loadUserName(): string | null {
   return localStorage.getItem('compact-chatment-username');
 }
 
+export function saveUserColorIndex(userName: string, index: number): void {
+  localStorage.setItem(`chatment-color-index-${userName}`, String(index));
+}
+
+export function loadUserColorIndex(userName: string): number | null {
+  const val = localStorage.getItem(`chatment-color-index-${userName}`);
+  if (val === null) return null;
+  const num = parseInt(val, 10);
+  return isNaN(num) ? null : num;
+}
 /**
  * Create a debounced auto-save function.
  */

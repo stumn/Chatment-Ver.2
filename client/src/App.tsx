@@ -91,10 +91,9 @@ export const App: React.FC = () => {
     setIsSidebarCollapsed(false);
     localStorage.setItem('chatment-sidebar-collapsed', 'false');
   }, []);
-
   const chatPanelRef = useRef<HTMLDivElement>(null);
 
-  const { doc, nodes, connectionState, userCount, isReady, triggerSave, docId, ratios, undo, redo, canUndo, canRedo } = useLoroDoc();
+  const { doc, nodes, connectionState, userCount, isReady, triggerSave, docId, ratios, undo, redo, canUndo, canRedo, myColorIndex } = useLoroDoc(userName);
   const { ratio, setRatio, containerRef, handleMouseDown, handleDoubleClick } = useSplitView();
   const { docNodes, chatNodes } = useOverflow(nodes, chatPanelRef, 36);
 
@@ -463,7 +462,7 @@ export const App: React.FC = () => {
     handleDragLeave,
     handleDrop,
     handleDragEnd,
-  } = useDragDrop(doc, handleAfterEdit);
+  } = useDragDrop(doc, userName, handleAfterEdit);
 
   if (!userName) {
     return <UserSetup onComplete={setUserName} />;
@@ -629,7 +628,7 @@ export const App: React.FC = () => {
             <span className="app-header__user">
               {!isPlaybackMode && <span className="app-header__user-icon" title={`現在 ${userCount} 人が接続中`}></span>}
               <span>{userName}</span>
-              {!isPlaybackMode && <ConnectionStatus state={connectionState} userName={userName} />}
+              {!isPlaybackMode && <ConnectionStatus state={connectionState} userName={userName} colorIndex={myColorIndex} />}
             </span>
           </div>
         </div>
@@ -678,6 +677,7 @@ export const App: React.FC = () => {
               />
             }
             ratios={ratios}
+            myColorIndex={myColorIndex}
             onSelectRatio={(newRatio) => {
               console.log("[App] onSelectRatio called with newRatio:", newRatio);
               setRatio(newRatio);

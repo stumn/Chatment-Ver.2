@@ -1,7 +1,7 @@
 {
   "name": "chatment-ver2-server",
   "version": "1.0.0",
-  "description": "Chatment ver.2 server — Loro CRDT sync + MongoDB persistence",
+  "description": "Chatment server — Loro CRDT sync + MongoDB persistence",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState } from 'react';
 import type { StreamNodeWithIndex } from '../types';
 import type { LoroDoc } from 'loro-crdt';
 import { addReaction } from '../loro/schema';
@@ -25,30 +25,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   activeHighlightBlockId,
 }) => {
   const { node, index } = nodeWithIndex;
-  const [showReactions, setShowReactions] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
-
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (isPlaybackActive) return;
-    setContextMenu({ x: e.clientX, y: e.clientY });
-  }, [isPlaybackActive]);
-
-  useEffect(() => {
-    if (contextMenu) {
-      const closeMenu = () => setContextMenu(null);
-      const timer = setTimeout(() => {
-        window.addEventListener('click', closeMenu);
-        window.addEventListener('contextmenu', closeMenu);
-      }, 10);
-      return () => {
-        clearTimeout(timer);
-        window.removeEventListener('click', closeMenu);
-        window.removeEventListener('contextmenu', closeMenu);
-      };
-    }
-  }, [contextMenu]);
 
   const formatTime = (ts: number) => {
     const d = new Date(ts);
@@ -58,11 +34,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const handleReaction = (emoji: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!doc || isPlaybackActive) return;
-    // Toggle logic: if we already reacted with this emoji, remove it by sending empty string
     const newEmoji = myReaction === emoji ? '' : emoji;
     addReaction(doc, index, userId, newEmoji);
     onAfterEdit();
-    setContextMenu(null);
   };
 
   let upvotes = 0;
@@ -79,7 +53,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
   const voteScore = upvotes - downvotes;
   
-  // Base emphasis loaded from the right-click menu in the document panel
   const baseEmphasis = 'emphasis' in node && node.emphasis !== undefined ? node.emphasis : 0;
   const emphasisClass = baseEmphasis > 0 ? 'text-emphasis-1' : baseEmphasis < 0 ? 'text-emphasis-minus1' : 'text-emphasis-0';
 
@@ -106,7 +79,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     <div
       className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'} ${typeClass} ${isHighlighted ? 'playback-highlight' : ''}`}
       id={`chat-message-${index}`}
-      onContextMenu={handleContextMenu}
       onClick={() => onJumpToNode(index, 'doc')}
       style={{ cursor: 'pointer' }}
       title="クリックしてドキュメントへジャンプ"
@@ -141,21 +113,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           </button>
         </div>
       </div>
-      
-      {contextMenu && (
-        <div 
-          className="doc-block__context-menu"
-          style={{ position: 'fixed', top: contextMenu.y, left: contextMenu.x, zIndex: 100 }}
-          onClick={(e) => e.stopPropagation()}
-          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
-        >
-          <div className="context-menu__header">クイックリアクション</div>
-          <div className="chat-message__reaction-picker" style={{ position: 'relative', top: 0, boxShadow: 'none', border: 'none', background: 'transparent', marginTop: 4 }}>
-            <button className="chat-message__reaction-option" onClick={() => handleReaction('⇧')}>⇧</button>
-            <button className="chat-message__reaction-option" onClick={() => handleReaction('⇩')}>⇩</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

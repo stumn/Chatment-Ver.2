@@ -10,19 +10,18 @@ const getDocIdFromHash = () => {
   const hash = window.location.hash.replace(/^#\/?/, '');
   return hash || 'default';
 };
-
-export function useLoroDoc() {
+export function useLoroDoc(userName: string | null) {
   const [docId, setDocId] = useState(() => getDocIdFromHash());
   const docRef = useRef<LoroDoc | null>(null);
   const [nodes, setNodes] = useState<StreamNodeWithIndex[]>([]);
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [userCount, setUserCount] = useState<number>(0);
-  const [ratios, setRatios] = useState<{ id: string; ratio: number; docId: string }[]>([]);
+  const [ratios, setRatios] = useState<{ id: string; ratio: number; docId: string; userName?: string; colorIndex?: number }[]>([]);
   const [isReady, setIsReady] = useState(false);
   const autoSaveRef = useRef<ReturnType<typeof createAutoSave> | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
-
+  const [myColorIndex, setMyColorIndex] = useState<number | undefined>(undefined);
   const updateUndoRedoStatus = useCallback(() => {
     const um = getUndoManager();
     if (um) {
@@ -85,20 +84,42 @@ export function useLoroDoc() {
         triggerSave();
       }
     });
-
-    // 6. Init sync client
     const cleanupSync = initSyncClient({
       doc,
       docId,
       onRemoteUpdate: () => {
         refreshNodes();
       },
-      onConnectionChange: setConnectionState,
+      onConnectionChange: (state) => {
+        setConnectionState(state);
+        // Login on connect
+        if (state === 'connected' && userName) {
+          import('../loro/local-storage').then(({ loadUserColorIndex }) => {
+            const saved = loadUserColorIndex(userName);
+            import('../loro/sync-client').then(({ login }) => {
+              login(userName, saved ?? undefined);
+            });
+          });
+        }
+      },
       onUserCountChange: setUserCount,
       onRatioChange: (ratioArray) => {
         const myId = getSocketId();
         const othersRatios = ratioArray.filter(r => r.id !== myId);
         setRatios(othersRatios);
+
+        const myItem = ratioArray.find(r => r.id === myId);
+        if (myItem && myItem.colorIndex !== undefined) {
+          setMyColorIndex(myItem.colorIndex);
+        }
+      },
+      onLoginAck: (ack) => {
+        if (userName === ack.userName) {
+          setMyColorIndex(ack.colorIndex);
+          import('../loro/local-storage').then(({ saveUserColorIndex }) => {
+            saveUserColorIndex(ack.userName, ack.colorIndex);
+          });
+        }
       }
     });
 
@@ -106,7 +127,6 @@ export function useLoroDoc() {
     refreshNodes();
     updateUndoRedoStatus();
     setIsReady(true);
-
     return () => {
       cleanupKeys();
       cleanupSync();
@@ -116,7 +136,7 @@ export function useLoroDoc() {
       setIsReady(false);
       setUserCount(0);
     };
-  }, [refreshNodes, docId]);
+  }, [refreshNodes, docId, userName]);
 
   return {
     doc: docRef.current,
@@ -130,6 +150,7 @@ export function useLoroDoc() {
     ratios,
     canUndo,
     canRedo,
+    myColorIndex,
     undo: useCallback(() => {
       const success = loroUndo();
       updateUndoRedoStatus();

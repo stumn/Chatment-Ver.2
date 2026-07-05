@@ -9,6 +9,7 @@ interface DragDropState {
 
 export function useDragDrop(
   doc: LoroDoc | null,
+  userName: string | null,
   onAfterMove: () => void
 ) {
   const [dragState, setDragState] = useState<DragDropState>({
@@ -50,13 +51,13 @@ export function useDragDrop(
       const fromIndex = dragIndexRef.current;
       if (fromIndex === null || fromIndex === toIndex || !doc) return;
 
-      moveNode(doc, fromIndex, toIndex);
+      moveNode(doc, fromIndex, toIndex, userName || 'unknown');
       onAfterMove();
 
       setDragState({ dragIndex: null, dropIndex: null });
       dragIndexRef.current = null;
     };
-  }, [doc, onAfterMove]);
+  }, [doc, userName, onAfterMove]);
 
   const handleDragEnd = useCallback((e: React.DragEvent) => {
     const target = e.currentTarget as HTMLElement;

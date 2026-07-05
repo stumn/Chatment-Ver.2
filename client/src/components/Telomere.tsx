@@ -1,9 +1,11 @@
-import React, { useLayoutEffect, useState } from 'react';
+import React from 'react';
+import { getUserColor } from '../loro/sync-client';
 
 interface TelomereProps {
-  ratioArray: { id: string; ratio: number; docId: string }[];
+  ratioArray: { id: string; ratio: number; docId: string; userName?: string; colorIndex?: number }[];
   myRatio: number;
   myId: string | null;
+  myColorIndex?: number;
   onSelectRatio: (ratio: number) => void;
 }
 
@@ -19,60 +21,24 @@ interface TelomereGroup {
   isMe: boolean;
 }
 
-const getHash = (str: string) => {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return Math.abs(hash);
-};
-
-// 初心者向けアプリに適合する、調和の取れた上品なパステルカラーパレット
-const PALETTE = [
-  '#3b82f6', // ソフトブルー
-  '#a78bfa', // パステルパープル
-  '#10b981', // エメラルド
-  '#f59e0b', // ソフトアンバー
-  '#ec4899', // 優しいピンク
-  '#14b8a6', // ターコイズ
-  '#f97316', // ソフトオレンジ
-];
-
-const getPaletteColor = (str: string) => {
-  const hash = getHash(str);
-  return PALETTE[hash % PALETTE.length];
-};
-
-export const Telomere: React.FC<TelomereProps> = ({ ratioArray, myRatio, myId, onSelectRatio }) => {
-  const [handleTop, setHandleTop] = useState<number | null>(null);
-
-  useLayoutEffect(() => {
-    const container = document.getElementById('split-view');
-    const handle = container?.querySelector<HTMLElement>('#split-handle');
-
-    if (!container || !handle) {
-      setHandleTop(null);
-      return;
-    }
-
-    const updatePosition = () => {
-      const containerRect = container.getBoundingClientRect();
-      const handleRect = handle.getBoundingClientRect();
-      setHandleTop(handleRect.top - containerRect.top + handleRect.height / 2);
-    };
-
-    updatePosition();
-    window.addEventListener('resize', updatePosition);
-    return () => window.removeEventListener('resize', updatePosition);
-  }, []);
-
+export const Telomere: React.FC<TelomereProps> = ({ ratioArray, myRatio, myId, myColorIndex, onSelectRatio }) => {
   // 自分のIDと他人のIDの重複を防ぎリスト化
   const myEffectiveId = myId || 'me';
   const othersList = ratioArray.filter(item => item.id !== myId && item.id !== 'me');
 
   const allUsers = [
-    ...othersList.map(item => ({ id: item.id, ratio: item.ratio, isMe: false, color: getPaletteColor(item.id) })),
-    { id: myEffectiveId, ratio: myRatio, isMe: true, color: getPaletteColor(myEffectiveId) }
+    ...othersList.map(item => ({
+      id: item.id,
+      ratio: item.ratio,
+      isMe: false,
+      color: getUserColor(item.colorIndex, item.id)
+    })),
+    {
+      id: myEffectiveId,
+      ratio: myRatio,
+      isMe: true,
+      color: getUserColor(myColorIndex, myEffectiveId)
+    }
   ];
 
   // 比率（ratio）が極めて近いユーザーをグループ化 (2%以内の差をグループにする)
@@ -100,7 +66,7 @@ export const Telomere: React.FC<TelomereProps> = ({ ratioArray, myRatio, myId, o
   return (
     <>
       {groups.map((group, index) => {
-        const topPosition = handleTop !== null ? `${handleTop}px` : `calc(${group.ratio * 100}%)`;
+        const topPosition = `calc(${group.ratio * 100}%)`;
         const count = group.users.length;
 
         return (

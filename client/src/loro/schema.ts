@@ -179,7 +179,8 @@ function getGroupRange(stream: any, parentIndex: number): number {
 export function moveNode(
   doc: LoroDoc,
   fromIndex: number,
-  toIndex: number
+  toIndex: number,
+  userName: string
 ): void {
   const stream = getStream(doc);
   if (fromIndex < 0 || fromIndex >= stream.length) return;
@@ -224,7 +225,7 @@ export function moveNode(
   
   const movedMap = stream.get(finalToIndex) as LoroMap;
   const blockId = movedMap ? (movedMap.get('blockId') as string || '') : '';
-  doc.commit({ message: `moveGroup:${blockId}:${fromIndex}->${finalToIndex}` });
+  doc.commit({ message: `moveGroup:${userName}:${blockId}:${fromIndex}->${finalToIndex}` });
 }
 
 /**
@@ -307,7 +308,7 @@ export function updateDocContent(
   }
   loroText.insert(0, newText);
   const blockId = nodeMap ? (nodeMap.get('blockId') as string || '') : '';
-  doc.commit({ message: `edit:${blockId}:${newText}` });
+  doc.commit({ message: `edit:${editorName}:${blockId}:${newText}` });
 }
 
 /**
@@ -315,14 +316,15 @@ export function updateDocContent(
  */
 export function deleteDocNode(
   doc: LoroDoc,
-  nodeIndex: number
+  nodeIndex: number,
+  userName: string
 ): void {
   const stream = getStream(doc);
   if (nodeIndex >= 0 && nodeIndex < stream.length) {
     const nodeMap = stream.get(nodeIndex) as LoroMap;
     const blockId = nodeMap ? (nodeMap.get('blockId') as string || '') : '';
     stream.delete(nodeIndex, 1);
-    doc.commit({ message: `delete:${blockId}:${nodeIndex}` });
+    doc.commit({ message: `delete:${userName}:${blockId}:${nodeIndex}` });
   }
 }
 

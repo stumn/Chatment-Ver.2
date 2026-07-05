@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import type { StreamNodeWithIndex } from '../types';
 import type { LoroDoc } from 'loro-crdt';
 import { DocBlock } from './DocBlock';
-import { addDocNode } from '../loro/schema';
 
 interface DocPanelProps {
   nodes: StreamNodeWithIndex[];
@@ -41,65 +40,9 @@ export const DocPanel: React.FC<DocPanelProps> = ({
   activeDeletedIndex,
   isCautiousMode,
 }) => {
-  const [bgMenu, setBgMenu] = React.useState<{ x: number, y: number } | null>(null);
-
-  const handleBgContextMenu = React.useCallback((e: React.MouseEvent) => {
-    if (isPlaybackActive) return;
-    // If the event isn't from the background itself, let it bubble if needed
-    // Actually, DocBlock stops propagation on right-clicks.
-    if ((e.target as HTMLElement).closest('.doc-block')) {
-      return;
-    }
-    e.preventDefault();
-    setBgMenu({ x: e.clientX, y: e.clientY });
-  }, [isPlaybackActive]);
-
-  React.useEffect(() => {
-    if (bgMenu) {
-      const close = () => setBgMenu(null);
-      const timer = setTimeout(() => {
-        window.addEventListener('click', close);
-        window.addEventListener('contextmenu', close);
-      }, 10);
-      return () => {
-        clearTimeout(timer);
-        window.removeEventListener('click', close);
-        window.removeEventListener('contextmenu', close);
-      };
-    }
-  }, [bgMenu]);
-
-  const insertBlock = React.useCallback(() => {
-    if (doc && !isPlaybackActive) {
-      if (defaultEmphasis === 'h1') {
-        addDocNode(doc, '', userName, 0, 0, 'h1');
-      } else {
-        addDocNode(doc, '', userName, defaultEmphasis);
-      }
-      onAfterEdit();
-    }
-    setBgMenu(null);
-  }, [doc, userName, defaultEmphasis, onAfterEdit, isPlaybackActive]);
-
-  const outlineItems = nodes
-    .filter(({ node }) => {
-      if (node.type !== 'doc') return false;
-      const text = node.content?.trim() ?? '';
-      if (!text) return false;
-      const hasReactions = !!node.reactions && Object.keys(node.reactions).length > 0;
-      const isTopLevel = (node.indent ?? 0) === 0;
-      return node.heading === 'h1' || isTopLevel || hasReactions;
-    })
-    .map(({ node, index, id }) => ({
-      index,
-      text: node.content?.trim() ?? '',
-      isH1: 'heading' in node && node.heading === 'h1',
-      blockId: id,
-    }));
-
   if (nodes.length === 0) {
     return (
-      <div className="doc-panel" id="doc-panel" onContextMenu={handleBgContextMenu} style={{ position: 'relative' }}>
+      <div className="doc-panel" id="doc-panel" style={{ position: 'relative' }}>
         <div className="doc-panel__content">
           {typeof activeDeletedIndex === 'number' ? (
             <div className="doc-paper">
@@ -107,7 +50,7 @@ export const DocPanel: React.FC<DocPanelProps> = ({
             </div>
           ) : (
             <>
-              {/* チャットが溢れる前の 1件目の仮書き込みエリア (CRDT上にはまだ追加されないが、入力で発火する想定) */}
+              {/* チャットが溢れる前の 1件目の仮書き込みエリア */}
               <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
                 <div className="doc-paper">
                   <div
@@ -155,8 +98,7 @@ export const DocPanel: React.FC<DocPanelProps> = ({
   }
 
   return (
-    <div className="doc-panel" onContextMenu={handleBgContextMenu} style={{ position: 'relative' }}>
-
+    <div className="doc-panel" style={{ position: 'relative' }}>
       <div className="doc-panel__content">
         <div className="doc-paper">
           {nodes.map((nodeWithIndex, arrayIndex) => (
@@ -191,20 +133,6 @@ export const DocPanel: React.FC<DocPanelProps> = ({
           ))}
         </div>
       </div>
-
-
-      {bgMenu && (
-        <div
-          className="doc-block__context-menu"
-          style={{ position: 'fixed', top: bgMenu.y, left: bgMenu.x, zIndex: 100000 }}
-          onClick={(e) => e.stopPropagation()}
-          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
-        >
-          <button className="context-menu__item" onClick={insertBlock}>
-            ➕ 新しいブロックを追加
-          </button>
-        </div>
-      )}
     </div>
   );
 };

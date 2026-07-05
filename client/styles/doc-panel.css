@@ -93,7 +93,7 @@
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
   position: relative;
   animation: fadeSlideIn 0.3s ease;
   width: 100%;
@@ -639,13 +639,15 @@
 }
 
 .outline-sidebar__minimap-dot.has-reactions.is-positive {
-  background-color: hsl(130, 60%, 45%);
-  box-shadow: 0 0 4px hsl(130, 60%, 45%);
+  background-color: rgba(46, 184, 69, 0.4);
+  box-shadow: 0 0 4px rgba(46, 184, 69, 0.1);
+  border: 1px solid rgba(46, 184, 69, 0.4);
 }
 
 .outline-sidebar__minimap-dot.has-reactions.is-negative {
-  background-color: hsl(0, 70%, 55%);
-  box-shadow: 0 0 4px hsl(0, 70%, 55%);
+  background-color: rgba(221, 60, 60, 0.4);
+  box-shadow: 0 0 4px rgba(221, 60, 60, 0.1);
+  border: 1px solid rgba(221, 60, 60, 0.4);
 }
 
 .outline-sidebar__minimap-dot.is-h1 {
@@ -871,7 +873,6 @@
   }
 }
 
-/* ─── DocBlock Hover Toolbars (紙の外側へはみ出し配置) ─── */
 .doc-block__action-toolbar {
   position: absolute;
   right: -125px;
@@ -890,6 +891,17 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--transition-fast) ease, transform var(--transition-fast) ease;
+}
+
+/* 投稿とメニュー間の隙間を埋める透明なホバー架け橋 */
+.doc-block__action-toolbar::before {
+  content: "";
+  position: absolute;
+  left: -40px;
+  top: -10px;
+  bottom: -10px;
+  width: 40px;
+  background: transparent;
 }
 
 .doc-block:hover .doc-block__action-toolbar {

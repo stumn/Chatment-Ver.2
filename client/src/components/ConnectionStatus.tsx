@@ -1,9 +1,10 @@
 import React from 'react';
-import { getSocketId, type ConnectionState } from '../loro/sync-client';
+import { getSocketId, type ConnectionState, getUserColor } from '../loro/sync-client';
 
 interface ConnectionStatusProps {
   state: ConnectionState;
   userName: string;
+  colorIndex?: number;
 }
 
 const STATUS_CONFIG = {
@@ -12,24 +13,11 @@ const STATUS_CONFIG = {
   disconnected: { className: 'disconnected' },
 } as const;
 
-const getHash = (value: string) => {
-  let hash = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    hash = (hash << 5) - hash + value.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-};
-
-const PALETTE = ['#3b82f6', '#a78bfa', '#10b981', '#f59e0b', '#ec4899', '#14b8a6', '#f97316'];
-
-const getPaletteColor = (value: string) => PALETTE[getHash(value) % PALETTE.length];
-
-export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ state, userName }) => {
+export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ state, userName, colorIndex }) => {
   const config = STATUS_CONFIG[state];
   const colorSeed = getSocketId() || userName;
   const dotColor = state === 'connected'
-    ? getPaletteColor(colorSeed)
+    ? getUserColor(colorIndex, colorSeed)
     : state === 'connecting'
       ? '#f59e0b'
       : '#ef4444';
