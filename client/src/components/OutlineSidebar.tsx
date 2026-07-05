@@ -7,6 +7,9 @@ interface OutlineItem {
   isH1: boolean;
   blockId: string;
   positiveReactionCount: number;
+  indent: number;
+  hasReactions: boolean;
+  voteScore: number;
 }
 
 interface OutlineSidebarProps {
@@ -30,13 +33,27 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToN
       const isTopLevel = (node.indent ?? 0) === 0;
       return node.heading === 'h1' || isTopLevel || hasReactions;
     })
-    .map(({ node, index, id }) => ({
-      index,
-      text: node.content?.trim() ?? '',
-      isH1: 'heading' in node && node.heading === 'h1',
-      blockId: id,
-      positiveReactionCount: Object.values(node.reactions ?? {}).filter((emoji) => POSITIVE_REACTIONS.has(emoji)).length,
-    }));
+    .map(({ node, index, id }) => {
+      let upvotes = 0;
+      let downvotes = 0;
+      if ('reactions' in node && node.reactions) {
+        Object.values(node.reactions).forEach(emoji => {
+          if (emoji === '⇧') upvotes++;
+          if (emoji === '⇩') downvotes++;
+        });
+      }
+      const voteScore = upvotes - downvotes;
+      return {
+        index,
+        text: node.content?.trim() ?? '',
+        isH1: 'heading' in node && node.heading === 'h1',
+        blockId: id,
+        positiveReactionCount: Object.values(node.reactions ?? {}).filter((emoji) => POSITIVE_REACTIONS.has(emoji)).length,
+        indent: (node as any).indent ?? 0,
+        hasReactions: !!node.reactions && Object.keys(node.reactions).length > 0,
+        voteScore,
+      };
+    });
 
   const prioritizedItems = (() => {
     if (outlineItems.length <= 14) return outlineItems;
@@ -109,10 +126,19 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToN
           /* 折りたたみ時：ミニマップドットインジケーター */
           <div className="outline-sidebar__minimap">
             {positionedItems.map((item) => {
+              const dotClasses = [
+                'outline-sidebar__minimap-dot',
+                item.isH1 ? 'is-h1' : '',
+                item.indent === 0 ? 'is-indent-0' : '',
+                item.hasReactions ? 'has-reactions' : '',
+                item.voteScore > 0 ? 'is-positive' : '',
+                item.voteScore < 0 ? 'is-negative' : '',
+              ].filter(Boolean).join(' ');
+
               return (
                 <button
                   key={item.blockId}
-                  className={`outline-sidebar__minimap-dot ${item.isH1 ? 'is-h1' : 'is-bold'}`}
+                  className={dotClasses}
                   style={{ top: `${item.topPercent}%` }}
                   onClick={() => onJumpToNode(item.index, 'doc')}
                   aria-label={item.text}

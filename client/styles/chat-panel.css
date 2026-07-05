@@ -34,7 +34,7 @@
   padding: 10px 12px; /* Increased vertical padding to separate messages */
   position: relative;
   width: 100%;
-  max-width: 802px; /* Match inner doc-paper width precisely */
+  max-width: 767px; /* Match inner doc-paper width precisely (815px - 48px padding) */
   border-radius: var(--radius-sm);
   transition: background var(--transition-fast);
 }
@@ -159,6 +159,18 @@
   color: var(--accent-primary);
 }
 
+.chat-message__reaction-badge--upvote.chat-message__reaction-badge--active {
+  background: rgba(34, 197, 94, 0.15) !important;
+  border-color: #22c55e !important;
+  color: #22c55e !important;
+}
+
+.chat-message__reaction-badge--downvote.chat-message__reaction-badge--active {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: #ef4444 !important;
+  color: #ef4444 !important;
+}
+
 .chat-message__actions {
   position: relative;
   opacity: 1; /* Always visible for slack style */
@@ -227,7 +239,7 @@
   align-items: flex-end;
   justify-content: center; /* Center inner content */
   gap: var(--space-sm);
-  padding: 10px 48px;
+  padding: 10px 48px 18px 48px;
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
@@ -235,14 +247,11 @@
   flex-shrink: 0;
 }
 
-/* dominant-doc 時はインプット非表示 */
-.dominant-doc .chat-input {
-  display: none;
-}
+
 
 .chat-input__wrapper {
   width: 100%;
-  max-width: 802px;
+  max-width: 767px;
   display: flex;
   align-items: flex-end;
   gap: var(--space-sm);

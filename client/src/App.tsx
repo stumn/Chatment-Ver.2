@@ -483,7 +483,7 @@ export const App: React.FC = () => {
     : null;
 
   return (
-    <div className={`app ${isPlaybackMode ? 'playback-active' : ''}`} id="app">
+    <div className={`app ${isPlaybackMode ? 'playback-active' : ''} ${isSidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`} id="app">
       <OutlineSidebar
         nodes={nodes}
         onJumpToNode={handleJumpToNode}
@@ -583,7 +583,6 @@ export const App: React.FC = () => {
                 className="guide-toggle-btn"
                 onClick={() => setIsGuideOpen(true)}
                 title="体験ガイドを表示"
-                style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#fef3c7', borderColor: '#fbbf24', color: '#92400e' }}
               >
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10" />
@@ -594,17 +593,9 @@ export const App: React.FC = () => {
               </button>
 
               <button
-                className="guide-toggle-btn"
+                className={`guide-toggle-btn ${isPlaybackMode ? 'guide-toggle-btn--active' : ''}`}
                 onClick={isPlaybackMode ? exitPlayback : startPlayback}
                 title={isPlaybackMode ? "これまでの流れの確認を終了" : "これまでの流れ（編集履歴）を確認する"}
-                style={{
-                  background: isPlaybackMode ? 'var(--accent-primary)' : '#eaf3ff',
-                  borderColor: isPlaybackMode ? 'var(--accent-primary)' : '#c8dfff',
-                  color: isPlaybackMode ? 'white' : '#1e60c4',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
               >
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: 'scaleX(-1)' }}>
                   <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />

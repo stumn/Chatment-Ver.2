@@ -130,13 +130,13 @@
 
 /* Top bar / header button style */
 .guide-toggle-btn {
-  background: #eafbf0;
-  border: 1.5px solid #c8ebd5;
-  color: #277942;
-  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-medium);
+  color: var(--text-secondary);
+  border-radius: var(--radius-full);
   padding: 5px 12px;
-  font-size: var(--font-size-sm);
-  font-weight: 700;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -147,14 +147,17 @@
 }
 
 .guide-toggle-btn:hover {
-  background: #daf8e5;
-  border-color: #aae0be;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(39, 121, 66, 0.15);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-medium);
+  transform: translateY(-0.5px);
 }
 
-.guide-toggle-btn:active {
-  transform: translateY(1px);
+.guide-toggle-btn--active {
+  background: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+  color: white !important;
+  box-shadow: var(--shadow-glow);
 }
 
 /* Animations */

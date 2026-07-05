@@ -24,7 +24,12 @@ export function useSplitView() {
 
     const rect = containerRef.current.getBoundingClientRect();
     const y = e.clientY - rect.top;
-    const newRatio = Math.min(MAX_RATIO, Math.max(MIN_RATIO, y / rect.height));
+
+    const minY = 8;
+    const maxY = Math.max(8, rect.height - 74);
+    const clampedY = Math.min(maxY, Math.max(minY, y));
+
+    const newRatio = clampedY / rect.height;
     setRatio(newRatio);
   }, []);
 

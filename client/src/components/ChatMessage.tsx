@@ -122,7 +122,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       <div className="chat-message__side-actions">
         <div className="chat-message__reaction-list">
           <button
-            className={`chat-message__reaction-badge ${myReaction === '⇧' ? 'chat-message__reaction-badge--active' : ''}`}
+            className={`chat-message__reaction-badge chat-message__reaction-badge--upvote ${myReaction === '⇧' ? 'chat-message__reaction-badge--active' : ''}`}
             onClick={(e) => handleReaction('⇧', e)}
             disabled={isPlaybackActive}
             title={isPlaybackActive ? "プレイバック中は投票できません" : "太字にする (Upvote)"}
@@ -131,7 +131,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             ⇧ {upvotes > 0 && upvotes}
           </button>
           <button
-            className={`chat-message__reaction-badge ${myReaction === '⇩' ? 'chat-message__reaction-badge--active' : ''}`}
+            className={`chat-message__reaction-badge chat-message__reaction-badge--downvote ${myReaction === '⇩' ? 'chat-message__reaction-badge--active' : ''}`}
             onClick={(e) => handleReaction('⇩', e)}
             disabled={isPlaybackActive}
             title={isPlaybackActive ? "プレイバック中は投票できません" : "控えめにする (Downvote)"}

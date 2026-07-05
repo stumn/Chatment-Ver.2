@@ -80,16 +80,7 @@ export const Telomere: React.FC<TelomereProps> = ({ ratioArray, myRatio, myId, o
   return (
     <>
       {groups.map((group, index) => {
-        // 滑らかな補間処理 (ratio 0.6 ~ 0.7 の間で 0 から inputOffset に滑らかに移行させる)
-        let w = 0;
-        if (group.ratio > 0.7) {
-          w = 1;
-        } else if (group.ratio > 0.6) {
-          w = (group.ratio - 0.6) * 10;
-        }
-        const currentOffset = inputOffset * w;
-        // 高さ補正
-        const topPosition = `calc(${group.ratio * 100}% + ${currentOffset}px + 8px)`;
+        const topPosition = `calc(${group.ratio * 100}%)`;
         const count = group.users.length;
 
         return (
