@@ -9,7 +9,6 @@ interface SplitViewProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   docPanel: React.ReactNode;
   chatPanel: React.ReactNode;
-  isDominantDoc?: boolean;
   ratios: { id: string; ratio: number; docId: string }[];
   onSelectRatio: (ratio: number) => void;
   isPlaybackActive?: boolean;
@@ -22,13 +21,12 @@ export const SplitView: React.FC<SplitViewProps> = ({
   containerRef,
   docPanel,
   chatPanel,
-  isDominantDoc,
   ratios,
   onSelectRatio,
   isPlaybackActive,
 }) => {
-  const docHeight = `calc(${ratio * 100}% - 8px)`;
-  const chatHeight = `calc(${(1 - ratio) * 100}% - 8px)`;
+  const docHeight = `calc(max(0px, ${ratio * 100}% - 8px))`;
+  const chatHeight = `calc(max(0px, ${(1 - ratio) * 100}% - 8px))`;
 
   return (
     <div className="split-view" ref={containerRef as React.RefObject<HTMLDivElement>} id="split-view">

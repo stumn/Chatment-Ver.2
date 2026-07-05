@@ -9,6 +9,7 @@ import { UserSetup } from './components/UserSetup';
 import { SplitView } from './components/SplitView';
 import { DocPanel } from './components/DocPanel';
 import { ChatPanel } from './components/ChatPanel';
+import { ChatInput } from './components/ChatInput';
 import { ConnectionStatus } from './components/ConnectionStatus';
 import { GuideModal } from './components/GuideModal';
 import { PlaybackControls } from './components/PlaybackControls';
@@ -635,53 +636,57 @@ export const App: React.FC = () => {
       </header>
 
       <main className={`app-main ${dominantClass}`} style={{ position: 'relative' }}>
-        <SplitView
-          ratio={ratio}
-          isDominantDoc={isDominantDoc}
-          onHandleMouseDown={handleMouseDown}
-          onHandleDoubleClick={handleDoubleClick}
-          containerRef={containerRef}
-          isPlaybackActive={isPlaybackMode}
-          docPanel={
-            <DocPanel
-              nodes={docNodes}
-              doc={doc}
-              userName={userName}
-              defaultEmphasis={defaultEmphasis}
-              dragState={dragState}
-              onDragStart={handleDragStart}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onDragEnd={handleDragEnd}
-              onAfterEdit={handleAfterEdit}
-              onJumpToNode={handleJumpToNode}
-              isPlaybackActive={isPlaybackMode}
-              activeHighlightBlockId={activeHighlightBlockId}
-              activeDeletedIndex={activeDeletedIndex}
-              isCautiousMode={isCautiousMode}
-            />
-          }
-          chatPanel={
-            <ChatPanel
-              nodes={chatNodes}
-              doc={doc}
-              userName={userName}
-              userId={userId}
-              panelRef={chatPanelRef}
-              ratio={ratio}
-              onAfterEdit={handleAfterEdit}
-              onJumpToNode={handleJumpToNode}
-              isPlaybackActive={isPlaybackMode}
-              activeHighlightBlockId={activeHighlightBlockId}
-            />
-          }
-          ratios={ratios}
-          onSelectRatio={(newRatio) => {
-            console.log("[App] onSelectRatio called with newRatio:", newRatio);
-            setRatio(newRatio);
-          }}
-        />
+        <div className="split-view-shell">
+          <SplitView
+            ratio={ratio}
+            onHandleMouseDown={handleMouseDown}
+            onHandleDoubleClick={handleDoubleClick}
+            containerRef={containerRef}
+            isPlaybackActive={isPlaybackMode}
+            docPanel={
+              <DocPanel
+                nodes={docNodes}
+                doc={doc}
+                userName={userName}
+                defaultEmphasis={defaultEmphasis}
+                dragState={dragState}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onDragEnd={handleDragEnd}
+                onAfterEdit={handleAfterEdit}
+                onJumpToNode={handleJumpToNode}
+                isPlaybackActive={isPlaybackMode}
+                activeHighlightBlockId={activeHighlightBlockId}
+                activeDeletedIndex={activeDeletedIndex}
+                isCautiousMode={isCautiousMode}
+              />
+            }
+            chatPanel={
+              <ChatPanel
+                nodes={chatNodes}
+                doc={doc}
+                userName={userName}
+                userId={userId}
+                panelRef={chatPanelRef}
+                ratio={ratio}
+                onAfterEdit={handleAfterEdit}
+                onJumpToNode={handleJumpToNode}
+                isPlaybackActive={isPlaybackMode}
+                activeHighlightBlockId={activeHighlightBlockId}
+              />
+            }
+            ratios={ratios}
+            onSelectRatio={(newRatio) => {
+              console.log("[App] onSelectRatio called with newRatio:", newRatio);
+              setRatio(newRatio);
+            }}
+          />
+          <div className="split-view__footer">
+            <ChatInput doc={doc} userName={userName} onAfterSend={handleAfterEdit} isPlaybackActive={isPlaybackMode} />
+          </div>
+        </div>
       </main>
       <GuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
       {isPlaybackMode && (

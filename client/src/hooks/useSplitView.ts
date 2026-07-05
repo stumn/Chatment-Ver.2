@@ -26,10 +26,10 @@ export function useSplitView() {
     const y = e.clientY - rect.top;
 
     const minY = 8;
-    const maxY = Math.max(8, rect.height - 74);
+    const maxY = Math.max(minY, rect.height - 8);
     const clampedY = Math.min(maxY, Math.max(minY, y));
 
-    const newRatio = clampedY / rect.height;
+    const newRatio = Math.min(MAX_RATIO, Math.max(MIN_RATIO, clampedY / rect.height));
     setRatio(newRatio);
   }, []);
 

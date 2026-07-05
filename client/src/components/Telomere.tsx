@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useLayoutEffect, useState } from 'react';
 
 interface TelomereProps {
   ratioArray: { id: string; ratio: number; docId: string }[];
@@ -44,7 +44,27 @@ const getPaletteColor = (str: string) => {
 };
 
 export const Telomere: React.FC<TelomereProps> = ({ ratioArray, myRatio, myId, onSelectRatio }) => {
-  const inputOffset = 78; // チャット入力エリアの概算高さ
+  const [handleTop, setHandleTop] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const container = document.getElementById('split-view');
+    const handle = container?.querySelector<HTMLElement>('#split-handle');
+
+    if (!container || !handle) {
+      setHandleTop(null);
+      return;
+    }
+
+    const updatePosition = () => {
+      const containerRect = container.getBoundingClientRect();
+      const handleRect = handle.getBoundingClientRect();
+      setHandleTop(handleRect.top - containerRect.top + handleRect.height / 2);
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    return () => window.removeEventListener('resize', updatePosition);
+  }, []);
 
   // 自分のIDと他人のIDの重複を防ぎリスト化
   const myEffectiveId = myId || 'me';
@@ -80,7 +100,7 @@ export const Telomere: React.FC<TelomereProps> = ({ ratioArray, myRatio, myId, o
   return (
     <>
       {groups.map((group, index) => {
-        const topPosition = `calc(${group.ratio * 100}%)`;
+        const topPosition = handleTop !== null ? `${handleTop}px` : `calc(${group.ratio * 100}%)`;
         const count = group.users.length;
 
         return (

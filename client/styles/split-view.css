@@ -1,9 +1,17 @@
 /* ─── Split View Layout ─── */
 
-.split-view {
+.split-view-shell {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
+}
+
+.split-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   position: relative;
   overflow: hidden;
   isolation: isolate;
@@ -50,6 +58,13 @@
 }
 
 .split-panel--chat {}
+
+.split-view__footer {
+  flex-shrink: 0;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-subtle);
+  z-index: 2;
+}
 
 /* ─── Resize Handle ─── */
 

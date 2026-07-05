@@ -2,7 +2,6 @@ import React, { useRef, useEffect } from 'react';
 import type { StreamNodeWithIndex } from '../types';
 import type { LoroDoc } from 'loro-crdt';
 import { ChatMessage } from './ChatMessage';
-import { ChatInput } from './ChatInput';
 
 interface ChatPanelProps {
   nodes: StreamNodeWithIndex[];
@@ -40,7 +39,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     if (!container) return;
     const { scrollHeight, scrollTop, clientHeight } = container;
     const S = scrollHeight - scrollTop - clientHeight;
-    
+
     // threshold = 150px
     const nearBottom = S < 150;
     isNearBottomRef.current = nearBottom;
@@ -73,8 +72,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
   return (
     <div className="chat-panel" ref={panelRef as React.RefObject<HTMLDivElement>} id="chat-panel" style={{ position: 'relative' }}>
-      <div 
-        className="chat-panel__messages" 
+      <div
+        className="chat-panel__messages"
         ref={messagesContainerRef}
         onScroll={handleScroll}
       >
@@ -98,7 +97,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         ))}
         <div ref={messagesEndRef} />
       </div>
-      
+
       {showUnreadBanner && (
         <button
           className="chat-panel__unread-banner"
@@ -108,8 +107,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           ⬇️ 新しいメッセージがあります
         </button>
       )}
-
-      <ChatInput doc={doc} userName={userName} onAfterSend={onAfterEdit} isPlaybackActive={isPlaybackActive} />
     </div>
   );
 };
