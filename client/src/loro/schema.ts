@@ -1,7 +1,10 @@
 import { LoroDoc, LoroMovableList, LoroMap, LoroText } from 'loro-crdt';
-import type { StreamNode, StreamNodeWithIndex, EmphasisLevel } from '../types';
+import type { StreamNode, StreamNodeWithIndex, EmphasisLevel, AuthorInfo } from '../types';
 
 let peerIdCounter = BigInt(Math.floor(Math.random() * 1000000));
+
+/** 空の AuthorInfo（空ブロック用） */
+export const EMPTY_AUTHOR: AuthorInfo = { displayName: '', realName: '', userId: '' };
 
 /**
  * Create a new LoroDoc with a 'stream' LoroMovableList as the root container.
@@ -25,13 +28,51 @@ export function getStream(doc: LoroDoc): LoroMovableList {
   return doc.getMovableList('stream');
 }
 
+/** LoroMapにAuthorInfoをフラットフィールドとして保存 */
+function writeAuthorInfo(nodeMap: LoroMap, info: AuthorInfo, prefix: string = '') {
+  nodeMap.set(`${prefix}author`, info.displayName);
+  nodeMap.set(`${prefix}authorRealName`, info.realName);
+  nodeMap.set(`${prefix}authorUserId`, info.userId);
+}
+
+/** LoroMapからAuthorInfoを読み取る。後方互換のためフィールドがなければ空文字列で補完 */
+function readAuthorInfo(nodeMap: LoroMap, prefix: string = ''): AuthorInfo {
+  const displayName = (nodeMap.get(`${prefix}author`) as string) || '';
+  const realName = (nodeMap.get(`${prefix}authorRealName`) as string) || displayName;
+  const userId = (nodeMap.get(`${prefix}authorUserId`) as string) || '';
+  return { displayName, realName, userId };
+}
+
+/** subAuthorsをJSON文字列として保存 */
+function writeSubAuthors(nodeMap: LoroMap, subAuthors: AuthorInfo[]) {
+  nodeMap.set('subAuthors', JSON.stringify(subAuthors));
+}
+
+/** subAuthorsをJSON文字列から読み取る。旧フォーマット(subAuthor: string)も後方互換で対応 */
+function readSubAuthors(nodeMap: LoroMap): AuthorInfo[] {
+  const json = nodeMap.get('subAuthors') as string | null;
+  if (json) {
+    try {
+      return JSON.parse(json) as AuthorInfo[];
+    } catch {
+      return [];
+    }
+  }
+  // 旧フォーマット互換
+  const legacy = (nodeMap.get('subAuthor') as string) || '';
+  if (legacy) {
+    return [{ displayName: legacy, realName: legacy, userId: '' }];
+  }
+  return [];
+}
+
 /**
  * Add a chat node to the stream.
  */
 export function addChatNode(
   doc: LoroDoc,
   content: string,
-  author: string
+  authorInfo: AuthorInfo
 ): void {
   const stream = getStream(doc);
   const length = stream.length;
@@ -46,7 +87,7 @@ export function addChatNode(
         const loroText = lastNode.get('content') as LoroText;
         if (loroText && loroText.length === 0) {
           // The last block is an empty doc block
-          insertChatPos = length - 1; 
+          insertChatPos = length - 1;
           appendEmptyDoc = false;
         }
       }
@@ -59,7 +100,8 @@ export function addChatNode(
   nodeMap.set('type', 'chat');
   const chatText = nodeMap.setContainer('content', new LoroText());
   chatText.insert(0, content);
-  nodeMap.set('author', author);
+  // Author情報をフラット保存
+  writeAuthorInfo(nodeMap, authorInfo);
   nodeMap.set('timestamp', Date.now());
   nodeMap.setContainer('reactions', new LoroMap());
 
@@ -67,14 +109,14 @@ export function addChatNode(
     const emptyPos = insertChatPos + 1;
     const emptyDocMap = stream.insertContainer(emptyPos, new LoroMap());
     emptyDocMap.set('type', 'doc');
-    const loroText = emptyDocMap.setContainer('content', new LoroText());
-    
+    emptyDocMap.setContainer('content', new LoroText());
     emptyDocMap.set('blockId', `blk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
-    emptyDocMap.set('author', author);
+    // 空ブロックはauthor空
+    writeAuthorInfo(emptyDocMap, EMPTY_AUTHOR);
     emptyDocMap.set('timestamp', Date.now());
   }
 
-  doc.commit({ message: `chat:${author}:${chatId}:${content}` });
+  doc.commit({ message: `chat:${authorInfo.displayName}:${chatId}:${content}` });
 }
 
 /**
@@ -83,13 +125,13 @@ export function addChatNode(
 export function addDocNode(
   doc: LoroDoc,
   text: string,
-  author: string,
+  authorInfo: AuthorInfo,
   emphasis?: number,
   indent?: number,
   heading?: 'h1' | null,
-  subAuthor?: string | null
+  subAuthorInfo?: AuthorInfo | null
 ): void {
-  insertDocNodeAfter(doc, getStream(doc).length - 1, text, author, emphasis, indent, heading, subAuthor);
+  insertDocNodeAfter(doc, getStream(doc).length - 1, text, authorInfo, emphasis, indent, heading, subAuthorInfo);
 }
 
 /**
@@ -99,11 +141,11 @@ export function insertDocNodeAfter(
   doc: LoroDoc,
   targetIndex: number,
   text: string,
-  author: string,
+  authorInfo: AuthorInfo,
   emphasis?: number,
   indent?: number,
   heading?: 'h1' | null,
-  subAuthor?: string | null
+  subAuthorInfo?: AuthorInfo | null
 ): void {
   const stream = getStream(doc);
   const insertPos = targetIndex >= 0 ? targetIndex + 1 : stream.length;
@@ -125,14 +167,15 @@ export function insertDocNodeAfter(
 
   // Blank/whitespace-only check
   const hasTextContent = text.replace(/[\s　]+/g, '').length > 0;
-  const initialAuthor = hasTextContent ? author : '';
-  nodeMap.set('author', initialAuthor);
-  if (subAuthor) {
-    nodeMap.set('subAuthor', subAuthor);
+  const initialAuthorInfo = hasTextContent ? authorInfo : EMPTY_AUTHOR;
+  writeAuthorInfo(nodeMap, initialAuthorInfo);
+
+  if (subAuthorInfo) {
+    writeSubAuthors(nodeMap, [subAuthorInfo]);
   }
 
   nodeMap.set('timestamp', Date.now());
-  doc.commit({ message: `doc:${initialAuthor || 'unknown'}:${blockId}:${text}` });
+  doc.commit({ message: `doc:${initialAuthorInfo.displayName || 'unknown'}:${blockId}:${text}` });
 }
 
 /**
@@ -180,7 +223,7 @@ export function moveNode(
   doc: LoroDoc,
   fromIndex: number,
   toIndex: number,
-  userName: string
+  authorInfo: AuthorInfo
 ): void {
   const stream = getStream(doc);
   if (fromIndex < 0 || fromIndex >= stream.length) return;
@@ -203,7 +246,7 @@ export function moveNode(
   }
 
   const toChildCount = getGroupRange(stream, targetParentIndex);
-  
+
   let finalToIndex = targetParentIndex;
   if (fromIndex < targetParentIndex) {
     finalToIndex = targetParentIndex + toChildCount;
@@ -222,10 +265,10 @@ export function moveNode(
       stream.move(fromIndex + i, finalToIndex + i);
     }
   }
-  
+
   const movedMap = stream.get(finalToIndex) as LoroMap;
   const blockId = movedMap ? (movedMap.get('blockId') as string || '') : '';
-  doc.commit({ message: `moveGroup:${userName}:${blockId}:${fromIndex}->${finalToIndex}` });
+  doc.commit({ message: `moveGroup:${authorInfo.displayName}:${blockId}:${fromIndex}->${finalToIndex}` });
 }
 
 /**
@@ -263,14 +306,14 @@ export function updateDocContent(
   doc: LoroDoc,
   nodeIndex: number,
   newText: string,
-  editorName: string
+  editorInfo: AuthorInfo
 ): void {
   const stream = getStream(doc);
   const nodeMap = stream.get(nodeIndex) as LoroMap;
   if (!nodeMap) return;
 
-  const currentAuthor = (nodeMap.get('author') as string) || '';
-  const currentSubAuthor = (nodeMap.get('subAuthor') as string) || '';
+  const currentAuthorUserId = (nodeMap.get('authorUserId') as string) || '';
+  const currentSubAuthors = readSubAuthors(nodeMap);
 
   let contentVal = nodeMap.get('content');
   let loroText: LoroText;
@@ -288,17 +331,22 @@ export function updateDocContent(
   const cleanNew = newText.replace(/[\s　]+/g, '');
   const hasSubstantialChange = cleanOld !== cleanNew;
 
+  const isAlreadyAuthor = currentAuthorUserId === editorInfo.userId && currentAuthorUserId !== '';
+  const isAlreadySubAuthor = currentSubAuthors.some(sa => sa.userId === editorInfo.userId && sa.userId !== '');
+
   // First Author resolution
-  if (hasSubstantialChange && !currentAuthor) {
-    nodeMap.set('author', editorName);
-  } else if (hasSubstantialChange && currentAuthor && currentAuthor !== editorName && currentSubAuthor !== editorName) {
-    nodeMap.set('subAuthor', editorName);
+  if (hasSubstantialChange && !currentAuthorUserId) {
+    // 空ブロックへの初回書き込み：主著者として記録
+    writeAuthorInfo(nodeMap, editorInfo);
+  } else if (hasSubstantialChange && !isAlreadyAuthor && !isAlreadySubAuthor && editorInfo.userId) {
+    // 他者の編集：共同編集者配列に追加
+    const newSubAuthors = [...currentSubAuthors, editorInfo];
+    writeSubAuthors(nodeMap, newSubAuthors);
   }
 
   const currentLength = loroText.length;
-  
+
   // If the block is transitioning from empty to non-empty, update timestamp
-  // so it correctly floats to the newest in the chat stream.
   if (currentLength === 0 && newText.trim().length > 0) {
     nodeMap.set('timestamp', Date.now());
   }
@@ -308,7 +356,7 @@ export function updateDocContent(
   }
   loroText.insert(0, newText);
   const blockId = nodeMap ? (nodeMap.get('blockId') as string || '') : '';
-  doc.commit({ message: `edit:${editorName}:${blockId}:${newText}` });
+  doc.commit({ message: `edit:${editorInfo.displayName}:${blockId}:${newText}` });
 }
 
 /**
@@ -317,14 +365,14 @@ export function updateDocContent(
 export function deleteDocNode(
   doc: LoroDoc,
   nodeIndex: number,
-  userName: string
+  authorInfo: AuthorInfo
 ): void {
   const stream = getStream(doc);
   if (nodeIndex >= 0 && nodeIndex < stream.length) {
     const nodeMap = stream.get(nodeIndex) as LoroMap;
     const blockId = nodeMap ? (nodeMap.get('blockId') as string || '') : '';
     stream.delete(nodeIndex, 1);
-    doc.commit({ message: `delete:${userName}:${blockId}:${nodeIndex}` });
+    doc.commit({ message: `delete:${authorInfo.displayName}:${blockId}:${nodeIndex}` });
   }
 }
 
@@ -341,7 +389,7 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
     if (!loroMap) continue;
 
     const type = loroMap.get('type') as string;
-    const author = (loroMap.get('author') as string) || '';
+    const author = readAuthorInfo(loroMap);
     const timestamp = (loroMap.get('timestamp') as number) || 0;
 
     if (type === 'chat') {
@@ -369,7 +417,6 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
       let id = loroMap.get('blockId') as string | undefined;
       if (!id) {
         id = `chat-${timestamp}-${i}`;
-        // Optionally set it back if we want to persist it, but ephemeral is fine for keying
       }
 
       nodes.push({
@@ -389,7 +436,7 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
       const emphasis = (loroMap.get('emphasis') as number) || 0;
       const heading = loroMap.get('heading') as 'h1' | null | undefined;
       const indent = loroMap.get('indent') as number | undefined;
-      const subAuthor = (loroMap.get('subAuthor') as string) || null;
+      const subAuthors = readSubAuthors(loroMap);
 
       let reactions: Record<string, string> = {};
       try {
@@ -402,7 +449,7 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
       }
 
       nodes.push({
-        node: { type: 'doc', content, blockId, author, timestamp, reactions, emphasis: emphasis as any, heading, indent, subAuthor },
+        node: { type: 'doc', content, blockId, author, timestamp, reactions, emphasis: emphasis as any, heading, indent, subAuthors },
         id: blockId,
         index: i,
         loroMap,

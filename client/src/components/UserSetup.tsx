@@ -2,13 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { loadUserName, saveUserName } from '../loro/local-storage';
 
 interface UserSetupProps {
-  onComplete: (name: string) => void;
+  onComplete: (name: string, attribute: string, age: string) => void;
+}
+
+/** 属性と年代の組み合わせで生成される登録禁止名のセット */
+const ATTRIBUTES = ['学部生', '院生', '教員', 'その他'];
+const AGES = ['10代', '20代', '30代', '40代', '50代', '60代以上'];
+
+const BLOCKED_NAMES = new Set<string>();
+for (const age of AGES) {
+  for (const attr of ATTRIBUTES) {
+    BLOCKED_NAMES.add(`${age}${attr}`);
+  }
 }
 
 export const UserSetup: React.FC<UserSetupProps> = ({ onComplete }) => {
   const [name, setName] = useState('');
   const [attribute, setAttribute] = useState('学部生');
   const [age, setAge] = useState('20s');
+  const [nameError, setNameError] = useState('');
 
   // Load saved data for autofill on mount
   useEffect(() => {
@@ -26,17 +38,37 @@ export const UserSetup: React.FC<UserSetupProps> = ({ onComplete }) => {
     }
   }, []);
 
+  const validateName = (value: string): string => {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    if (BLOCKED_NAMES.has(trimmed)) {
+      return `「${trimmed}」はシステムが生成するハンドルネームと重複するため使用できません。別の名前を入力してください。`;
+    }
+    return '';
+  };
+
+  const handleNameChange = (value: string) => {
+    setName(value);
+    setNameError(validateName(value));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) return;
+
+    const error = validateName(trimmed);
+    if (error) {
+      setNameError(error);
+      return;
+    }
 
     // Save to localStorage
     saveUserName(trimmed);
     localStorage.setItem('compact-chatment-user-attribute', attribute);
     localStorage.setItem('compact-chatment-user-age', age);
 
-    onComplete(trimmed);
+    onComplete(trimmed, attribute, age);
   };
 
   return (
@@ -52,13 +84,16 @@ export const UserSetup: React.FC<UserSetupProps> = ({ onComplete }) => {
               id="username-input"
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => handleNameChange(e.target.value)}
               placeholder="ニックネームを入力..."
-              className="user-login-input"
+              className={`user-login-input${nameError ? ' user-login-input--error' : ''}`}
               autoFocus
               maxLength={20}
               required
             />
+            {nameError && (
+              <p className="user-login-error">{nameError}</p>
+            )}
           </div>
 
           <div className="user-login-field">
@@ -105,7 +140,7 @@ export const UserSetup: React.FC<UserSetupProps> = ({ onComplete }) => {
             <button
               type="submit"
               className="user-login-submit"
-              disabled={!name.trim()}
+              disabled={!name.trim() || !!nameError}
               id="username-submit"
             >
               ログインする

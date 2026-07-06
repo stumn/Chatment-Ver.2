@@ -1,6 +1,7 @@
 import { useRef, useCallback, useState } from 'react';
 import type { LoroDoc } from 'loro-crdt';
-import { moveNode } from '../loro/schema';
+import type { AuthorInfo } from '../types';
+import { moveNode, EMPTY_AUTHOR } from '../loro/schema';
 
 interface DragDropState {
   dragIndex: number | null;
@@ -9,7 +10,7 @@ interface DragDropState {
 
 export function useDragDrop(
   doc: LoroDoc | null,
-  userName: string | null,
+  authorInfo: AuthorInfo | null,
   onAfterMove: () => void
 ) {
   const [dragState, setDragState] = useState<DragDropState>({
@@ -51,13 +52,13 @@ export function useDragDrop(
       const fromIndex = dragIndexRef.current;
       if (fromIndex === null || fromIndex === toIndex || !doc) return;
 
-      moveNode(doc, fromIndex, toIndex, userName || 'unknown');
+      moveNode(doc, fromIndex, toIndex, authorInfo || EMPTY_AUTHOR);
       onAfterMove();
 
       setDragState({ dragIndex: null, dropIndex: null });
       dragIndexRef.current = null;
     };
-  }, [doc, userName, onAfterMove]);
+  }, [doc, authorInfo, onAfterMove]);
 
   const handleDragEnd = useCallback((e: React.DragEvent) => {
     const target = e.currentTarget as HTMLElement;

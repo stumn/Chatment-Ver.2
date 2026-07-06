@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import type { EmphasisLevel } from './types';
+import type { EmphasisLevel, AuthorInfo } from './types';
 import { useLoroDoc } from './hooks/useLoroDoc';
 import { emitRatioChange } from './loro/sync-client';
 import { useOverflow } from './hooks/useOverflow';
@@ -18,9 +18,24 @@ import { OutlineSidebar } from './components/OutlineSidebar';
 import { AdminPanel } from './components/AdminPanel';
 
 export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ docId, isAdmin }) => {
-  const [userName, setUserName] = useState<string | null>(null);
+  const [realName, setRealName] = useState<string | null>(null);
+  const [currentAuthorInfo, setCurrentAuthorInfo] = useState<AuthorInfo | null>(null);
+  const [handleNameOptions, setHandleNameOptions] = useState<AuthorInfo[]>([]);
   const [userId] = useState(() => `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
   const [defaultEmphasis, setDefaultEmphasis] = useState<EmphasisLevel | 'h1'>(0);
+
+  /** ログイン情報からハンドルネーム候補2件を生成 */
+  const generateHandleNameOptions = useCallback((name: string, attribute: string, age: string, uid: string): AuthorInfo[] => {
+    const ageLabel: Record<string, string> = {
+      '10s': '10代', '20s': '20代', '30s': '30代', '40s': '40代', '50s': '50代', 'over60s': '60代以上'
+    };
+    const label = ageLabel[age] || age;
+    const displayName2 = `${label}${attribute}`;
+    return [
+      { displayName: name, realName: name, userId: uid },
+      { displayName: displayName2, realName: name, userId: uid },
+    ];
+  }, []);
 
   const [isGuideOpen, setIsGuideOpen] = useState(false);
 
@@ -95,7 +110,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
   }, []);
   const chatPanelRef = useRef<HTMLDivElement>(null);
 
-  const { doc, nodes, connectionState, userCount, isReady, triggerSave, ratios, undo, redo, canUndo, canRedo, myColorIndex } = useLoroDoc(userName, docId, isAdmin);
+  const { doc, nodes, connectionState, userCount, isReady, triggerSave, ratios, undo, redo, canUndo, canRedo, myColorIndex } = useLoroDoc(realName, docId, isAdmin);
   const { ratio, setRatio, containerRef, handleMouseDown, handleDoubleClick } = useSplitView();
   const { docNodes, chatNodes } = useOverflow(nodes, chatPanelRef, 36);
 
@@ -142,14 +157,14 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
   }, []);
 
   React.useEffect(() => {
-    if (userName && isReady) {
+    if (currentAuthorInfo && isReady) {
       const seen = localStorage.getItem('chatment-guide-seen');
       if (!seen) {
         setIsGuideOpen(true);
         localStorage.setItem('chatment-guide-seen', 'true');
       }
     }
-  }, [userName, isReady]);
+  }, [currentAuthorInfo, isReady]);
 
   const setStep = useCallback((index: number) => {
     if (!doc || playbackSteps.length === 0) return;
@@ -464,10 +479,15 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
     handleDragLeave,
     handleDrop,
     handleDragEnd,
-  } = useDragDrop(doc, userName, handleAfterEdit);
+  } = useDragDrop(doc, currentAuthorInfo, handleAfterEdit);
 
-  if (!userName) {
-    return <UserSetup onComplete={setUserName} />;
+  if (!currentAuthorInfo) {
+    return <UserSetup onComplete={(name, attribute, age) => {
+      setRealName(name);
+      const options = generateHandleNameOptions(name, attribute, age, userId);
+      setHandleNameOptions(options);
+      setCurrentAuthorInfo(options[0]); // デフォルトは本名
+    }} />;
   }
 
   if (!isReady) {
@@ -629,8 +649,8 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
             </button>
             <span className="app-header__user">
               {!isPlaybackMode && <span className="app-header__user-icon" title={`現在 ${userCount} 人が接続中`}></span>}
-              <span>{userName}</span>
-              {!isPlaybackMode && <ConnectionStatus state={connectionState} userName={userName} colorIndex={myColorIndex} />}
+              <span>{currentAuthorInfo?.displayName || realName}</span>
+              {!isPlaybackMode && <ConnectionStatus state={connectionState} userName={currentAuthorInfo?.displayName || ''} colorIndex={myColorIndex} />}
             </span>
           </div>
         </div>
@@ -648,7 +668,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
               <DocPanel
                 nodes={docNodes}
                 doc={doc}
-                userName={userName}
+                currentAuthorInfo={currentAuthorInfo || { displayName: '', realName: '', userId: '' }}
                 defaultEmphasis={defaultEmphasis}
                 dragState={dragState}
                 onDragStart={handleDragStart}
@@ -668,7 +688,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
               <ChatPanel
                 nodes={chatNodes}
                 doc={doc}
-                userName={userName}
+                userName={currentAuthorInfo?.displayName || ''}
                 userId={userId}
                 panelRef={chatPanelRef}
                 ratio={ratio}
@@ -686,7 +706,14 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
             }}
           />
           <div className="split-view__footer">
-            <ChatInput doc={doc} userName={userName} onAfterSend={handleAfterEdit} isPlaybackActive={isPlaybackMode} />
+            <ChatInput
+              doc={doc}
+              currentAuthorInfo={currentAuthorInfo || { displayName: '', realName: '', userId: '' }}
+              handleNameOptions={handleNameOptions}
+              onHandleNameChange={setCurrentAuthorInfo}
+              onAfterSend={handleAfterEdit}
+              isPlaybackActive={isPlaybackMode}
+            />
           </div>
         </div>
       </main>

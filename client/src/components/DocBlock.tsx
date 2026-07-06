@@ -1,13 +1,13 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import type { StreamNodeWithIndex, EmphasisLevel } from '../types';
-import { LoroText, type LoroDoc } from 'loro-crdt';
-import { updateDocContent, applyEmphasis, moveNode, insertDocNodeAfter, deleteDocNode } from '../loro/schema';
+import type { StreamNodeWithIndex, EmphasisLevel, AuthorInfo, DocNodeData } from '../types';
+import { LoroText, LoroMap, type LoroDoc } from 'loro-crdt';
+import { updateDocContent, applyEmphasis, moveNode, insertDocNodeAfter, deleteDocNode, EMPTY_AUTHOR } from '../loro/schema';
 // No EmphasisToolbar needed
 
 interface DocBlockProps {
   nodeWithIndex: StreamNodeWithIndex;
   doc: LoroDoc | null;
-  userName: string;
+  currentAuthorInfo: AuthorInfo;
   defaultEmphasis: number | 'h1';
   isFirstInDoc?: boolean;
   isLastInDoc?: boolean;
@@ -34,7 +34,7 @@ const getIndentMargin = (indent: number) => {
 export const DocBlock: React.FC<DocBlockProps> = ({
   nodeWithIndex,
   doc,
-  userName,
+  currentAuthorInfo,
   defaultEmphasis,
   isFirstInDoc,
   isLastInDoc,
@@ -56,32 +56,43 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   const blockHeading = node.type === 'doc' ? (node as any).heading || null : null;
   const contentRef = useRef<HTMLDivElement>(null);
   const hasEditPermissionRef = useRef(false);
+  const isCanceledRef = useRef(false); // 慎重モードキャンセル時のblurスキップ用
   const [isDraggable, setIsDraggable] = useState(false);
   const [showMeta, setShowMeta] = useState(false);
-  const [renderKey, setRenderKey] = useState(0); // Used to forcefully remount contentEditable
   const isChat = node.type === 'chat';
 
+  // このブロックの著者情報
+  const blockAuthor: AuthorInfo = node.author;
+  const blockSubAuthors: AuthorInfo[] = node.type === 'doc' ? ((node as DocNodeData).subAuthors || []) : [];
+
+  /**
+   * 慎重モードの許可チェック
+   * actionLabel: ダイアログに表示する操作の説明
+   */
   const requestCautiousEdit = useCallback((actionLabel: string) => {
     if (!isCautiousMode) return true;
 
-    const isFirstAuthor = node.author === userName;
-    const isSubAuthor = (loroMap?.get('subAuthor') as string | undefined) === userName;
+    const isFirstAuthor = blockAuthor.userId === currentAuthorInfo.userId && blockAuthor.userId !== '';
+    const isSubAuthor = blockSubAuthors.some(sa => sa.userId === currentAuthorInfo.userId && sa.userId !== '');
     if (isFirstAuthor || isSubAuthor) return true;
-    if (!node.author) return true;
+    if (!blockAuthor.displayName) return true; // 空ブロック
     if (hasEditPermissionRef.current) return true;
 
-    const subAuthorVal = loroMap?.get('subAuthor') as string | undefined;
-    const ownerName = node.author + (subAuthorVal ? ` と ${subAuthorVal}` : '');
-    const confirmMessage = `${actionLabel}を行いますか？\nこのブロックの所有者は「${ownerName}」です。編集（共同編集者として追加）しますか？`;
+    const subNames = blockSubAuthors.map(sa => sa.displayName).filter(Boolean);
+    const ownerName = blockAuthor.displayName + (subNames.length > 0 ? ` と ${subNames.join('・')}` : '');
+    const contentPreview = node.content ? `「${node.content.substring(0, 15)}${node.content.length > 15 ? '…' : ''}」` : 'このブロック';
+    const confirmMessage = `${contentPreview}への${actionLabel}\nこのブロックの所有者は「${ownerName}」です。共同編集者として追加されます。よろしいですか？`;
     if (window.confirm(confirmMessage)) {
       hasEditPermissionRef.current = true;
       return true;
     }
     return false;
-  }, [isCautiousMode, node.author, loroMap, userName]);
+  }, [isCautiousMode, blockAuthor, blockSubAuthors, currentAuthorInfo, node.content]);
 
   const handleBlur = useCallback(() => {
     hasEditPermissionRef.current = false;
+    // 慎重モードでキャンセルされた場合はblurによる保存をスキップ
+    if (isCanceledRef.current) return;
     if (!doc || !contentRef.current || isPlaybackActive) return;
     const newText = contentRef.current.textContent || '';
     const currentText = loroMap?.get('content')?.toString() || '';
@@ -101,32 +112,32 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       if (headingChanged && loroMap) {
         loroMap.set('heading', nextHeading);
       }
-      updateDocContent(doc, index, newText, userName);
+      updateDocContent(doc, index, newText, currentAuthorInfo);
       onAfterEdit();
     }
-  }, [doc, index, loroMap, onAfterEdit, isPlaybackActive, userName]);
+  }, [doc, index, loroMap, onAfterEdit, isPlaybackActive, currentAuthorInfo]);
 
   const moveUp = useCallback(() => {
     if (!doc || isFirstInDoc) return;
-    moveNode(doc, index, index - 1, userName);
+    moveNode(doc, index, index - 1, currentAuthorInfo);
     onAfterEdit();
     setTimeout(() => {
       const nextBlock = document.getElementById(`doc-block-${index - 1}`);
       const nextContent = nextBlock?.querySelector('.doc-block__content') as HTMLElement;
       nextContent?.focus();
     }, 50);
-  }, [doc, index, isFirstInDoc, onAfterEdit]);
+  }, [doc, index, isFirstInDoc, onAfterEdit, currentAuthorInfo]);
 
   const moveDown = useCallback(() => {
     if (!doc || isLastInDoc) return;
-    moveNode(doc, index, index + 1, userName);
+    moveNode(doc, index, index + 1, currentAuthorInfo);
     onAfterEdit();
     setTimeout(() => {
       const nextBlock = document.getElementById(`doc-block-${index + 1}`);
       const nextContent = nextBlock?.querySelector('.doc-block__content') as HTMLElement;
       nextContent?.focus();
     }, 50);
-  }, [doc, index, isLastInDoc, onAfterEdit]);
+  }, [doc, index, isLastInDoc, onAfterEdit, currentAuthorInfo]);
 
   const focusNextBlock = useCallback((offset: number) => {
     const nextBlock = document.getElementById(`doc-block-${index + offset}`);
@@ -146,11 +157,14 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     }
   }, [index]);
 
+  /**
+   * 正確なキャレット位置を取得する（URLリンクなどの子ノードがある場合でも正確）
+   */
   const getSelectionRange = useCallback(() => {
     try {
       if (!contentRef.current) return null;
-      const doc = contentRef.current.ownerDocument;
-      const win = doc.defaultView;
+      const docObj = contentRef.current.ownerDocument;
+      const win = docObj.defaultView;
       if (!win) return null;
       const sel = win.getSelection();
       if (sel && sel.rangeCount > 0) {
@@ -174,16 +188,61 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     return null;
   }, []);
 
+  /**
+   * キャレットを指定文字位置に設定する
+   */
+  const setCaretAt = useCallback((charPos: number) => {
+    if (!contentRef.current) return;
+    const el = contentRef.current;
+    const sel = window.getSelection();
+    if (!sel) return;
+
+    let currentPos = 0;
+    let found = false;
+
+    const traverse = (node: Node): boolean => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const len = node.textContent?.length || 0;
+        if (currentPos + len >= charPos) {
+          const range = document.createRange();
+          range.setStart(node, charPos - currentPos);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+          found = true;
+          return true;
+        }
+        currentPos += len;
+      } else {
+        for (const child of Array.from(node.childNodes)) {
+          if (traverse(child)) return true;
+        }
+      }
+      return false;
+    };
+
+    traverse(el);
+
+    // フォールバック: テキストの末尾
+    if (!found) {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  }, []);
+
   const handleInput = useCallback(() => {
     if (!doc || !isLastInDoc || isPlaybackActive) return;
     const currentText = contentRef.current?.textContent || '';
     // If we are at the very last block, and user types something, append an empty block below.
     if (currentText.length > 0) {
       const nextEmphasis = defaultEmphasis === 'h1' ? 0 : (defaultEmphasis as number);
-      insertDocNodeAfter(doc, index, '', userName, nextEmphasis);
+      insertDocNodeAfter(doc, index, '', EMPTY_AUTHOR, nextEmphasis);
       onAfterEdit();
     }
-  }, [doc, isLastInDoc, index, userName, defaultEmphasis, onAfterEdit, isPlaybackActive]);
+  }, [doc, isLastInDoc, index, defaultEmphasis, onAfterEdit, isPlaybackActive]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (isPlaybackActive) {
@@ -193,26 +252,22 @@ export const DocBlock: React.FC<DocBlockProps> = ({
 
     const sel = window.getSelection();
     const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
-    const caretPos = range ? range.startOffset : 0;
-    const isAtStart = range ? (
-      caretPos === 0 && (
-        range.startContainer === contentRef.current ||
-        range.startContainer.parentNode === contentRef.current ||
-        contentRef.current?.textContent === ''
-      )
-    ) : false;
+
+    // isAtStart: カーソルがブロックの先頭にあるか
+    const srCheck = getSelectionRange();
+    const isAtStart = srCheck ? srCheck.start === 0 && srCheck.end === 0 : false;
 
     // Tab キーの処理 (インデント増減, 最大2に制限)
     if (e.key === 'Tab') {
       if (isAtStart) {
         e.preventDefault();
-        if (!requestCautiousEdit('インデント')) return;
+        if (!requestCautiousEdit('インデントの変更')) return;
         if (doc && loroMap) {
           const currentIndent = loroMap.get('indent') as number || 0;
           const nextIndent = e.shiftKey ? Math.max(0, currentIndent - 1) : Math.min(2, currentIndent + 1);
           loroMap.set('indent', nextIndent);
           const blockId = loroMap.get('blockId') as string || `blk-${index}`;
-          doc.commit({ message: `indent:${userName}:${blockId}:${nextIndent}` });
+          doc.commit({ message: `indent:${currentAuthorInfo.displayName}:${blockId}:${nextIndent}` });
           onAfterEdit();
         }
         return;
@@ -223,42 +278,99 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     if ((e.key === ' ' || e.key === '　') && !e.shiftKey) {
       if (isAtStart) {
         e.preventDefault();
-        if (!requestCautiousEdit('インデント')) return;
+        if (!requestCautiousEdit('インデントの変更')) return;
         if (doc && loroMap) {
           const currentIndent = loroMap.get('indent') as number || 0;
           const nextIndent = Math.min(2, currentIndent + 1);
           loroMap.set('indent', nextIndent);
           const blockId = loroMap.get('blockId') as string || `blk-${index}`;
-          doc.commit({ message: `indent:${userName}:${blockId}:${nextIndent}` });
+          doc.commit({ message: `indent:${currentAuthorInfo.displayName}:${blockId}:${nextIndent}` });
           onAfterEdit();
         }
         return;
       }
     }
 
-    // Backspace キーの処理 (インデント減少)
+    // Backspace キーの処理
     if (e.key === 'Backspace' && !e.shiftKey) {
-      if (isAtStart && contentRef.current?.textContent !== '') {
+      const textContent = contentRef.current?.textContent || '';
+
+      if (isAtStart && textContent !== '') {
+        // インデントがあれば先にインデント減少
         const currentIndent = loroMap?.get('indent') as number || 0;
         if (currentIndent > 0) {
           e.preventDefault();
-          if (!requestCautiousEdit('インデント')) return;
+          if (!requestCautiousEdit('インデントの変更')) return;
           if (doc && loroMap) {
             loroMap.set('indent', currentIndent - 1);
             const blockId = loroMap.get('blockId') as string || `blk-${index}`;
-            doc.commit({ message: `indent:${userName}:${blockId}:${currentIndent - 1}` });
+            doc.commit({ message: `indent:${currentAuthorInfo.displayName}:${blockId}:${currentIndent - 1}` });
             onAfterEdit();
           }
           return;
         }
+
+        // インデントがない先頭でBackspace → 前ブロックとマージ
+        if (!isFirstInDoc && doc) {
+          e.preventDefault();
+          if (!requestCautiousEdit('ブロックのマージ')) return;
+
+          const stream = doc.getMovableList('stream');
+          const prevMap = stream.get(index - 1) as LoroMap;
+          if (!prevMap) return;
+
+          const prevLoroText = prevMap.get('content') as LoroText;
+          const prevTextLen = prevLoroText ? prevLoroText.length : 0;
+
+          // 現在のテキストを前ブロックの末尾に追加
+          if (textContent.length > 0 && prevLoroText) {
+            prevLoroText.insert(prevTextLen, textContent);
+          }
+
+          // 現在ブロックを削除
+          stream.delete(index, 1);
+          doc.commit({ message: `merge:${currentAuthorInfo.displayName}:${index}` });
+          onAfterEdit();
+
+          // 前ブロックのマージ位置にカーソルを移動
+          setTimeout(() => {
+            const prevBlock = document.getElementById(`doc-block-${index - 1}`);
+            const prevContent = prevBlock?.querySelector('.doc-block__content') as HTMLElement;
+            if (prevContent) {
+              prevContent.focus();
+              setCaretAt(prevTextLen);
+            }
+          }, 50);
+          return;
+        }
+      }
+
+      // 空ブロックを削除して前ブロックにフォーカス
+      if (textContent === '') {
+        e.preventDefault();
+        if (!requestCautiousEdit('ブロックの削除')) return;
+        focusNextBlock(-1);
+        if (doc) {
+          deleteDocNode(doc, index, currentAuthorInfo);
+          onAfterEdit();
+        }
+        return;
       }
     }
 
+    // Enterキーの処理 (IME変換中は無視)
     if (e.key === 'Enter' && !e.shiftKey) {
+      // IME変換中（日本語変換候補選択中）はEnterを無視してブラウザに委ねる
+      if ((e.nativeEvent as any).isComposing) {
+        return;
+      }
       e.preventDefault();
-      const selection = window.getSelection();
-      const sRange = selection?.getRangeAt(0);
-      const sCaretPos = sRange?.startOffset || 0;
+
+      if (!requestCautiousEdit('ブロックの分割')) return;
+
+      // getSelectionRange() を使ってURLリンクがある場合でも正確な位置を取得
+      const selRange = getSelectionRange();
+      const sCaretPos = selRange ? selRange.start : (contentRef.current?.textContent?.length || 0);
       const newText = contentRef.current?.textContent || '';
 
       // # の検知を行って現在の行の見出し情報を更新する
@@ -274,18 +386,17 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       const textBeforeCursor = newText.substring(0, sCaretPos);
 
       if (doc) {
-        updateDocContent(doc, index, textBeforeCursor, userName);
+        updateDocContent(doc, index, textBeforeCursor, currentAuthorInfo);
 
         const currentIndent = loroMap?.get('indent') as number || 0;
         const nextIndent = Math.min(2, currentIndent + 1); // 改行して新規ブロックを作成する際は前の行 + 1 のインデント (最大2に制限)
 
         const nextEmphasis = defaultEmphasis === 'h1' ? 0 : (defaultEmphasis as number);
 
-        const currentAuthor = node.author || userName;
         const hasSubstantialAfter = textAfterCursor.replace(/[\s　]+/g, '').length > 0;
-        const nextSubAuthor = hasSubstantialAfter ? userName : null;
+        const nextSubAuthor = hasSubstantialAfter ? currentAuthorInfo : null;
 
-        insertDocNodeAfter(doc, index, textAfterCursor, currentAuthor, nextEmphasis, nextIndent, null, nextSubAuthor);
+        insertDocNodeAfter(doc, index, textAfterCursor, currentAuthorInfo, nextEmphasis, nextIndent, null, nextSubAuthor);
         onAfterEdit();
         // focus logic after render is deferred
         setTimeout(() => focusNextBlock(1), 50);
@@ -293,13 +404,14 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       return;
     }
 
-    if ((e.key === 'Backspace' || e.key === 'Delete') && !e.shiftKey) {
+    // Delete キーでの空ブロック削除
+    if (e.key === 'Delete' && !e.shiftKey) {
       if (contentRef.current?.textContent === '') {
         e.preventDefault();
-        // Remove block and focus previous
+        if (!requestCautiousEdit('ブロックの削除')) return;
         focusNextBlock(-1);
         if (doc) {
-          deleteDocNode(doc, index, userName);
+          deleteDocNode(doc, index, currentAuthorInfo);
           onAfterEdit();
         }
         return;
@@ -313,7 +425,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           moveUp();
         }
       } else {
-        // focus previous block
         focusNextBlock(-1);
       }
     } else if (e.key === 'ArrowDown' && !e.shiftKey) {
@@ -323,7 +434,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           moveDown();
         }
       } else {
-        // focus next block
         focusNextBlock(1);
       }
     } else if (e.key === 'ArrowLeft' && !e.shiftKey) {
@@ -331,7 +441,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       if (sel2 && sel2.rangeCount > 0 && sel2.isCollapsed) {
         const sr = getSelectionRange();
         if (sr && sr.start === 0 && sr.end === 0) {
-          // At the very beginning of the line
           e.preventDefault();
           focusNextBlock(-1);
         }
@@ -342,14 +451,12 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       if (sel2 && sel2.rangeCount > 0 && sel2.isCollapsed) {
         const sr = getSelectionRange();
         if (sr && sr.start === textLen && sr.end === textLen) {
-          // At the very end of the line
           e.preventDefault();
           focusNextBlock(1);
         }
       }
     }
-  }, [doc, index, node, userName, defaultEmphasis, onAfterEdit, moveUp, moveDown, focusNextBlock, getSelectionRange, loroMap, blockIndent, requestCautiousEdit]);
-
+  }, [doc, index, node, currentAuthorInfo, defaultEmphasis, onAfterEdit, moveUp, moveDown, focusNextBlock, getSelectionRange, setCaretAt, loroMap, blockIndent, requestCautiousEdit, isFirstInDoc, isPlaybackActive]);
 
 
   useEffect(() => {
@@ -360,11 +467,11 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       const ie = e as InputEvent;
       if (!isCautiousMode) return;
 
-      const isFirstAuthor = node.author === userName;
-      const isSubAuthor = (loroMap?.get('subAuthor') as string) === userName;
+      const isFirstAuthor = blockAuthor.userId === currentAuthorInfo.userId && blockAuthor.userId !== '';
+      const isSubAuthor = blockSubAuthors.some(sa => sa.userId === currentAuthorInfo.userId && sa.userId !== '');
       if (isFirstAuthor || isSubAuthor) return;
 
-      if (!node.author) return;
+      if (!blockAuthor.displayName) return; // 空ブロック
 
       const inputData = ie.data || '';
       const isWhitespaceOnly = ie.data !== null && inputData !== '' && inputData.trim().length === 0;
@@ -373,9 +480,19 @@ export const DocBlock: React.FC<DocBlockProps> = ({
         return;
       }
 
-      if (!requestCautiousEdit('編集')) {
+      const contentPreview = node.content ? `「${node.content.substring(0, 15)}${node.content.length > 15 ? '…' : ''}」` : 'このブロック';
+      if (!requestCautiousEdit(`${contentPreview}への書き込み`)) {
         ie.preventDefault();
+        // DOM を元の内容に強制リセット（キャンセル時に変更が反映されないようにする）
+        const originalText = loroMap?.get('content')?.toString() || '';
+        isCanceledRef.current = true;
         el.blur();
+        setTimeout(() => {
+          isCanceledRef.current = false;
+          if (el && el.textContent !== originalText) {
+            el.textContent = originalText;
+          }
+        }, 0);
       }
     };
 
@@ -383,20 +500,32 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     return () => {
       el.removeEventListener('beforeinput', handleBeforeInput);
     };
-  }, [doc, index, node, userName, isCautiousMode, isPlaybackActive, loroMap, requestCautiousEdit]);
+  }, [doc, index, node, currentAuthorInfo, isCautiousMode, isPlaybackActive, loroMap, requestCautiousEdit, blockAuthor, blockSubAuthors]);
 
   // H1ボタンなどで見出し状態が変化した際にテキストの先頭の「# 」を同期する処理
   useEffect(() => {
     if (!doc || !loroText || !loroMap || isPlaybackActive) return;
 
+    // 最新の値を直接読み取る（staleクロージャ防止）
     const currentText = loroText.toString();
     const currentHeading = loroMap.get('heading') as string | null;
 
     if (currentHeading === 'h1') {
-      if (!currentText.startsWith('#')) {
-        loroText.insert(0, '# ');
-        doc.commit({ message: `add-hashtag:${loroMap.get('blockId')}` });
-        onAfterEdit();
+      // '# ' で始まっていない場合だけ挿入（'#' で始まる場合も含めて再チェック）
+      if (!currentText.startsWith('# ')) {
+        if (currentText.startsWith('#')) {
+          // '#' はあるが '# ' ではない → スペースを挿入
+          if (!currentText.startsWith('## ')) {
+            loroText.insert(1, ' ');
+            doc.commit({ message: `add-hashtag-space:${loroMap.get('blockId')}` });
+            onAfterEdit();
+          }
+        } else {
+          // '#' すらない → '# ' を先頭に挿入
+          loroText.insert(0, '# ');
+          doc.commit({ message: `add-hashtag:${loroMap.get('blockId')}` });
+          onAfterEdit();
+        }
       }
     } else {
       if (currentText.startsWith('# ')) {
@@ -413,40 +542,38 @@ export const DocBlock: React.FC<DocBlockProps> = ({
 
   const toggleH1 = useCallback(() => {
     if (!doc || !loroMap || isPlaybackActive) return;
-    if (!requestCautiousEdit('見出し')) return;
+    if (!requestCautiousEdit('見出し設定の変更')) return;
     const currentHeading = loroMap.get('heading') as string | null;
     const nextHeading = currentHeading === 'h1' ? null : 'h1';
     loroMap.set('heading', nextHeading);
 
     const blockId = loroMap.get('blockId') as string || `blk-${index}`;
-    doc.commit({ message: `toggle-h1:${userName}:${blockId}:${nextHeading}` });
+    doc.commit({ message: `toggle-h1:${currentAuthorInfo.displayName}:${blockId}:${nextHeading}` });
     onAfterEdit();
-  }, [doc, loroMap, index, onAfterEdit, isPlaybackActive, requestCautiousEdit]);
+  }, [doc, loroMap, index, onAfterEdit, isPlaybackActive, requestCautiousEdit, currentAuthorInfo]);
 
   const setEmphasis = useCallback((level: EmphasisLevel) => {
     if (!doc || !loroMap) return;
-    if (!requestCautiousEdit('強調')) return;
+    if (!requestCautiousEdit('文字フォントの変更')) return;
 
-    // Apply the block-level style mapping (simple key-value setting)
     loroMap.set('emphasis', level);
     const blockId = loroMap.get('blockId') as string || `blk-${index}`;
-    doc.commit({ message: `emphasis:${userName}:${blockId}:${level}` });
+    doc.commit({ message: `emphasis:${currentAuthorInfo.displayName}:${blockId}:${level}` });
 
     onAfterEdit();
-  }, [doc, loroMap, onAfterEdit, index, requestCautiousEdit]);
+  }, [doc, loroMap, onAfterEdit, index, requestCautiousEdit, currentAuthorInfo]);
 
   const adjustIndent = useCallback((direction: number) => {
     if (!doc || !loroMap || isPlaybackActive) return;
-    if (!requestCautiousEdit('インデント')) return;
+    if (!requestCautiousEdit('インデントの変更')) return;
     const currentIndent = loroMap.get('indent') as number || 0;
     const nextIndent = Math.max(0, Math.min(2, currentIndent + direction));
     loroMap.set('indent', nextIndent);
     const blockId = loroMap.get('blockId') as string || `blk-${index}`;
-    doc.commit({ message: `indent:${userName}:${blockId}:${nextIndent}` });
+    doc.commit({ message: `indent:${currentAuthorInfo.displayName}:${blockId}:${nextIndent}` });
     onAfterEdit();
-  }, [doc, index, loroMap, onAfterEdit, isPlaybackActive, requestCautiousEdit]);
+  }, [doc, index, loroMap, onAfterEdit, isPlaybackActive, requestCautiousEdit, currentAuthorInfo]);
 
-  // moveUp and moveDown have been moved up
   const formatTime = (ts: number) => {
     const d = new Date(ts);
     return d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
@@ -454,7 +581,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
 
   // Read emphasis level from Map for doc blocks (block level styling)
   const blockEmphasis = loroMap?.get('emphasis') as EmphasisLevel || 0;
-
 
   // Calculate total reactions and dynamic vote emphasis
   let totalReactions = 0;
@@ -475,7 +601,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     transition: 'background 0.3s ease, margin-left 0.2s ease, width 0.2s ease',
   };
   if (voteScore > 0) {
-    // 2 votes = 0.15 intensity step
     const intensity = Math.min(1.0, Math.floor(voteScore / 2) * 0.15 + 0.1);
     dynamicStyle = { ...dynamicStyle, background: `hsla(130, 60%, 45%, ${intensity})` };
   } else if (voteScore < 0) {
@@ -484,6 +609,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   }
   const isHighlighted = activeHighlightBlockId === nodeWithIndex.id;
   const showDragHandle = true;
+  const isContentEmpty = node.content === '';
   const blockClass = [
     'doc-block',
     `doc-block--indent-${blockIndent}`,
@@ -493,21 +619,12 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     isDropTarget ? 'doc-block--drop-target' : '',
     isDragging ? 'doc-block--dragging' : '',
     isHighlighted ? 'playback-highlight' : '',
+    isContentEmpty ? 'doc-block--empty' : '',
   ].filter(Boolean).join(' ');
 
   // Render content safely via HTML for contentEditable support without React child fights
-  const escapeHtml = (str: string) => {
-    return str
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  };
-
   const renderContentAsHTML = (): string => {
     const text = node.content || '';
-    // URLを検出して<a>タグに変換（半角スペース・全角文字手前で区切る）
     const urlRegex = /(https?:\/\/[^\s\u3000-\u9fff\uff00-\uffef<>"]+)/g;
     return text.replace(/&/g, '&amp;')
                .replace(/</g, '&lt;')
@@ -518,8 +635,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
                  `<a href="${url}" target="_blank" rel="noopener noreferrer" class="doc-inline-link" onclick="event.stopPropagation()">${url}</a>`
                );
   };
-
-  const isContentEmpty = node.content === '';
 
   return (
     <div
@@ -559,8 +674,8 @@ export const DocBlock: React.FC<DocBlockProps> = ({
         {showMeta && !isContentEmpty && (
           <div className="doc-block__meta-tooltip">
             <span className="doc-block__author" style={{ color: isChat ? 'var(--accent-primary)' : 'var(--accent-secondary)' }}>
-              {node.author || '不明'}
-              {node.type === 'doc' && (node as any).subAuthor && ` (+${(node as any).subAuthor})`}
+              {blockAuthor.displayName || '不明'}
+              {blockSubAuthors.length > 0 && ` (+${blockSubAuthors.map(sa => sa.displayName).join('・')})`}
             </span>
             <span className="doc-block__time">{formatTime(node.timestamp)}</span>
             {totalReactions > 0 && <span className="doc-block__reaction-count">リアクション {totalReactions}件</span>}
@@ -608,7 +723,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           )}
 
           <div className="action-toolbar__controls-grid" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {/* 上段：インデント切替 (現在のインデント状態を◯/›/»で表現し、クリックで選択) */}
+            {/* 上段：インデント切替 */}
             <div className="action-toolbar__row" style={{ display: 'flex', gap: '2px' }}>
               <button
                 className={`action-toolbar__btn ${blockIndent === 0 ? 'is-active' : ''}`}

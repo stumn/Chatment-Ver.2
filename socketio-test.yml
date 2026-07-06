@@ -1,0 +1,66 @@
+config:
+  target: "http://localhost:3005" # ポート3005
+  phases:
+    - duration: 20          # テスト時間を少し短くして検証しやすく
+      arrivalRate: 3        
+      name: "Fix Ack Test"
+  engines:
+    socketio: {}
+  options:
+    path: "/socket.io"
+    transports: ["websocket"]
+
+scenarios:
+  - name: "Active Collaboration User"
+    engine: socketio
+    flow:
+      # 1. Socket.ioで接続
+      - connect: "{{ target }}"
+
+      # 2. ドキュメントに参加（応答を待たない設定を追記）
+      - emit:
+          channel: "join-doc"
+          data: { docId: "6a4a8185c43a12e6168b2a1f", isAdmin: false }
+          # ⬇️ 🔴 応答を待たずに即座に次に進める
+          acknowledge: false 
+      - think: 0.5
+  
+      # 3. ログイン
+      - emit:
+          channel: "login"
+          data:
+            userName: "LoadTestUser_{{ $loopCount }}"
+            colorIndex: -1
+            attribute: "load-tester"
+            ageGroup: "20s"
+          acknowledge: false # ⬇️ 🔴 追記
+      - think: 1
+
+      # 4. カオスループ
+      - loop:
+          - think: 0.5
+          - choose:
+              - weight: 50
+                emit:
+                  channel: "send-update"
+                  data:
+                    docId: "6a4a8185c43a12e6168b2a1f"
+                    update: [1, 0, 24, 115, 111, 109, 101, 98, 121, 116, 101, 115]
+                  acknowledge: false # ⬇️ 🔴 追記
+              - weight: 30
+                emit:
+                  channel: "ratioChange"
+                  data: 0.45
+                  acknowledge: false # ⬇️ 🔴 追記
+              - weight: 20
+                emit:
+                  channel: "login"
+                  data:
+                    userName: "LoadTestUser_{{ $loopCount }}"
+                    colorIndex: -1
+                    attribute: "load-tester"
+                    ageGroup: "30s"
+                  acknowledge: false # ⬇️ 🔴 追記
+        count: 20
+
+      - think: 1

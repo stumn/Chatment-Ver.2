@@ -8,6 +8,11 @@
         "start": "concurrently \"cd server && node index.js\" \"cd client && npm run dev\" "
     },
     "devDependencies": {
+        "artillery": "^2.0.21",
         "concurrently": "^9.2.1"
+    },
+    "dependencies": {
+        "loro-crdt": "^1.4.4",
+        "socket.io-client": "^4.8.3"
     }
 }

@@ -160,7 +160,10 @@ async function applyUpdate(docId, updateBinary) {
   try {
     doc.import(new Uint8Array(updateBinary));
   } catch (err) {
-    console.error(`[Snapshot] Failed to apply update for "${docId}":`, err.message);
+    // Loro WASM が投げるエラーは標準の Error オブジェクトではない場合があるため
+    // err.message ではなく String(err) で内容を必ず出力する
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[Snapshot] Failed to apply update for "${docId}": ${errMsg}`);
     throw err;
   }
 

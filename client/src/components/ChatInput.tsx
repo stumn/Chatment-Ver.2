@@ -1,28 +1,47 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { LoroDoc } from 'loro-crdt';
-import { addChatNode, addDocNode } from '../loro/schema';
+import type { AuthorInfo } from '../types';
+import { addChatNode } from '../loro/schema';
 
 interface ChatInputProps {
   doc: LoroDoc | null;
-  userName: string;
+  currentAuthorInfo: AuthorInfo;
+  handleNameOptions: AuthorInfo[];
+  onHandleNameChange: (info: AuthorInfo) => void;
   onAfterSend: () => void;
   isPlaybackActive?: boolean;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   doc,
-  userName,
+  currentAuthorInfo,
+  handleNameOptions,
+  onHandleNameChange,
   onAfterSend,
   isPlaybackActive,
 }) => {
   const [text, setText] = useState('');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // ドロップダウン外クリックで閉じる
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [dropdownOpen]);
 
   const sendMessage = useCallback(() => {
     const trimmed = text.trim();
     if (!trimmed || !doc || isPlaybackActive) return;
 
-    addChatNode(doc, trimmed, userName);
+    addChatNode(doc, trimmed, currentAuthorInfo);
     setText('');
     onAfterSend();
 
@@ -30,8 +49,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     requestAnimationFrame(() => {
       inputRef.current?.focus();
     });
-  }, [text, doc, userName, onAfterSend, isPlaybackActive]);
-
+  }, [text, doc, currentAuthorInfo, onAfterSend, isPlaybackActive]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -42,19 +60,73 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   }, [sendMessage]);
 
+  const handleSelectOption = (info: AuthorInfo) => {
+    onHandleNameChange(info);
+    setDropdownOpen(false);
+  };
+
   return (
     <div className="chat-input" id="chat-input">
       <div className="chat-input__wrapper" style={{ display: 'flex', alignItems: 'center', opacity: isPlaybackActive ? 0.6 : 1 }}>
-        <div style={{ width: '48px', marginRight: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0 }}>
-          <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--accent-primary)' }} title="チャット投稿" />
+
+        {/* ハンドルネームドロップダウン */}
+        <div
+          className="chat-input__handle-dropdown"
+          ref={dropdownRef}
+          style={{ position: 'relative', flexShrink: 0, marginRight: '10px' }}
+        >
+          <button
+            className="chat-input__handle-btn"
+            onClick={() => !isPlaybackActive && setDropdownOpen(prev => !prev)}
+            disabled={isPlaybackActive}
+            title="ハンドルネームを変更"
+            aria-haspopup="listbox"
+            aria-expanded={dropdownOpen}
+            id="handle-name-btn"
+          >
+            <span className="chat-input__handle-name">{currentAuthorInfo.displayName || '名無し'}</span>
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 10 10"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ transform: dropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}
+            >
+              <polyline points="2 3 5 7 8 3" />
+            </svg>
+          </button>
+
+          {dropdownOpen && (
+            <div className="chat-input__handle-menu" role="listbox">
+              {handleNameOptions.map((opt, i) => (
+                <button
+                  key={i}
+                  className={`chat-input__handle-option${opt.displayName === currentAuthorInfo.displayName ? ' is-selected' : ''}`}
+                  role="option"
+                  aria-selected={opt.displayName === currentAuthorInfo.displayName}
+                  onClick={() => handleSelectOption(opt)}
+                >
+                  <span className="chat-input__handle-option-name">{opt.displayName}</span>
+                  {opt.displayName !== opt.realName && (
+                    <span className="chat-input__handle-option-real">{opt.realName}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
         <textarea
           ref={inputRef}
           className="chat-input__textarea"
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={isPlaybackActive ? "プレイバック再生中は送信できません" : "チャットメッセージを入力... (Ctrl + Enter で送信)"}
+          placeholder={isPlaybackActive ? 'プレイバック再生中は送信できません' : 'チャットメッセージを入力... (Ctrl + Enter で送信)'}
           rows={1}
           id="chat-input-textarea"
           disabled={isPlaybackActive}

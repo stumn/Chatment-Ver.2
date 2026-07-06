@@ -87,7 +87,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             key={nodeWithIndex.id}
             nodeWithIndex={nodeWithIndex}
             doc={doc}
-            isOwn={nodeWithIndex.node.author === userName}
+            isOwn={nodeWithIndex.node.author.userId === userId}
             userId={userId}
             onAfterEdit={onAfterEdit}
             onJumpToNode={onJumpToNode}

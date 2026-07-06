@@ -52,20 +52,20 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   }
 
   const voteScore = upvotes - downvotes;
-  
+
   const baseEmphasis = 'emphasis' in node && node.emphasis !== undefined ? node.emphasis : 0;
   const emphasisClass = baseEmphasis > 0 ? 'text-emphasis-1' : baseEmphasis < 0 ? 'text-emphasis-minus1' : 'text-emphasis-0';
 
   let dynamicStyle: React.CSSProperties = {};
   if (voteScore > 0) {
     dynamicStyle = {
-      color: 'hsl(130, 60%, 45%)', // Green
+      color: 'hsl(130, 60%, 45%)',
       fontSize: `calc(var(--font-size-base) + ${voteScore * 1.5}px)`,
       transition: 'all 0.3s ease'
     };
   } else if (voteScore < 0) {
     dynamicStyle = {
-      color: 'hsl(0, 70%, 55%)', // Red
+      color: 'hsl(0, 70%, 55%)',
       fontSize: `max(10px, calc(var(--font-size-base) - ${Math.abs(voteScore)}px))`,
       transition: 'all 0.3s ease'
     };
@@ -74,6 +74,12 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const isChat = node.type === 'chat';
   const typeClass = isChat ? 'chat-message--chat' : 'chat-message--doc';
   const isHighlighted = activeHighlightBlockId === nodeWithIndex.id;
+
+  // #始まりのコンテンツは見出しとして扱う
+  const content = node.content;
+  const isHeading = content.startsWith('#');
+  const headingText = isHeading ? content.replace(/^#+\s*/, '') : content;
+  const headingClass = isHeading ? 'chat-message--heading-h1' : '';
 
   // URL を検出してリンクに変換
   const renderWithLinks = (text: string) => {
@@ -99,7 +105,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
   return (
     <div
-      className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'} ${typeClass} ${isHighlighted ? 'playback-highlight' : ''}`}
+      className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'} ${typeClass} ${headingClass} ${isHighlighted ? 'playback-highlight' : ''}`}
       id={`chat-message-${index}`}
       onClick={() => onJumpToNode(index, 'doc')}
       style={{ cursor: 'pointer' }}
@@ -108,9 +114,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       <div className="chat-message__body">
         <div className="chat-message__header">
           <span className="chat-message__time">{formatTime(node.timestamp)}</span>
-          <span className="chat-message__author">{node.author}</span>
+          <span className="chat-message__author">{node.author.displayName}</span>
         </div>
-        <div className={`chat-message__content ${emphasisClass}`} style={dynamicStyle}>{renderWithLinks(node.content)}</div>
+        <div className={`chat-message__content ${emphasisClass}`} style={dynamicStyle}>
+          {renderWithLinks(isHeading ? headingText : content)}
+        </div>
       </div>
 
       <div className="chat-message__side-actions">
@@ -119,7 +127,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             className={`chat-message__reaction-badge chat-message__reaction-badge--upvote ${myReaction === '⇧' ? 'chat-message__reaction-badge--active' : ''}`}
             onClick={(e) => handleReaction('⇧', e)}
             disabled={isPlaybackActive}
-            title={isPlaybackActive ? "プレイバック中は投票できません" : "太字にする (Upvote)"}
+            title={isPlaybackActive ? 'プレイバック中は投票できません' : '太字にする (Upvote)'}
             style={{ cursor: isPlaybackActive ? 'not-allowed' : 'pointer', opacity: isPlaybackActive ? 0.6 : 1 }}
           >
             ⇧ {upvotes > 0 && upvotes}
@@ -128,7 +136,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             className={`chat-message__reaction-badge chat-message__reaction-badge--downvote ${myReaction === '⇩' ? 'chat-message__reaction-badge--active' : ''}`}
             onClick={(e) => handleReaction('⇩', e)}
             disabled={isPlaybackActive}
-            title={isPlaybackActive ? "プレイバック中は投票できません" : "控えめにする (Downvote)"}
+            title={isPlaybackActive ? 'プレイバック中は投票できません' : '控えめにする (Downvote)'}
             style={{ cursor: isPlaybackActive ? 'not-allowed' : 'pointer', opacity: isPlaybackActive ? 0.6 : 1 }}
           >
             ⇩ {downvotes > 0 && downvotes}

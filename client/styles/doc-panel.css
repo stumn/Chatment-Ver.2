@@ -110,6 +110,22 @@
   border-color: hsla(250, 30%, 50%, 0.2);
 }
 
+/* 空ブロック：点線ボーダーで入力エリアを視覚化 */
+.doc-block--empty {
+  border-color: var(--border-medium);
+  border-style: dashed;
+  opacity: 0.55;
+  transition: opacity 0.2s ease, border-color 0.2s ease;
+}
+
+.doc-block--empty:hover,
+.doc-block--empty:focus-within {
+  opacity: 1;
+  border-color: var(--accent-primary);
+  border-style: dashed;
+  background: hsla(220, 100%, 60%, 0.04);
+}
+
 /* 引用線としての疑似要素は廃止 */
 
 .doc-block--doc {

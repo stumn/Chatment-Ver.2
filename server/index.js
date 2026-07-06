@@ -147,39 +147,59 @@ io.on('connection', (socket) => {
 
   socket.on('login', async ({ userName, colorIndex, attribute = '', ageGroup = '' }) => {
     try {
-      let user = await User.findOne({ userName });
-      let isNew = false;
-      if (user) {
-        // 既存ユーザーの属性・年代を更新
-        user.colorIndex = user.colorIndex;
-        if (attribute) user.attribute = attribute;
-        if (ageGroup) user.ageGroup = ageGroup;
-        socket.colorIndex = user.colorIndex;
-      } else {
-        isNew = true;
-        let assignedColorIndex = colorIndex;
-        if (assignedColorIndex === undefined || assignedColorIndex === null || assignedColorIndex < 0) {
-          const allUsers = await User.find({});
-          const maxIndex = allUsers.reduce((max, u) => u.colorIndex > max ? u.colorIndex : max, -1);
-          assignedColorIndex = maxIndex + 1;
-        }
-        user = new User({ userName, colorIndex: assignedColorIndex, attribute, ageGroup });
-        socket.colorIndex = assignedColorIndex;
+      // ── colorIndex の決定 ──────────────────────────────────────
+      // 新規ユーザーかどうかを先に確認して colorIndex を確定させる
+      // （findOneAndUpdate の upsert では setOnInsert でしか colorIndex を制御できないため）
+      let assignedColorIndex = colorIndex;
+      const existingForColor = await User.findOne({ userName }).select('colorIndex');
+      if (existingForColor) {
+        // 既存ユーザー: DBに保存済みの colorIndex を使う
+        assignedColorIndex = existingForColor.colorIndex;
+      } else if (assignedColorIndex === undefined || assignedColorIndex === null || assignedColorIndex < 0) {
+        // 新規ユーザーで colorIndex 未指定: 最大値+1 を採番
+        const allUsers = await User.find({}).select('colorIndex');
+        const maxIndex = allUsers.reduce((max, u) => u.colorIndex > max ? u.colorIndex : max, -1);
+        assignedColorIndex = maxIndex + 1;
       }
+      socket.colorIndex = assignedColorIndex;
 
-      // ルームへの紐付け
-      if (socket.docId && socket.roomId) {
-        const alreadyInRoom = user.rooms.some(r => r.docId === socket.docId);
-        if (!alreadyInRoom) {
-          user.rooms.push({ roomId: socket.roomId, docId: socket.docId });
+      // ── findOneAndUpdate(upsert) で原子的にユーザーを作成・更新 ──
+      // Race Condition (E11000 dup key) を防ぐため、
+      // findOne + save の2ステップではなく1操作にまとめる
+      const roomEntry = (socket.docId && socket.roomId)
+        ? [{ roomId: socket.roomId, docId: socket.docId }]
+        : [];
+
+      const result = await User.findOneAndUpdate(
+        { userName },
+        {
+          // 既存ユーザーへの更新: attribute/ageGroup のみ上書き
+          $set: {
+            ...(attribute ? { attribute } : {}),
+            ...(ageGroup  ? { ageGroup  } : {}),
+          },
+          // 新規挿入時のみ適用するフィールド
+          $setOnInsert: {
+            colorIndex: assignedColorIndex,
+          },
+          // rooms はすでに存在するエントリを重複追加しない
+          ...(roomEntry.length > 0 ? {
+            $addToSet: { rooms: { $each: roomEntry } },
+          } : {}),
+        },
+        {
+          upsert: true,       // 存在しなければ INSERT
+          new: true,          // 更新後のドキュメントを返す
+          setDefaultsOnInsert: true,
         }
-      }
+      );
 
-      await user.save();
+      const isNew = result.__v === 0 && result.rooms.length <= 1;
+
       socket.userName = userName;
       socket.userAttribute = attribute;
       socket.userAgeGroup = ageGroup;
-      socket.emit('login-ack', { userName, colorIndex: socket.colorIndex });
+      socket.emit('login-ack', { userName, colorIndex: assignedColorIndex });
 
       await saveSystemLog(
         'info',
@@ -189,13 +209,12 @@ io.on('connection', (socket) => {
         socket.docId || null
       );
 
-      // 既にルームにいる場合、userIdsにも追加
+      // 既にルームにいる場合、Room.userIds にも追加（重複なし）
       if (socket.docId) {
-        const room = await Room.findOne({ docId: socket.docId });
-        if (room && !room.userIds.includes(userName)) {
-          room.userIds.push(userName);
-          await room.save();
-        }
+        await Room.findOneAndUpdate(
+          { docId: socket.docId },
+          { $addToSet: { userIds: userName } }
+        );
       }
     } catch (err) {
       console.error('[WS] Login error:', err.message);
@@ -301,22 +320,26 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('disconnect', () => {
-    console.log(`[WS] Client disconnected: ${socket.id}`);
-    saveSystemLog('info', 'disconnect', { socketId: socket.id, userName: socket.userName }, socket.roomId, socket.docId);
-    ratioMemory = ratioMemory.filter(item => item.id !== socket.id);
-    if (socket.docId) {
-      const count = io.sockets.adapter.rooms.get(socket.docId)?.size || 0;
-      io.in(socket.docId).emit('user-count', count);
-      const roomRatios = ratioMemory.filter(item => item.docId === socket.docId);
-      io.in(socket.docId).emit('ratioChange', roomRatios);
-    }
+  // socket.on('disconnect', () => {
+  //   console.log(`[WS] Client disconnected: ${socket.id}`);
+  //   saveSystemLog('info', 'disconnect', { socketId: socket.id, userName: socket.userName }, socket.roomId, socket.docId);
+  //   ratioMemory = ratioMemory.filter(item => item.id !== socket.id);
+  //   if (socket.docId) {
+  //     const count = io.sockets.adapter.rooms.get(socket.docId)?.size || 0;
+  //     io.in(socket.docId).emit('user-count', count);
+  //     const roomRatios = ratioMemory.filter(item => item.docId === socket.docId);
+  //     io.in(socket.docId).emit('ratioChange', roomRatios);
+  //   }
+  // });
+  socket.on('disconnect', (reason) => {
+    console.log(`[Server] 切断されました。ID: ${socket.id}, 理由: ${reason}`);
   });
+
 });
 
 // ─── Start ──────────────────────────────────────────────
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3005;
 
 async function migrateLegacyRooms() {
   try {

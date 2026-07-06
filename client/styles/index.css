@@ -986,6 +986,21 @@ body {
   box-shadow: none !important;
 }
 
+.user-login-input--error {
+  border-bottom-color: #d32f2f !important;
+}
+
+.user-login-input--error:focus {
+  border-bottom-color: #d32f2f !important;
+}
+
+.user-login-error {
+  color: #d32f2f;
+  font-size: 12px;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
 .user-login-select-wrapper {
   position: relative;
   width: 100%;
