@@ -41,8 +41,10 @@ export const UserSetup: React.FC<UserSetupProps> = ({ onComplete }) => {
   const validateName = (value: string): string => {
     const trimmed = value.trim();
     if (!trimmed) return '';
-    if (BLOCKED_NAMES.has(trimmed)) {
-      return `「${trimmed}」はシステムが生成するハンドルネームと重複するため使用できません。別の名前を入力してください。`;
+    // 半角スペース・全角スペース・タブなどを除去してから禁止名と照合
+    const normalized = trimmed.replace(/[\s　\t]/g, '');
+    if (BLOCKED_NAMES.has(normalized)) {
+      return `「${normalized}」はシステムが生成するハンドルネームと重複するため使用できません。別の名前を入力してください。`;
     }
     return '';
   };
