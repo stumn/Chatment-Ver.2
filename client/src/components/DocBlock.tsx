@@ -52,8 +52,9 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   isCautiousMode,
 }) => {
   const { node, index, loroText, loroMap } = nodeWithIndex;
-  const blockIndent = node.type === 'doc' ? (node as any).indent || 0 : 0;
-  const blockHeading = node.type === 'doc' ? (node as any).heading || null : null;
+  const blockIndent = node.indent || 0;
+  // chatブロックでも loroMap の heading フィールドまたは '#' 始まりを見出しとして扱う
+  const blockHeading = node.heading ?? (/^[#＃]/.test(node.content) ? 'h1' : null);
   const contentRef = useRef<HTMLDivElement>(null);
   const hasEditPermissionRef = useRef(false);
   const isCanceledRef = useRef(false); // 慎重モードキャンセル時のblurスキップ用
@@ -63,7 +64,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
 
   // このブロックの著者情報
   const blockAuthor: AuthorInfo = node.author;
-  const blockSubAuthors: AuthorInfo[] = node.type === 'doc' ? ((node as DocNodeData).subAuthors || []) : [];
+  const blockSubAuthors = node.subAuthors || [];
 
   /**
    * 慎重モードの許可チェック
@@ -81,7 +82,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     const subNames = blockSubAuthors.map(sa => sa.displayName).filter(Boolean);
     const ownerName = blockAuthor.displayName + (subNames.length > 0 ? ` と ${subNames.join('・')}` : '');
     const contentPreview = node.content ? `「${node.content.substring(0, 15)}${node.content.length > 15 ? '…' : ''}」` : 'このブロック';
-    const confirmMessage = `${contentPreview}への${actionLabel}\nこのブロックの所有者は「${ownerName}」です。共同編集者として追加されます。よろしいですか？`;
+    const confirmMessage = `${contentPreview}への${actionLabel}\nこのブロックの所有者は「${ownerName}」です。よろしいですか？`;
     if (window.confirm(confirmMessage)) {
       hasEditPermissionRef.current = true;
       return true;
@@ -98,7 +99,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     const currentText = loroMap?.get('content')?.toString() || '';
 
     let isH1 = false;
-    if (newText.startsWith('#')) {
+    if (/^[#＃]/.test(newText)) {
       isH1 = true;
     }
 
@@ -112,10 +113,12 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       if (headingChanged && loroMap) {
         loroMap.set('heading', nextHeading);
       }
+      // 共通でupdateDocContentで保存。headingのcommitはupdateDocContent内で適切に行われるか確認。
+      // ただし現状は updateDocContent はテキストの保存のみ。headingChanged の場合は loroMap.set('heading') を既に行っている。
       updateDocContent(doc, index, newText, currentAuthorInfo);
       onAfterEdit();
     }
-  }, [doc, index, loroMap, onAfterEdit, isPlaybackActive, currentAuthorInfo]);
+  }, [doc, index, loroMap, onAfterEdit, isPlaybackActive, currentAuthorInfo, isChat]);
 
   const moveUp = useCallback(() => {
     if (!doc || isFirstInDoc) return;
@@ -375,7 +378,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
 
       // # の検知を行って現在の行の見出し情報を更新する
       let isH1 = false;
-      if (newText.startsWith('#')) {
+      if (/^[#＃]/.test(newText)) {
         isH1 = true;
       }
       if (loroMap) {
@@ -510,30 +513,20 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     const currentText = loroText.toString();
     const currentHeading = loroMap.get('heading') as string | null;
 
+    const match = currentText.match(/^[#＃][ 　]*/);
+
     if (currentHeading === 'h1') {
-      // '# ' で始まっていない場合だけ挿入（'#' で始まる場合も含めて再チェック）
-      if (!currentText.startsWith('# ')) {
-        if (currentText.startsWith('#')) {
-          // '#' はあるが '# ' ではない → スペースを挿入
-          if (!currentText.startsWith('## ')) {
-            loroText.insert(1, ' ');
-            doc.commit({ message: `add-hashtag-space:${loroMap.get('blockId')}` });
-            onAfterEdit();
-          }
-        } else {
-          // '#' すらない → '# ' を先頭に挿入
-          loroText.insert(0, '# ');
-          doc.commit({ message: `add-hashtag:${loroMap.get('blockId')}` });
-          onAfterEdit();
-        }
-      }
-    } else {
-      if (currentText.startsWith('# ')) {
-        loroText.delete(0, 2);
-        doc.commit({ message: `remove-hashtag:${loroMap.get('blockId')}` });
+      // 見出し記号がない場合のみ、標準的な '# ' を先頭に挿入
+      if (!match) {
+        loroText.insert(0, '# ');
+        doc.commit({ message: `add-hashtag:${loroMap.get('blockId')}` });
         onAfterEdit();
-      } else if (currentText.startsWith('#')) {
-        loroText.delete(0, 1);
+      }
+      // 既にある場合は、ユーザーの入力（全角やスペースなしなど）を尊重してそのままにする
+    } else {
+      // H1が解除された場合、先頭のプレフィックスを削除する
+      if (match) {
+        loroText.delete(0, match[0].length);
         doc.commit({ message: `remove-hashtag:${loroMap.get('blockId')}` });
         onAfterEdit();
       }
@@ -624,7 +617,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
 
   // Render content safely via HTML for contentEditable support without React child fights
   const renderContentAsHTML = (): string => {
-    const text = node.content || '';
+    let text = node.content || '';
     const urlRegex = /(https?:\/\/[^\s\u3000-\u9fff\uff00-\uffef<>"]+)/g;
     return text.replace(/&/g, '&amp;')
                .replace(/</g, '&lt;')

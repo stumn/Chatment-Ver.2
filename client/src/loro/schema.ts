@@ -78,6 +78,7 @@ export function addChatNode(
   const length = stream.length;
   let insertChatPos = length;
   let appendEmptyDoc = true;
+  let prependEmptyDoc = true;
 
   if (length > 0) {
     const lastNode = stream.get(length - 1) as LoroMap;
@@ -86,18 +87,52 @@ export function addChatNode(
       if (type === 'doc') {
         const loroText = lastNode.get('content') as LoroText;
         if (loroText && loroText.length === 0) {
-          // The last block is an empty doc block
+          // 最後のブロックが空docブロックの場合、その前にchatを挿入
           insertChatPos = length - 1;
           appendEmptyDoc = false;
         }
       }
     }
+
+    // insertChatPos の直前が空docブロックであれば、前の空行は追加しない
+    if (insertChatPos > 0) {
+      const prevNode = stream.get(insertChatPos - 1) as LoroMap;
+      if (prevNode) {
+        const prevType = prevNode.get('type') as string;
+        if (prevType === 'doc') {
+          const prevText = prevNode.get('content') as LoroText;
+          if (prevText && prevText.length === 0) {
+            prependEmptyDoc = false;
+          }
+        }
+      }
+    } else {
+      // 先頭に挿入する場合は前に空行不要
+      prependEmptyDoc = false;
+    }
+  } else {
+    // ストリームが空の場合は前に空行不要
+    prependEmptyDoc = false;
+  }
+
+  // チャットの直前に空docブロックを追加
+  if (prependEmptyDoc) {
+    const emptyBeforeMap = stream.insertContainer(insertChatPos, new LoroMap());
+    emptyBeforeMap.set('type', 'doc');
+    emptyBeforeMap.setContainer('content', new LoroText());
+    emptyBeforeMap.set('blockId', `blk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
+    writeAuthorInfo(emptyBeforeMap, EMPTY_AUTHOR);
+    emptyBeforeMap.set('timestamp', Date.now());
+    insertChatPos += 1;
   }
 
   const chatId = `chat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const nodeMap = stream.insertContainer(insertChatPos, new LoroMap());
   nodeMap.set('blockId', chatId);
   nodeMap.set('type', 'chat');
+  nodeMap.set('indent', 0);
+  nodeMap.set('emphasis', 0);
+  writeSubAuthors(nodeMap, []);
   const chatText = nodeMap.setContainer('content', new LoroText());
   chatText.insert(0, content);
   // Author情報をフラット保存
@@ -175,6 +210,7 @@ export function insertDocNodeAfter(
   }
 
   nodeMap.set('timestamp', Date.now());
+  nodeMap.setContainer('reactions', new LoroMap());
   doc.commit({ message: `doc:${initialAuthorInfo.displayName || 'unknown'}:${blockId}:${text}` });
 }
 
@@ -418,9 +454,13 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
       if (!id) {
         id = `chat-${timestamp}-${i}`;
       }
+      const heading = loroMap.get('heading') as 'h1' | null | undefined;
+      const emphasis = (loroMap.get('emphasis') as number) || 0;
+      const indent = loroMap.get('indent') as number | undefined;
+      const subAuthors = readSubAuthors(loroMap);
 
       nodes.push({
-        node: { type: 'chat', content: contentStr, author, timestamp, reactions },
+        node: { type: 'chat', content: contentStr, blockId: id, author, timestamp, reactions, emphasis: emphasis as any, heading, indent, subAuthors },
         id,
         index: i,
         loroMap,

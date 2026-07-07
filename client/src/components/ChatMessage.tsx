@@ -75,10 +75,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const typeClass = isChat ? 'chat-message--chat' : 'chat-message--doc';
   const isHighlighted = activeHighlightBlockId === nodeWithIndex.id;
 
-  // #始まりのコンテンツは見出しとして扱う
+  // #始まりのコンテンツは見出しとして扱う（全角半角対応）
   const content = node.content;
-  const isHeading = content.startsWith('#');
-  const headingText = isHeading ? content.replace(/^#+\s*/, '') : content;
+  const isHeading = (node as any).heading === 'h1' || /^[#＃]/.test(content);
   const headingClass = isHeading ? 'chat-message--heading-h1' : '';
 
   // URL を検出してリンクに変換
@@ -117,7 +116,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           <span className="chat-message__author">{node.author.displayName}</span>
         </div>
         <div className={`chat-message__content ${emphasisClass}`} style={dynamicStyle}>
-          {renderWithLinks(isHeading ? headingText : content)}
+          {renderWithLinks(content)}
         </div>
       </div>
 

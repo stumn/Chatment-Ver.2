@@ -17,9 +17,14 @@ export interface AuthorInfo {
 export interface ChatNodeData {
   type: 'chat';
   content: string;
+  blockId: string;
   author: AuthorInfo;
   timestamp: number;
   reactions: Record<string, string>;
+  emphasis?: EmphasisLevel;
+  heading?: 'h1' | null;
+  indent?: number;
+  subAuthors?: AuthorInfo[];
 }
 
 export interface DocNodeData {
@@ -28,7 +33,7 @@ export interface DocNodeData {
   blockId: string;
   author: AuthorInfo;
   timestamp: number;
-  reactions?: Record<string, string>;
+  reactions: Record<string, string>;
   emphasis?: EmphasisLevel;
   heading?: 'h1' | null;
   indent?: number;
