@@ -43,6 +43,9 @@ export const UserSetup: React.FC<UserSetupProps> = ({ onComplete }) => {
     if (!trimmed) return '';
     // 半角スペース・全角スペース・タブなどを除去してから禁止名と照合
     const normalized = trimmed.replace(/[\s　\t]/g, '');
+    if (normalized.includes('匿名')) {
+      return '「匿名」を含むニックネームは使用できません。別の名前を入力してください。';
+    }
     if (BLOCKED_NAMES.has(normalized)) {
       return `「${normalized}」はシステムが生成するハンドルネームと重複するため使用できません。別の名前を入力してください。`;
     }

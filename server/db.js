@@ -68,8 +68,11 @@ const userActionLogSchema = new mongoose.Schema({
   targetId: { type: String },
   contentPreview: { type: String },
   actionDetails: { type: String },
+  before: { type: mongoose.Schema.Types.Mixed, default: null }, // 操作前の状態
+  after: { type: mongoose.Schema.Types.Mixed, default: null },  // 操作後の状態
 });
 const UserActionLog = mongoose.model('UserActionLog', userActionLogSchema);
+
 
 async function connectDB() {
   const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/compact-chatment';

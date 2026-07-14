@@ -15,7 +15,8 @@ const STATUS_CONFIG = {
 
 export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ state, userName, colorIndex }) => {
   const config = STATUS_CONFIG[state];
-  const colorSeed = getSocketId() || userName;
+  // Telomereと同じseed（socket ID）を使って色を計算する（colorIndexが未設定の場合も一致させる）
+  const colorSeed = getSocketId() ?? userName;
   const dotColor = state === 'connected'
     ? getUserColor(colorIndex, colorSeed)
     : state === 'connecting'

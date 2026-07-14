@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { LoroDoc } from 'loro-crdt';
 import type { AuthorInfo } from '../types';
 import { addChatNode } from '../loro/schema';
+import { emitUserAction } from '../loro/sync-client';
 
 interface ChatInputProps {
   doc: LoroDoc | null;
@@ -61,6 +62,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   }, [sendMessage]);
 
   const handleSelectOption = (info: AuthorInfo) => {
+    emitUserAction({
+      type: 'handle-name-change',
+      before: { displayName: currentAuthorInfo.displayName },
+      after: { displayName: info.displayName },
+      actionDetails: `ハンドルネーム変更: ${currentAuthorInfo.displayName} → ${info.displayName}`,
+    });
     onHandleNameChange(info);
     setDropdownOpen(false);
   };
@@ -111,9 +118,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
                   onClick={() => handleSelectOption(opt)}
                 >
                   <span className="chat-input__handle-option-name">{opt.displayName}</span>
-                  {opt.displayName !== opt.realName && (
-                    <span className="chat-input__handle-option-real">{opt.realName}</span>
-                  )}
                 </button>
               ))}
             </div>

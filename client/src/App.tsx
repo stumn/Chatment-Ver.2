@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { EmphasisLevel, AuthorInfo } from './types';
 import { useLoroDoc } from './hooks/useLoroDoc';
-import { emitRatioChange } from './loro/sync-client';
+import { emitRatioChange, emitUserAction } from './loro/sync-client';
 import { useOverflow } from './hooks/useOverflow';
 import { useSplitView } from './hooks/useSplitView';
 import { useDragDrop } from './hooks/useDragDrop';
@@ -59,6 +59,12 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
 
   const toggleCautiousMode = useCallback(() => {
     const next = !isCautiousMode;
+    emitUserAction({
+      type: 'cautious-mode',
+      before: { enabled: isCautiousMode },
+      after: { enabled: next },
+      actionDetails: next ? '慎重モードをONにしました' : '慎重モードをOFFにしました',
+    });
     setIsCautiousMode(next);
     localStorage.setItem('chatment-cautious-mode', String(next));
     setCautiousTooltip(next ? '他の人が書いた行を編集するとき確認します' : 'オフになりました。');
@@ -85,8 +91,14 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
   }, [cautiousTooltip]);
 
   const toggleTheme = useCallback(() => {
+    emitUserAction({
+      type: 'theme-change',
+      before: { theme },
+      after: { theme: theme === 'light' ? 'dark' : 'light' },
+      actionDetails: `テーマ変更: ${theme} → ${theme === 'light' ? 'dark' : 'light'}`,
+    });
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
-  }, []);
+  }, [theme]);
 
   const toggleHeader = useCallback(() => {
     setIsHeaderCollapsed(prev => {
@@ -111,8 +123,42 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
   const chatPanelRef = useRef<HTMLDivElement>(null);
 
   const { doc, nodes, connectionState, userCount, isReady, triggerSave, ratios, undo, redo, canUndo, canRedo, myColorIndex } = useLoroDoc(realName, docId, isAdmin);
-  const { ratio, setRatio, containerRef, handleMouseDown, handleDoubleClick } = useSplitView();
+  const { ratio, setRatio, containerRef, handleMouseDown, handleDoubleClick, isDragging } = useSplitView();
   const { docNodes, chatNodes } = useOverflow(nodes, chatPanelRef, 36);
+
+  const lastLoggedRatio = useRef<number>(ratio);
+  const prevIsDragging = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (!prevIsDragging.current && isDragging) {
+      // ドラッグ開始時の比率を同期 (ジャンプ機能などで自動変更された場合に備える)
+      lastLoggedRatio.current = ratio;
+    }
+    if (prevIsDragging.current && !isDragging) {
+      if (ratio !== lastLoggedRatio.current) {
+        emitUserAction({
+          type: 'ratio-change',
+          before: { ratio: lastLoggedRatio.current },
+          after: { ratio: ratio },
+          actionDetails: `スプリット比率を ${Math.round(ratio * 100)}% に変更しました`,
+        });
+        lastLoggedRatio.current = ratio;
+      }
+    }
+    prevIsDragging.current = isDragging;
+  }, [isDragging, ratio]);
+
+  const handleRatioDoubleClick = useCallback(() => {
+    const beforeRatio = ratio;
+    handleDoubleClick();
+    emitUserAction({
+      type: 'ratio-change',
+      before: { ratio: beforeRatio },
+      after: { ratio: 0.5 },
+      actionDetails: `スプリット比率を 50% に変更しました`,
+    });
+    lastLoggedRatio.current = 0.5;
+  }, [ratio, handleDoubleClick]);
 
   const lastSentRatio = useRef<number | null>(null);
   const throttleTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -126,16 +172,16 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
   useEffect(() => {
     if (ratio === lastSentRatio.current) return;
 
-    // 1. Throttle: Send ratio update every 150ms during continuous changes
+    // 1. Throttle: Send ratio update every 30ms during continuous changes (~33fps)
     if (!throttleTimeout.current) {
       throttleTimeout.current = setTimeout(() => {
         throttleTimeout.current = null;
         emitRatioChange(latestRatio.current);
         lastSentRatio.current = latestRatio.current;
-      }, 150);
+      }, 30);
     }
 
-    // 2. Debounce: Ensure final position is sent 100ms after movements stop
+    // 2. Debounce: Ensure final position is sent 30ms after movements stop
     if (debounceTimeout.current) {
       clearTimeout(debounceTimeout.current);
     }
@@ -145,7 +191,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
         emitRatioChange(latestRatio.current);
         lastSentRatio.current = latestRatio.current;
       }
-    }, 100);
+    }, 30);
   }, [ratio]);
 
   // Clean up timers on unmount
@@ -353,6 +399,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
     setPlaybackSteps(steps);
     setCurrentStepIndex(0);
     setIsPlaybackMode(true);
+    emitUserAction({ type: 'playback-start', actionDetails: 'これまでの流れを開始' });
 
     // Checkout step 0 immediately
     if (steps[0] && doc) {
@@ -365,6 +412,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
     setIsAutoplay(false);
     doc.attach();
     setIsPlaybackMode(false);
+    emitUserAction({ type: 'playback-exit', actionDetails: 'これまでの流れを終了' });
   }, [doc]);
 
   // Autoplay Effect
@@ -439,7 +487,18 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
     dominantClass = 'dominant-chat';
   }
 
-  const handleJumpToNode = useCallback((index: number, targetPanel: 'doc' | 'chat') => {
+  const handleJumpToNode = useCallback((index: number, targetPanel: 'doc' | 'chat', source?: string) => {
+    let targetBlockId = '';
+    const nodeObj = nodes.find(n => n.index === index);
+    if (nodeObj) {
+      targetBlockId = nodeObj.id;
+    }
+    emitUserAction({
+      type: source === 'minimap' ? 'minimap-jump' : (source === 'outline' ? 'outline-jump' : 'jump-to-node'),
+      after: { targetBlockId, targetIndex: index, targetPanel },
+      actionDetails: `${source || 'UI'} からジャンプ機能を利用しました。`,
+    });
+
     let delay = 0;
     if (targetPanel === 'doc' && ratio < 0.2) {
       setRatio(0.4); // slightly leaning left so doc is visible
@@ -466,7 +525,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
         }, 1000);
       }
     }, delay);
-  }, [ratio, setRatio]);
+  }, [ratio, setRatio, nodes]);
 
   const handleAfterEdit = useCallback(() => {
     triggerSave();
@@ -523,7 +582,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
             <div className="toolbar-group" title="履歴操作" style={{ display: 'flex', gap: '2px' }}>
               <button
                 className="toolbar-btn"
-                onClick={undo}
+                onClick={() => { emitUserAction({ type: 'undo', actionDetails: '取り消し操作' }); undo(); }}
                 disabled={!canUndo}
                 title="取り消し (Ctrl+Z)"
               >
@@ -533,7 +592,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
               </button>
               <button
                 className="toolbar-btn"
-                onClick={redo}
+                onClick={() => { emitUserAction({ type: 'redo', actionDetails: 'やり直し操作' }); redo(); }}
                 disabled={!canRedo}
                 title="やり直し (Ctrl+Y)"
               >
@@ -603,7 +662,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
 
               <button
                 className="guide-toggle-btn"
-                onClick={() => setIsGuideOpen(true)}
+                onClick={() => { emitUserAction({ type: 'guide-open', actionDetails: 'ガイドを表示' }); setIsGuideOpen(true); }}
                 title="体験ガイドを表示"
               >
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -661,7 +720,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
           <SplitView
             ratio={ratio}
             onHandleMouseDown={handleMouseDown}
-            onHandleDoubleClick={handleDoubleClick}
+            onHandleDoubleClick={handleRatioDoubleClick}
             containerRef={containerRef}
             isPlaybackActive={isPlaybackMode}
             docPanel={

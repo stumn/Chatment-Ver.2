@@ -2,7 +2,9 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import type { StreamNodeWithIndex, EmphasisLevel, AuthorInfo, DocNodeData } from '../types';
 import { LoroText, LoroMap, type LoroDoc } from 'loro-crdt';
 import { updateDocContent, applyEmphasis, moveNode, insertDocNodeAfter, deleteDocNode, EMPTY_AUTHOR } from '../loro/schema';
+import { emitUserAction } from '../loro/sync-client';
 // No EmphasisToolbar needed
+
 
 interface DocBlockProps {
   nodeWithIndex: StreamNodeWithIndex;
@@ -19,7 +21,7 @@ interface DocBlockProps {
   onDrop: (e: React.DragEvent) => void;
   onDragEnd: (e: React.DragEvent) => void;
   onAfterEdit: () => void;
-  onJumpToNode: (index: number, target: 'doc' | 'chat') => void;
+  onJumpToNode: (index: number, target: 'doc' | 'chat', source?: string) => void;
   isPlaybackActive?: boolean;
   activeHighlightBlockId?: string | null;
   isCautiousMode?: boolean;
@@ -60,7 +62,9 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   const isCanceledRef = useRef(false); // 慎重モードキャンセル時のblurスキップ用
   const [isDraggable, setIsDraggable] = useState(false);
   const [showMeta, setShowMeta] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const isChat = node.type === 'chat';
+  const isApplyingHashtagRef = useRef(false); // H1切り替え時の#挿入ループ防止フラグ
 
   // このブロックの著者情報
   const blockAuthor: AuthorInfo = node.author;
@@ -91,6 +95,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   }, [isCautiousMode, blockAuthor, blockSubAuthors, currentAuthorInfo, node.content]);
 
   const handleBlur = useCallback(() => {
+    setIsFocused(false);
     hasEditPermissionRef.current = false;
     // 慎重モードでキャンセルされた場合はblurによる保存をスキップ
     if (isCanceledRef.current) return;
@@ -112,9 +117,10 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     if (textChanged || headingChanged) {
       if (headingChanged && loroMap) {
         loroMap.set('heading', nextHeading);
+        if (nextHeading === 'h1') {
+          loroMap.set('indent', 0);
+        }
       }
-      // 共通でupdateDocContentで保存。headingのcommitはupdateDocContent内で適切に行われるか確認。
-      // ただし現状は updateDocContent はテキストの保存のみ。headingChanged の場合は loroMap.set('heading') を既に行っている。
       updateDocContent(doc, index, newText, currentAuthorInfo);
       onAfterEdit();
     }
@@ -256,9 +262,13 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     const sel = window.getSelection();
     const range = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
 
-    // isAtStart: カーソルがブロックの先頭にあるか
+    const textContent = contentRef.current?.textContent || '';
+
+    // isAtStart: カーソルがブロックの先頭にあるか（テキストが空またはスペースのみの場合も含む）
     const srCheck = getSelectionRange();
-    const isAtStart = srCheck ? srCheck.start === 0 && srCheck.end === 0 : false;
+    const isAtStart = srCheck
+      ? (srCheck.start === 0 && srCheck.end === 0) || textContent.replace(/[\s　]+/g, '').length === 0
+      : textContent.replace(/[\s　]+/g, '').length === 0;
 
     // Tab キーの処理 (インデント増減, 最大2に制限)
     if (e.key === 'Tab') {
@@ -269,16 +279,43 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           const currentIndent = loroMap.get('indent') as number || 0;
           const nextIndent = e.shiftKey ? Math.max(0, currentIndent - 1) : Math.min(2, currentIndent + 1);
           loroMap.set('indent', nextIndent);
+
+          // インデント変更時にH1を解除する
+          const currentHeading = loroMap.get('heading') as string | null;
+          if (currentHeading === 'h1') {
+            loroMap.set('heading', null);
+          }
+
           const blockId = loroMap.get('blockId') as string || `blk-${index}`;
           doc.commit({ message: `indent:${currentAuthorInfo.displayName}:${blockId}:${nextIndent}` });
+          emitUserAction({
+            type: 'indent',
+            targetId: blockId,
+            before: { indent: currentIndent },
+            after: { indent: nextIndent },
+            actionDetails: `インデント変更: ${currentIndent} → ${nextIndent}`,
+          });
           onAfterEdit();
+
+          // インデント操作後に不要なスペース（IMEオンでの全角スペース等）が入り込むのを防ぐため、
+          // 次のイベントループで先頭の空白文字を消去する
+          setTimeout(() => {
+            if (contentRef.current && doc) {
+              const text = contentRef.current.textContent || '';
+              const cleanedText = text.replace(/^[\s　\t]+/g, '');
+              if (text !== cleanedText) {
+                contentRef.current.textContent = cleanedText;
+                updateDocContent(doc, index, cleanedText, currentAuthorInfo);
+              }
+            }
+          }, 20);
         }
         return;
       }
     }
 
     // Space / 全角スペース キーの処理 (インデント増加, 最大2に制限)
-    if ((e.key === ' ' || e.key === '　') && !e.shiftKey) {
+    if ((e.key === ' ' || e.key === '　' || e.code === 'Space') && !e.shiftKey) {
       if (isAtStart) {
         e.preventDefault();
         if (!requestCautiousEdit('インデントの変更')) return;
@@ -286,9 +323,36 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           const currentIndent = loroMap.get('indent') as number || 0;
           const nextIndent = Math.min(2, currentIndent + 1);
           loroMap.set('indent', nextIndent);
+
+          // インデント変更時にH1を解除する
+          const currentHeading = loroMap.get('heading') as string | null;
+          if (currentHeading === 'h1') {
+            loroMap.set('heading', null);
+          }
+
           const blockId = loroMap.get('blockId') as string || `blk-${index}`;
           doc.commit({ message: `indent:${currentAuthorInfo.displayName}:${blockId}:${nextIndent}` });
+          emitUserAction({
+            type: 'indent',
+            targetId: blockId,
+            before: { indent: currentIndent },
+            after: { indent: nextIndent },
+            actionDetails: `インデント変更: ${currentIndent} → ${nextIndent}`,
+          });
           onAfterEdit();
+
+          // インデント操作後に不要なスペース（IMEオンでの全角スペース等）が入り込むのを防ぐため、
+          // 次のイベントループで先頭の空白文字を消去する
+          setTimeout(() => {
+            if (contentRef.current && doc) {
+              const text = contentRef.current.textContent || '';
+              const cleanedText = text.replace(/^[\s　\t]+/g, '');
+              if (text !== cleanedText) {
+                contentRef.current.textContent = cleanedText;
+                updateDocContent(doc, index, cleanedText, currentAuthorInfo);
+              }
+            }
+          }, 20);
         }
         return;
       }
@@ -297,23 +361,49 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     // Backspace キーの処理
     if (e.key === 'Backspace' && !e.shiftKey) {
       const textContent = contentRef.current?.textContent || '';
+      const currentIndent = loroMap?.get('indent') as number || 0;
 
-      if (isAtStart && textContent !== '') {
-        // インデントがあれば先にインデント減少
-        const currentIndent = loroMap?.get('indent') as number || 0;
+      if (isAtStart) {
+        // インデントがあれば先にインデント減少（中身が空かどうかにかかわらず）
         if (currentIndent > 0) {
           e.preventDefault();
           if (!requestCautiousEdit('インデントの変更')) return;
           if (doc && loroMap) {
             loroMap.set('indent', currentIndent - 1);
+
+            // インデント変更時にH1を解除する
+            const currentHeading = loroMap.get('heading') as string | null;
+            if (currentHeading === 'h1') {
+              loroMap.set('heading', null);
+            }
+
             const blockId = loroMap.get('blockId') as string || `blk-${index}`;
             doc.commit({ message: `indent:${currentAuthorInfo.displayName}:${blockId}:${currentIndent - 1}` });
+            emitUserAction({
+              type: 'indent',
+              targetId: blockId,
+              before: { indent: currentIndent },
+              after: { indent: currentIndent - 1 },
+              actionDetails: `インデント変更: ${currentIndent} → ${currentIndent - 1}`,
+            });
             onAfterEdit();
           }
           return;
         }
 
-        // インデントがない先頭でBackspace → 前ブロックとマージ
+        // インデントがない先頭位置で、かつテキストが空の場合 → 空ブロック削除
+        if (textContent === '') {
+          e.preventDefault();
+          if (!requestCautiousEdit('ブロックの削除')) return;
+          focusNextBlock(-1);
+          if (doc) {
+            deleteDocNode(doc, index, currentAuthorInfo);
+            onAfterEdit();
+          }
+          return;
+        }
+
+        // インデントがない先頭位置で、かつテキストがある場合 → 前ブロックとマージ
         if (!isFirstInDoc && doc) {
           e.preventDefault();
           if (!requestCautiousEdit('ブロックのマージ')) return;
@@ -324,6 +414,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
 
           const prevLoroText = prevMap.get('content') as LoroText;
           const prevTextLen = prevLoroText ? prevLoroText.length : 0;
+          const prevText = prevLoroText ? prevLoroText.toString() : '';
 
           // 現在のテキストを前ブロックの末尾に追加
           if (textContent.length > 0 && prevLoroText) {
@@ -333,6 +424,12 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           // 現在ブロックを削除
           stream.delete(index, 1);
           doc.commit({ message: `merge:${currentAuthorInfo.displayName}:${index}` });
+          emitUserAction({
+            type: 'merge',
+            before: { prevText, currentText: textContent },
+            after: { mergedText: prevText + textContent },
+            actionDetails: `ブロックをマージ`,
+          });
           onAfterEdit();
 
           // 前ブロックのマージ位置にカーソルを移動
@@ -346,18 +443,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           }, 50);
           return;
         }
-      }
-
-      // 空ブロックを削除して前ブロックにフォーカス
-      if (textContent === '') {
-        e.preventDefault();
-        if (!requestCautiousEdit('ブロックの削除')) return;
-        focusNextBlock(-1);
-        if (doc) {
-          deleteDocNode(doc, index, currentAuthorInfo);
-          onAfterEdit();
-        }
-        return;
       }
     }
 
@@ -381,8 +466,13 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       if (/^[#＃]/.test(newText)) {
         isH1 = true;
       }
+      let currentIndent = loroMap?.get('indent') as number || 0;
       if (loroMap) {
         loroMap.set('heading', isH1 ? 'h1' : null);
+        if (isH1) {
+          loroMap.set('indent', 0);
+          currentIndent = 0;
+        }
       }
 
       const textAfterCursor = newText.substring(sCaretPos);
@@ -391,8 +481,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       if (doc) {
         updateDocContent(doc, index, textBeforeCursor, currentAuthorInfo);
 
-        const currentIndent = loroMap?.get('indent') as number || 0;
-        const nextIndent = Math.min(2, currentIndent + 1); // 改行して新規ブロックを作成する際は前の行 + 1 のインデント (最大2に制限)
+        const nextIndent = currentIndent; // 改行して新規ブロックを作成する際は前の行のインデントを維持する
 
         const nextEmphasis = defaultEmphasis === 'h1' ? 0 : (defaultEmphasis as number);
 
@@ -506,64 +595,124 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   }, [doc, index, node, currentAuthorInfo, isCautiousMode, isPlaybackActive, loroMap, requestCautiousEdit, blockAuthor, blockSubAuthors]);
 
   // H1ボタンなどで見出し状態が変化した際にテキストの先頭の「# 」を同期する処理
+  // ※ chat型ノードはテキストを自動変更しない（headingフィールドで管理するため）
+  // ※ # の除去は行わない（ユーザーが手動で管理する）
   useEffect(() => {
     if (!doc || !loroText || !loroMap || isPlaybackActive) return;
+    // chat型ノードはテキストを直接編集しない（addChatNodeでheadingフィールドを管理）
+    if (isChat) return;
+    // ループ防止：自分が#を挿入中に再実行されないようにする
+    if (isApplyingHashtagRef.current) return;
 
-    // 最新の値を直接読み取る（staleクロージャ防止）
-    const currentText = loroText.toString();
+    // loroMapから直接最新値を読み取る（staleクロージャ防止）
     const currentHeading = loroMap.get('heading') as string | null;
-
+    const currentText = loroText.toString();
     const match = currentText.match(/^[#＃][ 　]*/);
 
     if (currentHeading === 'h1') {
       // 見出し記号がない場合のみ、標準的な '# ' を先頭に挿入
       if (!match) {
+        isApplyingHashtagRef.current = true;
         loroText.insert(0, '# ');
         doc.commit({ message: `add-hashtag:${loroMap.get('blockId')}` });
         onAfterEdit();
+        isApplyingHashtagRef.current = false;
       }
       // 既にある場合は、ユーザーの入力（全角やスペースなしなど）を尊重してそのままにする
-    } else {
-      // H1が解除された場合、先頭のプレフィックスを削除する
-      if (match) {
-        loroText.delete(0, match[0].length);
-        doc.commit({ message: `remove-hashtag:${loroMap.get('blockId')}` });
-        onAfterEdit();
+    }
+    // H1が解除されても # は自動削除しない（ユーザーが手動で管理する）
+  }, [blockHeading, doc, loroText, loroMap, onAfterEdit, isPlaybackActive, isChat]);
+
+  const setBlockStyle = useCallback((style: 'h1' | 'normal' | 'fade') => {
+    if (!doc || !loroMap || isPlaybackActive) return;
+
+    let text = contentRef.current ? (contentRef.current.textContent || '') : '';
+
+    if (style !== 'h1') {
+      // 先頭の `#` や `＃` とスペースの連続をすべて除去する
+      // 例: "# # あ" -> "あ", "## あ" -> "あ"
+      const cleaned = text.replace(/^[#＃\s　]+/g, '');
+      if (text !== cleaned) {
+        text = cleaned;
+        if (contentRef.current) {
+          contentRef.current.textContent = cleaned;
+        }
       }
     }
-  }, [blockHeading, doc, loroText, loroMap, onAfterEdit, isPlaybackActive]);
 
-  const toggleH1 = useCallback(() => {
-    if (!doc || !loroMap || isPlaybackActive) return;
-    if (!requestCautiousEdit('見出し設定の変更')) return;
+    const currentText = loroMap.get('content')?.toString() || '';
+    if (text !== currentText) {
+      updateDocContent(doc, index, text, currentAuthorInfo);
+    }
+
     const currentHeading = loroMap.get('heading') as string | null;
-    const nextHeading = currentHeading === 'h1' ? null : 'h1';
-    loroMap.set('heading', nextHeading);
+    const currentEmphasis = loroMap.get('emphasis') as number || 0;
+
+    const currentStyle = currentHeading === 'h1' ? 'h1' : (currentEmphasis === -1 ? 'fade' : 'normal');
+    if (currentStyle === style) return;
+
+    if (!requestCautiousEdit('ブロックスタイルの変更')) return;
+
+    const beforeStyle = currentHeading === 'h1' ? 'heading' : (currentEmphasis === -1 ? 'fade' : 'normal');
+
+    if (style === 'h1') {
+      loroMap.set('heading', 'h1');
+      loroMap.set('emphasis', 0);
+      loroMap.set('indent', 0);
+    } else if (style === 'normal') {
+      loroMap.set('heading', null);
+      loroMap.set('emphasis', 0);
+    } else if (style === 'fade') {
+      loroMap.set('heading', null);
+      loroMap.set('emphasis', -1);
+    }
 
     const blockId = loroMap.get('blockId') as string || `blk-${index}`;
-    doc.commit({ message: `toggle-h1:${currentAuthorInfo.displayName}:${blockId}:${nextHeading}` });
+    doc.commit({ message: `format-style:${currentAuthorInfo.displayName}:${blockId}:${style}` });
+
+    const afterStyle = style === 'h1' ? 'heading' : (style === 'fade' ? 'fade' : 'normal');
+    emitUserAction({
+      type: 'format-block',
+      targetId: blockId,
+      before: { style: beforeStyle },
+      after: { style: afterStyle },
+      actionDetails: `ブロックスタイル変更: ${beforeStyle} → ${afterStyle}`,
+    });
+
     onAfterEdit();
   }, [doc, loroMap, index, onAfterEdit, isPlaybackActive, requestCautiousEdit, currentAuthorInfo]);
-
-  const setEmphasis = useCallback((level: EmphasisLevel) => {
-    if (!doc || !loroMap) return;
-    if (!requestCautiousEdit('文字フォントの変更')) return;
-
-    loroMap.set('emphasis', level);
-    const blockId = loroMap.get('blockId') as string || `blk-${index}`;
-    doc.commit({ message: `emphasis:${currentAuthorInfo.displayName}:${blockId}:${level}` });
-
-    onAfterEdit();
-  }, [doc, loroMap, onAfterEdit, index, requestCautiousEdit, currentAuthorInfo]);
 
   const adjustIndent = useCallback((direction: number) => {
     if (!doc || !loroMap || isPlaybackActive) return;
     if (!requestCautiousEdit('インデントの変更')) return;
+
+    if (contentRef.current) {
+      const text = contentRef.current.textContent || '';
+      const currentText = loroMap.get('content')?.toString() || '';
+      if (text !== currentText) {
+        updateDocContent(doc, index, text, currentAuthorInfo);
+      }
+    }
+
     const currentIndent = loroMap.get('indent') as number || 0;
     const nextIndent = Math.max(0, Math.min(2, currentIndent + direction));
     loroMap.set('indent', nextIndent);
+
+    // インデント変更時にH1を解除する
+    const currentHeading = loroMap.get('heading') as string | null;
+    if (currentHeading === 'h1') {
+      loroMap.set('heading', null);
+    }
+
     const blockId = loroMap.get('blockId') as string || `blk-${index}`;
     doc.commit({ message: `indent:${currentAuthorInfo.displayName}:${blockId}:${nextIndent}` });
+    emitUserAction({
+      type: 'indent',
+      targetId: blockId,
+      before: { indent: currentIndent },
+      after: { indent: nextIndent },
+      actionDetails: `インデント変更: ${currentIndent} → ${nextIndent}`,
+    });
     onAfterEdit();
   }, [doc, index, loroMap, onAfterEdit, isPlaybackActive, requestCautiousEdit, currentAuthorInfo]);
 
@@ -603,6 +752,8 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   const isHighlighted = activeHighlightBlockId === nodeWithIndex.id;
   const showDragHandle = true;
   const isContentEmpty = node.content === '';
+  const showIndentMark = (blockIndent > 0) && (!isContentEmpty || isFocused);
+  const isIndentPending = isFocused;
   const blockClass = [
     'doc-block',
     `doc-block--indent-${blockIndent}`,
@@ -645,14 +796,19 @@ export const DocBlock: React.FC<DocBlockProps> = ({
         className="doc-block__meta-toggle"
         onMouseEnter={() => !isContentEmpty && setShowMeta(true)}
         onMouseLeave={() => setShowMeta(false)}
-        style={{ visibility: isContentEmpty ? 'hidden' : 'visible', cursor: 'pointer' }}
-        onClick={() => onJumpToNode(index, 'chat')}
+        style={{ visibility: (!isContentEmpty || isFocused) ? 'visible' : 'hidden', cursor: 'pointer' }}
+        onClick={() => onJumpToNode(index, 'chat', 'doc-block')}
         title="チャット画面へジャンプ"
       >
-        {isChat ? (
-          <div className="doc-block__timeline-circle"></div>
-        ) : (
-          <div className={`doc-block__timeline-circle doc-block__timeline-circle--indent-${blockIndent >= 2 ? 2 : blockIndent}`}>
+        {showIndentMark ? (
+          <div
+            className={`doc-block__timeline-circle doc-block__timeline-circle--indent-${blockIndent >= 2 ? 2 : blockIndent}`}
+            style={
+              isIndentPending
+                ? (isChat ? { color: 'var(--accent-primary)', opacity: 0.4 } : { color: 'var(--text-muted)' })
+                : (isChat ? { color: 'var(--accent-primary)' } : undefined)
+            }
+          >
             {blockIndent === 1 ? (
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
                 <path d="M3 1.5l4 3.5-4 3.5" />
@@ -663,6 +819,10 @@ export const DocBlock: React.FC<DocBlockProps> = ({
               </svg>
             ) : null}
           </div>
+        ) : blockIndent === 0 ? (
+          <div className="doc-block__timeline-circle"></div>
+        ) : (
+          <div className="doc-block__timeline-circle-placeholder" style={{ width: '10px', height: '10px' }} />
         )}
         {showMeta && !isContentEmpty && (
           <div className="doc-block__meta-tooltip">
@@ -681,6 +841,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           className="doc-block__content"
           contentEditable={!isPlaybackActive}
           suppressContentEditableWarning
+          onFocus={() => setIsFocused(true)}
           onBlur={handleBlur}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
@@ -746,10 +907,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
               <button
                 className={`action-toolbar__btn ${blockHeading === 'h1' ? 'is-active' : ''}`}
                 title="見出し (H1)"
-                onClick={() => {
-                  if (blockHeading !== 'h1' && blockEmphasis !== 0) setEmphasis(0);
-                  toggleH1();
-                }}
+                onClick={() => setBlockStyle('h1')}
                 style={{ fontSize: '10px' }}
               >
                 H1
@@ -757,10 +915,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
               <button
                 className={`action-toolbar__btn ${blockHeading !== 'h1' && blockEmphasis === 0 ? 'is-active' : ''}`}
                 title="標準 (●)"
-                onClick={() => {
-                  if (blockHeading === 'h1') toggleH1();
-                  if (blockEmphasis !== 0) setEmphasis(0);
-                }}
+                onClick={() => setBlockStyle('normal')}
                 style={{ fontSize: '10px' }}
               >
                 ●
@@ -768,10 +923,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
               <button
                 className={`action-toolbar__btn ${blockHeading !== 'h1' && blockEmphasis === -1 ? 'is-active' : ''}`}
                 title="控えめ (●)"
-                onClick={() => {
-                  if (blockHeading === 'h1') toggleH1();
-                  setEmphasis(-1);
-                }}
+                onClick={() => setBlockStyle('fade')}
                 style={{ fontSize: '10px', color: '#999' }}
               >
                 ●

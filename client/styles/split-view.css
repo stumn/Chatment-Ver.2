@@ -128,7 +128,7 @@
   transform: translateY(-50%);
   cursor: pointer;
   pointer-events: auto;
-  transition: top 0.15s ease-out, transform var(--transition-fast) ease, background var(--transition-fast) ease, border-color var(--transition-fast) ease, box-shadow var(--transition-fast) ease;
+  transition: top 0.08s ease-out, transform var(--transition-fast) ease, background var(--transition-fast) ease, border-color var(--transition-fast) ease, box-shadow var(--transition-fast) ease;
 }
 
 .telomere-group-bar:hover {

@@ -28,7 +28,7 @@ async function saveSystemLog(level, event, details = {}, roomId = null, docId = 
   }
 }
 
-async function saveUserActionLog({ docId, roomId, type, author, userAttribute = '', userAgeGroup = '', targetId, contentPreview, actionDetails }) {
+async function saveUserActionLog({ docId, roomId, type, author, userAttribute = '', userAgeGroup = '', targetId, contentPreview, actionDetails, before = null, after = null }) {
   try {
     const log = new UserActionLog({
       docId,
@@ -40,6 +40,8 @@ async function saveUserActionLog({ docId, roomId, type, author, userAttribute = 
       targetId,
       contentPreview,
       actionDetails,
+      before,
+      after,
     });
     await log.save();
   } catch (err) {
@@ -283,11 +285,37 @@ io.on('connection', (socket) => {
 
   socket.on('send-update', async ({ docId, update }) => {
     try {
-      await applyUpdate(docId, update);
+      await applyUpdate(docId, update, {
+        roomId: socket.roomId,
+        userAttribute: socket.userAttribute || '',
+        userAgeGroup: socket.userAgeGroup || '',
+      });
       socket.to(docId).emit('receive-update', update);
     } catch (err) {
       console.error(`[WS] Error applying update for "${docId}":`, err.message);
       await saveSystemLog('error', 'error', { socketId: socket.id, message: `Error applying update: ${err.message}` }, socket.roomId, docId);
+    }
+  });
+
+  // クライアントからの操作ログ（ビフォアアフター付き）を受信して保存
+  socket.on('user-action', async (payload) => {
+    if (!socket.docId) return;
+    try {
+      await saveUserActionLog({
+        docId: socket.docId,
+        roomId: socket.roomId || null,
+        type: payload.type || 'unknown',
+        author: socket.userName || 'unknown',
+        userAttribute: socket.userAttribute || '',
+        userAgeGroup: socket.userAgeGroup || '',
+        targetId: payload.targetId,
+        contentPreview: payload.contentPreview,
+        actionDetails: payload.actionDetails,
+        before: payload.before ?? null,
+        after: payload.after ?? null,
+      });
+    } catch (err) {
+      console.error('[WS] Failed to save user action log:', err.message);
     }
   });
 
@@ -307,32 +335,24 @@ io.on('connection', (socket) => {
     }
     const roomRatios = ratioMemory.filter(item => item.docId === socket.docId);
     io.in(socket.docId).emit('ratioChange', roomRatios);
-
-    await saveUserActionLog({
-      docId: socket.docId,
-      roomId: socket.roomId,
-      type: 'ratio-change',
-      author: socket.userName || 'unknown',
-      userAttribute: socket.userAttribute || '',
-      userAgeGroup: socket.userAgeGroup || '',
-      contentPreview: String(ratio),
-      actionDetails: `スプリット比率を ${Math.round(ratio * 100)}% に変更しました`,
-    });
   });
 
-  // socket.on('disconnect', () => {
-  //   console.log(`[WS] Client disconnected: ${socket.id}`);
-  //   saveSystemLog('info', 'disconnect', { socketId: socket.id, userName: socket.userName }, socket.roomId, socket.docId);
-  //   ratioMemory = ratioMemory.filter(item => item.id !== socket.id);
-  //   if (socket.docId) {
-  //     const count = io.sockets.adapter.rooms.get(socket.docId)?.size || 0;
-  //     io.in(socket.docId).emit('user-count', count);
-  //     const roomRatios = ratioMemory.filter(item => item.docId === socket.docId);
-  //     io.in(socket.docId).emit('ratioChange', roomRatios);
-  //   }
-  // });
-  socket.on('disconnect', (reason) => {
-    console.log(`[Server] 切断されました。ID: ${socket.id}, 理由: ${reason}`);
+  socket.on('disconnect', async (reason) => {
+    console.log(`[WS] Client disconnected: ${socket.id}, reason: ${reason}`);
+    await saveSystemLog('info', 'disconnect', { socketId: socket.id, userName: socket.userName, reason }, socket.roomId, socket.docId);
+
+    // 切断したユーザーのratio情報をメモリから削除
+    ratioMemory = ratioMemory.filter(item => item.id !== socket.id);
+
+    if (socket.docId) {
+      // ユーザー数を更新して通知
+      const count = io.sockets.adapter.rooms.get(socket.docId)?.size || 0;
+      io.in(socket.docId).emit('user-count', count);
+
+      // 残っているratio情報を通知（切断したユーザーは除外済み）
+      const roomRatios = ratioMemory.filter(item => item.docId === socket.docId);
+      io.in(socket.docId).emit('ratioChange', roomRatios);
+    }
   });
 
 });

@@ -9,7 +9,7 @@ interface ChatMessageProps {
   isOwn: boolean;
   userId: string;
   onAfterEdit: () => void;
-  onJumpToNode: (index: number, target: 'doc' | 'chat') => void;
+  onJumpToNode: (index: number, target: 'doc' | 'chat', source?: string) => void;
   isPlaybackActive?: boolean;
   activeHighlightBlockId?: string | null;
 }
@@ -106,7 +106,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     <div
       className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'} ${typeClass} ${headingClass} ${isHighlighted ? 'playback-highlight' : ''}`}
       id={`chat-message-${index}`}
-      onClick={() => onJumpToNode(index, 'doc')}
+      onClick={() => onJumpToNode(index, 'doc', 'chat-message')}
       style={{ cursor: 'pointer' }}
       title="クリックしてドキュメントへジャンプ"
     >
@@ -120,28 +120,30 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         </div>
       </div>
 
-      <div className="chat-message__side-actions">
-        <div className="chat-message__reaction-list">
-          <button
-            className={`chat-message__reaction-badge chat-message__reaction-badge--upvote ${myReaction === '⇧' ? 'chat-message__reaction-badge--active' : ''}`}
-            onClick={(e) => handleReaction('⇧', e)}
-            disabled={isPlaybackActive}
-            title={isPlaybackActive ? 'プレイバック中は投票できません' : '太字にする (Upvote)'}
-            style={{ cursor: isPlaybackActive ? 'not-allowed' : 'pointer', opacity: isPlaybackActive ? 0.6 : 1 }}
-          >
-            ⇧ {upvotes > 0 && upvotes}
-          </button>
-          <button
-            className={`chat-message__reaction-badge chat-message__reaction-badge--downvote ${myReaction === '⇩' ? 'chat-message__reaction-badge--active' : ''}`}
-            onClick={(e) => handleReaction('⇩', e)}
-            disabled={isPlaybackActive}
-            title={isPlaybackActive ? 'プレイバック中は投票できません' : '控えめにする (Downvote)'}
-            style={{ cursor: isPlaybackActive ? 'not-allowed' : 'pointer', opacity: isPlaybackActive ? 0.6 : 1 }}
-          >
-            ⇩ {downvotes > 0 && downvotes}
-          </button>
+      {!isHeading && (
+        <div className="chat-message__side-actions">
+          <div className="chat-message__reaction-list">
+            <button
+              className={`chat-message__reaction-badge chat-message__reaction-badge--upvote ${myReaction === '⇧' ? 'chat-message__reaction-badge--active' : ''}`}
+              onClick={(e) => handleReaction('⇧', e)}
+              disabled={isPlaybackActive}
+              title={isPlaybackActive ? 'プレイバック中は投票できません' : '太字にする (Upvote)'}
+              style={{ cursor: isPlaybackActive ? 'not-allowed' : 'pointer', opacity: isPlaybackActive ? 0.6 : 1 }}
+            >
+              ⇧ {upvotes > 0 && upvotes}
+            </button>
+            <button
+              className={`chat-message__reaction-badge chat-message__reaction-badge--downvote ${myReaction === '⇩' ? 'chat-message__reaction-badge--active' : ''}`}
+              onClick={(e) => handleReaction('⇩', e)}
+              disabled={isPlaybackActive}
+              title={isPlaybackActive ? 'プレイバック中は投票できません' : '控えめにする (Downvote)'}
+              style={{ cursor: isPlaybackActive ? 'not-allowed' : 'pointer', opacity: isPlaybackActive ? 0.6 : 1 }}
+            >
+              ⇩ {downvotes > 0 && downvotes}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

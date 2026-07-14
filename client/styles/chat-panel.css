@@ -395,8 +395,6 @@
   color: var(--text-primary);
   letter-spacing: -0.01em;
   line-height: 1.3;
-  border-left: 3px solid var(--accent-secondary);
-  padding-left: 10px;
 }
 
 /* ─── Handle Name Dropdown ─── */

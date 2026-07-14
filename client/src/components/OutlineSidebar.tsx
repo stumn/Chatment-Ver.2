@@ -14,7 +14,7 @@ interface OutlineItem {
 
 interface OutlineSidebarProps {
   nodes: StreamNodeWithIndex[];
-  onJumpToNode: (index: number, target: 'doc' | 'chat') => void;
+  onJumpToNode: (index: number, target: 'doc' | 'chat', source?: string) => void;
   isCollapsed: boolean;
   onToggle: () => void;
   onOpenSidebar?: () => void;
@@ -26,12 +26,13 @@ const POSITIVE_REACTIONS = new Set(['👍', '❤️', '😂', '🎉', '👀', '�
 export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToNode, isCollapsed, onToggle, onOpenSidebar, docId }) => {
   const outlineItems: OutlineItem[] = nodes
     .filter(({ node }) => {
-      if (node.type !== 'doc') return false;
       const text = node.content?.trim() ?? '';
       if (!text) return false;
       const hasReactions = !!node.reactions && Object.keys(node.reactions).length > 0;
       const isTopLevel = (node.indent ?? 0) === 0;
-      return node.heading === 'h1' || isTopLevel || hasReactions;
+      // chatノードのH1判定：headingフィールドまたは#始まり
+      const isH1 = node.heading === 'h1' || /^[#＃]/.test(node.content ?? '');
+      return isH1 || hasReactions || isTopLevel;
     })
     .map(({ node, index, id }) => {
       let upvotes = 0;
@@ -43,10 +44,11 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToN
         });
       }
       const voteScore = upvotes - downvotes;
+      const isH1 = node.heading === 'h1' || /^[#＃]/.test(node.content ?? '');
       return {
         index,
         text: node.content?.trim() ?? '',
-        isH1: 'heading' in node && node.heading === 'h1',
+        isH1,
         blockId: id,
         positiveReactionCount: Object.values(node.reactions ?? {}).filter((emoji) => POSITIVE_REACTIONS.has(emoji)).length,
         indent: (node as any).indent ?? 0,
@@ -75,12 +77,13 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToN
   let prevPos = -100;
 
   const positionedItems = sortedItems.map((item) => {
-    let rawPos = nodes.length > 1 ? (item.index / (nodes.length - 1)) * 80 + 10 : 50;
+    // nodes.length > 1 の場合: 0〜96%の範囲にマップ（最初が上から始まるよう+2に変更）
+    let rawPos = nodes.length > 1 ? (item.index / (nodes.length - 1)) * 94 + 2 : 50;
     if (rawPos - prevPos < minSpacing) {
       rawPos = prevPos + minSpacing;
     }
     prevPos = rawPos;
-    return { ...item, topPercent: Math.min(95, rawPos) };
+    return { ...item, topPercent: Math.min(97, rawPos) };
   });
 
   return (
@@ -140,7 +143,7 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToN
                   key={item.blockId}
                   className={dotClasses}
                   style={{ top: `${item.topPercent}%` }}
-                  onClick={() => onJumpToNode(item.index, 'doc')}
+                  onClick={() => onJumpToNode(item.index, 'doc', 'minimap')}
                   aria-label={item.text}
                 >
                   <span className="outline-sidebar__tooltip">{item.text}</span>
@@ -160,7 +163,7 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToN
                 <button
                   key={item.blockId}
                   className={`outline-sidebar__item ${item.isH1 ? 'outline-sidebar__item--h1' : 'outline-sidebar__item--bold'}`}
-                  onClick={() => onJumpToNode(item.index, 'doc')}
+                  onClick={() => onJumpToNode(item.index, 'doc', 'outline')}
                   title={item.text}
                 >
                   {item.text}

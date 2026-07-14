@@ -392,7 +392,9 @@
 
 /* ─── Indent Indicators ─── */
 .doc-block__timeline-circle--indent-1,
-.doc-block__timeline-circle--indent-2 {
+.doc-block__timeline-circle--indent-2,
+.doc-block--chat .doc-block__timeline-circle--indent-1,
+.doc-block--chat .doc-block__timeline-circle--indent-2 {
   width: auto;
   height: auto;
   border-radius: 0;

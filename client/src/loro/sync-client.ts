@@ -112,6 +112,25 @@ export function emitRatioChange(ratio: number): void {
     socket.emit('ratioChange', ratio);
   }
 }
+
+/** ユーザー操作ログ（ビフォアアフター付き）の型 */
+export interface UserActionPayload {
+  type: string;
+  targetId?: string;
+  before?: any;
+  after?: any;
+  contentPreview?: string;
+  actionDetails?: string;
+}
+
+/**
+ * Send a user action log (with before/after) to the server for MongoDB storage.
+ */
+export function emitUserAction(payload: UserActionPayload): void {
+  if (socket && socket.connected) {
+    socket.emit('user-action', payload);
+  }
+}
 export function getSocketId(): string | null {
   return socket?.id ?? null;
 }

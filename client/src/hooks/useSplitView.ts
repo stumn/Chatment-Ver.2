@@ -9,18 +9,20 @@ export function useSplitView() {
   const [ratio, setRatio] = useState(() => {
     return loadSplitRatio() ?? DEFAULT_RATIO;
   });
-  const isDragging = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const isDraggingRef = useRef(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    isDragging.current = true;
+    isDraggingRef.current = true;
+    setIsDragging(true);
     document.body.style.cursor = 'row-resize';
     document.body.style.userSelect = 'none';
   }, []);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging.current || !containerRef.current) return;
+    if (!isDraggingRef.current || !containerRef.current) return;
 
     const rect = containerRef.current.getBoundingClientRect();
     const y = e.clientY - rect.top;
@@ -34,8 +36,9 @@ export function useSplitView() {
   }, []);
 
   const handleMouseUp = useCallback(() => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsDragging(false);
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
     // Persist ratio
@@ -67,5 +70,6 @@ export function useSplitView() {
     containerRef,
     handleMouseDown,
     handleDoubleClick,
+    isDragging,
   };
 }
