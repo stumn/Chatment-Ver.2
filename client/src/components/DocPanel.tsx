@@ -2,7 +2,6 @@ import React, { useRef, useEffect } from 'react';
 import type { StreamNodeWithIndex, AuthorInfo } from '../types';
 import type { LoroDoc } from 'loro-crdt';
 import { DocBlock } from './DocBlock';
-import { addDocNode, EMPTY_AUTHOR } from '../loro/schema';
 
 interface DocPanelProps {
   nodes: StreamNodeWithIndex[];
@@ -23,9 +22,6 @@ interface DocPanelProps {
   isCautiousMode?: boolean;
 }
 
-/** 初期空ブロックのシード数 */
-const INITIAL_EMPTY_BLOCKS = 5;
-
 export const DocPanel: React.FC<DocPanelProps> = ({
   nodes,
   doc,
@@ -44,20 +40,7 @@ export const DocPanel: React.FC<DocPanelProps> = ({
   activeDeletedIndex,
   isCautiousMode,
 }) => {
-  const hasSeededRef = useRef(false);
 
-  // ドキュメントが空のとき、本物のLoroブロックを自動生成する
-  useEffect(() => {
-    if (!doc || isPlaybackActive || hasSeededRef.current) return;
-    if (nodes.length === 0) {
-      hasSeededRef.current = true;
-      const emphasis = defaultEmphasis === 'h1' ? 0 : (defaultEmphasis as number);
-      for (let i = 0; i < INITIAL_EMPTY_BLOCKS; i++) {
-        addDocNode(doc, '', EMPTY_AUTHOR, emphasis);
-      }
-      onAfterEdit();
-    }
-  }, [doc, nodes.length, isPlaybackActive, defaultEmphasis, onAfterEdit]);
 
   // 空白でないブロック数（件数カウント用）
   const nonEmptyCount = nodes.filter(n => n.node.content.trim().length > 0).length;

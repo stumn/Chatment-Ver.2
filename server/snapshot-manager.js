@@ -1,4 +1,4 @@
-const { LoroDoc } = require('loro-crdt');
+const { LoroDoc, LoroMap, LoroText } = require('loro-crdt');
 const { DocumentSnapshot } = require('./db');
 
 // In-memory cache of LoroDoc instances per docId
@@ -25,9 +25,31 @@ async function getOrCreateDoc(docId) {
     }
   } else {
     // Initialize the movable list container
-    doc.getMovableList('stream');
-    doc.commit();
-    console.log(`[Snapshot] Created new doc for "${docId}"`);
+    const stream = doc.getMovableList('stream');
+    
+    // シードとして5つの空のdocブロックを追加
+    const INITIAL_EMPTY_BLOCKS = 5;
+    for (let i = 0; i < INITIAL_EMPTY_BLOCKS; i++) {
+      const nodeMap = stream.insertContainer(i, new LoroMap());
+      nodeMap.set('type', 'doc');
+      nodeMap.setContainer('content', new LoroText());
+      const blockId = `blk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      nodeMap.set('blockId', blockId);
+      
+      // AuthorInfo (EMPTY_AUTHOR)
+      nodeMap.set('author', '');
+      nodeMap.set('authorRealName', '');
+      nodeMap.set('authorUserId', '');
+      
+      // subAuthors
+      nodeMap.set('subAuthors', JSON.stringify([]));
+      
+      nodeMap.set('timestamp', Date.now());
+      nodeMap.setContainer('reactions', new LoroMap());
+    }
+    
+    doc.commit({ message: 'system:init-empty-blocks' });
+    console.log(`[Snapshot] Created new doc and initialized empty blocks for "${docId}"`);
   }
 
   docCache.set(docId, doc);
