@@ -588,12 +588,68 @@
   color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   width: 100%;
   font-family: var(--font-family);
   outline: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.outline-sidebar__item-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Sidebar Item Dot ─── */
+.outline-sidebar__item-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--text-muted);
+  opacity: 0.6;
+  border: none;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.outline-sidebar__item-dot.is-indent-0.is-doc {
+  background-color: var(--bg-elevated);
+  border: 1.5px solid var(--accent-secondary);
+}
+
+.outline-sidebar__item-dot.is-indent-0.is-chat {
+  background-color: var(--accent-primary);
+  border: none;
+}
+
+.outline-sidebar__item-dot.has-reactions {
+  width: 7px;
+  height: 7px;
+  border: none;
+  opacity: 0.85;
+}
+
+.outline-sidebar__item-dot.has-reactions.is-positive {
+  background-color: rgba(46, 184, 69, 0.4);
+  box-shadow: 0 0 4px rgba(46, 184, 69, 0.1);
+  border: 1px solid rgba(46, 184, 69, 0.4);
+}
+
+.outline-sidebar__item-dot.has-reactions.is-negative {
+  background-color: rgba(221, 60, 60, 0.4);
+  box-shadow: 0 0 4px rgba(221, 60, 60, 0.1);
+  border: 1px solid rgba(221, 60, 60, 0.4);
+}
+
+.outline-sidebar__item-dot.is-h1 {
+  width: 8px;
+  height: 8px;
+  background-color: var(--text-primary);
+  border: none;
+  opacity: 0.9;
 }
 
 .outline-sidebar__item:hover {
@@ -660,9 +716,17 @@
 .outline-sidebar__minimap-dot.is-indent-0 {
   width: 6px;
   height: 6px;
-  background-color: var(--bg-elevated);
-  border: 1.5px solid var(--text-muted);
   opacity: 0.6;
+}
+
+.outline-sidebar__minimap-dot.is-indent-0.is-doc {
+  background-color: var(--bg-elevated);
+  border: 1.5px solid var(--accent-secondary);
+}
+
+.outline-sidebar__minimap-dot.is-indent-0.is-chat {
+  background-color: var(--accent-primary);
+  border: none;
 }
 
 .outline-sidebar__minimap-dot.has-reactions {

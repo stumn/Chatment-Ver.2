@@ -10,6 +10,7 @@ interface OutlineItem {
   indent: number;
   hasReactions: boolean;
   voteScore: number;
+  type: 'chat' | 'doc';
 }
 
 interface OutlineSidebarProps {
@@ -54,6 +55,7 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToN
         indent: (node as any).indent ?? 0,
         hasReactions: !!node.reactions && Object.keys(node.reactions).length > 0,
         voteScore,
+        type: node.type,
       };
     });
 
@@ -136,6 +138,7 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToN
                 item.hasReactions ? 'has-reactions' : '',
                 item.voteScore > 0 ? 'is-positive' : '',
                 item.voteScore < 0 ? 'is-negative' : '',
+                item.type === 'chat' ? 'is-chat' : 'is-doc',
               ].filter(Boolean).join(' ');
 
               return (
@@ -159,16 +162,29 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToN
                 見出しがありません
               </div>
             ) : (
-              prioritizedItems.map((item) => (
-                <button
-                  key={item.blockId}
-                  className={`outline-sidebar__item ${item.isH1 ? 'outline-sidebar__item--h1' : 'outline-sidebar__item--bold'}`}
-                  onClick={() => onJumpToNode(item.index, 'doc', 'outline')}
-                  title={item.text}
-                >
-                  {item.text}
-                </button>
-              ))
+              prioritizedItems.map((item) => {
+                const dotClasses = [
+                  'outline-sidebar__item-dot',
+                  item.isH1 ? 'is-h1' : '',
+                  item.indent === 0 ? 'is-indent-0' : '',
+                  item.hasReactions ? 'has-reactions' : '',
+                  item.voteScore > 0 ? 'is-positive' : '',
+                  item.voteScore < 0 ? 'is-negative' : '',
+                  item.type === 'chat' ? 'is-chat' : 'is-doc',
+                ].filter(Boolean).join(' ');
+
+                return (
+                  <button
+                    key={item.blockId}
+                    className={`outline-sidebar__item ${item.isH1 ? 'outline-sidebar__item--h1' : 'outline-sidebar__item--bold'}`}
+                    onClick={() => onJumpToNode(item.index, 'doc', 'outline')}
+                    title={item.text}
+                  >
+                    <span className={dotClasses} />
+                    <span className="outline-sidebar__item-text">{item.text}</span>
+                  </button>
+                );
+              })
             )}
           </div>
         )}
