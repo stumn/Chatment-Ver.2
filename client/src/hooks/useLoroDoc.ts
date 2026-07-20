@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { LoroDoc } from 'loro-crdt';
 import { createDoc, getAllNodes } from '../loro/schema';
 import { initUndoManager, setupUndoKeyBindings, destroyUndoManager, getUndoManager, undo as loroUndo, redo as loroRedo } from '../loro/undo-manager';
-import { loadSnapshot, saveSnapshot, createAutoSave } from '../loro/local-storage';
-import { initSyncClient, sendUpdate, getSocketId, type ConnectionState } from '../loro/sync-client';
+import { loadSnapshot, saveSnapshot, createAutoSave, loadUserColorIndex, saveUserColorIndex } from '../loro/local-storage';
+import { initSyncClient, sendUpdate, getSocketId, login, type ConnectionState } from '../loro/sync-client';
 import type { StreamNodeWithIndex } from '../types';
 
 const getDocIdFromHash = () => {
@@ -84,16 +84,11 @@ export function useLoroDoc(userName: string | null, docId: string, isAdmin?: boo
       },
       onConnectionChange: (state) => {
         setConnectionState(state);
-        // Login on connect
         if (state === 'connected' && userName) {
-          import('../loro/local-storage').then(({ loadUserColorIndex }) => {
-            const saved = loadUserColorIndex(userName);
-            const attribute = localStorage.getItem('compact-chatment-user-attribute') ?? '';
-            const ageGroup = localStorage.getItem('compact-chatment-user-age') ?? '';
-            import('../loro/sync-client').then(({ login }) => {
-              login(userName, saved ?? undefined, attribute, ageGroup);
-            });
-          });
+          const saved = loadUserColorIndex(userName);
+          const attribute = localStorage.getItem('compact-chatment-user-attribute') ?? '';
+          const ageGroup = localStorage.getItem('compact-chatment-user-age') ?? '';
+          login(userName, saved ?? undefined, attribute, ageGroup);
         }
       },
       onUserCountChange: setUserCount,
@@ -110,9 +105,7 @@ export function useLoroDoc(userName: string | null, docId: string, isAdmin?: boo
       onLoginAck: (ack) => {
         if (userName === ack.userName) {
           setMyColorIndex(ack.colorIndex);
-          import('../loro/local-storage').then(({ saveUserColorIndex }) => {
-            saveUserColorIndex(ack.userName, ack.colorIndex);
-          });
+          saveUserColorIndex(ack.userName, ack.colorIndex);
         }
       }
     });

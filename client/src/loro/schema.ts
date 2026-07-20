@@ -70,104 +70,116 @@ function readSubAuthors(nodeMap: LoroMap): AuthorInfo[] {
 /**
  * Add a chat node to the stream.
  */
-export function addChatNode(
+/** LoroMapが空のdocブロックかどうかを判定するヘルパー */
+const isEmptyDocBlock = (map: LoroMap | null): boolean => {
+  if (!map) return false;
+  if ((map.get('type') as string) !== 'doc') return false;
+  const text = map.get('content') as LoroText | null;
+  return !text || text.length === 0;
+};
+
+/**
+ * 状況に応じて、最初の空docブロックをチャットノードに上書き変換して再利用を試みる。
+ * 上書きが成功した場合は true, そうでなければ false を返す。
+ */
+function tryOverwriteEmptyDocBlock(
   doc: LoroDoc,
+  stream: LoroMovableList,
+  content: string,
+  authorInfo: AuthorInfo
+): boolean {
+  const length = stream.length;
+  if (length === 0) return false;
+
+  let firstEmptyDocIdx = -1;
+  let nonEmptyCount = 0;
+
+  for (let i = 0; i < length; i++) {
+    const m = stream.get(i) as LoroMap;
+    if (!m) continue;
+    if (isEmptyDocBlock(m)) {
+      if (firstEmptyDocIdx === -1) firstEmptyDocIdx = i;
+    } else {
+      // chat型 or 内容のあるdoc型 = 非空ブロック
+      const t = m.get('content') as LoroText | null;
+      if (t && t.length > 0) nonEmptyCount++;
+      else if ((m.get('type') as string) === 'chat') nonEmptyCount++;
+    }
+  }
+
+  // 「内容のあるブロックが0件」かつ「空docが1件以上ある」場合、上書き処理を行う
+  if (nonEmptyCount === 0 && firstEmptyDocIdx !== -1) {
+    const targetMap = stream.get(firstEmptyDocIdx) as LoroMap;
+    const chatId = `chat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    targetMap.set('blockId', chatId);
+    targetMap.set('type', 'chat');
+    targetMap.set('indent', 0);
+    targetMap.set('emphasis', 0);
+    writeSubAuthors(targetMap, []);
+    writeAuthorInfo(targetMap, authorInfo);
+    targetMap.set('timestamp', Date.now());
+
+    let loroText = targetMap.get('content') as LoroText | null;
+    if (!loroText) {
+      loroText = targetMap.setContainer('content', new LoroText());
+    }
+    loroText.insert(0, content);
+
+    try {
+      targetMap.getOrCreateContainer('reactions', new LoroMap());
+    } catch {
+      targetMap.setContainer('reactions', new LoroMap());
+    }
+
+    if (/^[#＃]/.test(content)) {
+      targetMap.set('heading', 'h1');
+    }
+
+    // 変換後に空docが残っているか確認。なければ末尾に追加する。
+    let hasEmptyDocAfter = false;
+    for (let i = firstEmptyDocIdx + 1; i < stream.length; i++) {
+      if (isEmptyDocBlock(stream.get(i) as LoroMap)) {
+        hasEmptyDocAfter = true;
+        break;
+      }
+    }
+    if (!hasEmptyDocAfter) {
+      const emptyDocMap = stream.insertContainer(stream.length, new LoroMap());
+      emptyDocMap.set('type', 'doc');
+      emptyDocMap.setContainer('content', new LoroText());
+      emptyDocMap.set('blockId', `blk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
+      writeAuthorInfo(emptyDocMap, EMPTY_AUTHOR);
+      emptyDocMap.set('timestamp', Date.now());
+    }
+
+    doc.commit({ message: `chat:${authorInfo.displayName}:${chatId}:${content}` });
+    emitUserAction({
+      type: 'chat',
+      targetId: chatId,
+      contentPreview: content.substring(0, 100),
+      actionDetails: `チャットメッセージの送信: "${content}"`,
+      before: null,
+      after: null,
+    });
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * 前後の空行（パディング）を制御した上で、チャットを新規挿入する。
+ */
+function insertChatWithPadding(
+  doc: LoroDoc,
+  stream: LoroMovableList,
   content: string,
   authorInfo: AuthorInfo
 ): void {
-  const stream = getStream(doc);
   const length = stream.length;
   let insertChatPos = length;
   let appendEmptyDoc = true;
   let prependEmptyDoc = true;
-
-  /** LoroMapが空のdocブロックかどうかを判定するヘルパー */
-  const isEmptyDocBlock = (map: LoroMap | null): boolean => {
-    if (!map) return false;
-    if ((map.get('type') as string) !== 'doc') return false;
-    const text = map.get('content') as LoroText | null;
-    return !text || text.length === 0;
-  };
-
-  // ── 上書きモード ────────────────────────────────────────────────────────────
-  // 内容のあるブロックが0件 かつ 空docブロックが1件以上の場合、
-  // 新規挿入せず、最初の空docブロックをchatノードに変換する。
-  // 結果: [空doc] → [chat, 空doc] / [空doc, 空doc] → [chat, 空doc]
-  if (length > 0) {
-    let firstEmptyDocIdx = -1;
-    let nonEmptyCount = 0;
-
-    for (let i = 0; i < length; i++) {
-      const m = stream.get(i) as LoroMap;
-      if (!m) continue;
-      if (isEmptyDocBlock(m)) {
-        if (firstEmptyDocIdx === -1) firstEmptyDocIdx = i;
-      } else {
-        // chat型 or 内容のあるdoc型 = 非空ブロック
-        const t = m.get('content') as LoroText | null;
-        if (t && t.length > 0) nonEmptyCount++;
-        else if ((m.get('type') as string) === 'chat') nonEmptyCount++;
-      }
-    }
-
-    if (nonEmptyCount === 0 && firstEmptyDocIdx !== -1) {
-      // 最初の空docブロックをchatノードに上書き変換
-      const targetMap = stream.get(firstEmptyDocIdx) as LoroMap;
-      const chatId = `chat-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      targetMap.set('blockId', chatId);
-      targetMap.set('type', 'chat');
-      targetMap.set('indent', 0);
-      targetMap.set('emphasis', 0);
-      writeSubAuthors(targetMap, []);
-      writeAuthorInfo(targetMap, authorInfo);
-      targetMap.set('timestamp', Date.now());
-      // 既存のLoroTextにコンテンツを書き込む
-      let loroText = targetMap.get('content') as LoroText | null;
-      if (!loroText) {
-        loroText = targetMap.setContainer('content', new LoroText());
-      }
-      loroText.insert(0, content);
-      // reactionsコンテナを設定
-      try {
-        targetMap.getOrCreateContainer('reactions', new LoroMap());
-      } catch {
-        targetMap.setContainer('reactions', new LoroMap());
-      }
-      // #始まりは見出し設定
-      if (/^[#＃]/.test(content)) {
-        targetMap.set('heading', 'h1');
-      }
-
-      // 変換後にemptyDocが残っているか確認。なければ末尾に追加する。
-      let hasEmptyDocAfter = false;
-      for (let i = firstEmptyDocIdx + 1; i < stream.length; i++) {
-        if (isEmptyDocBlock(stream.get(i) as LoroMap)) {
-          hasEmptyDocAfter = true;
-          break;
-        }
-      }
-      if (!hasEmptyDocAfter) {
-        const emptyDocMap = stream.insertContainer(stream.length, new LoroMap());
-        emptyDocMap.set('type', 'doc');
-        emptyDocMap.setContainer('content', new LoroText());
-        emptyDocMap.set('blockId', `blk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
-        writeAuthorInfo(emptyDocMap, EMPTY_AUTHOR);
-        emptyDocMap.set('timestamp', Date.now());
-      }
-
-      doc.commit({ message: `chat:${authorInfo.displayName}:${chatId}:${content}` });
-      emitUserAction({
-        type: 'chat',
-        targetId: chatId,
-        contentPreview: content.substring(0, 100),
-        actionDetails: `チャットメッセージの送信: "${content}"`,
-        before: null,
-        after: null,
-      });
-      return;
-    }
-  }
-  // ────────────────────────────────────────────────────────────────────────────
 
   if (length > 0) {
     const lastNode = stream.get(length - 1) as LoroMap;
@@ -185,9 +197,6 @@ export function addChatNode(
         prependEmptyDoc = false;
       } else if (prevNode && (prevNode.get('type') as string) === 'chat') {
         // 直前がchat型のとき、gap検出を行う
-        // 「ストリーム上の直前chatより新しいtimestampを持つchatが他に存在する」= gap
-        // 例: [chat(2), chat(1), 空doc] + chat(3) の場合、
-        //     直前はchat(1)だが chat(2).timestamp > chat(1).timestamp → gap → 空doc挿入
         const prevTimestamp = (prevNode.get('timestamp') as number) ?? 0;
         let hasNewerChatElsewhere = false;
         for (let i = 0; i < stream.length; i++) {
@@ -204,7 +213,6 @@ export function addChatNode(
           // ストリーム上の直前chatが最新のchat → 連続投稿
           prependEmptyDoc = false;
         }
-        // hasNewerChatElsewhere === true の場合は prependEmptyDoc = true のまま（gap）
       }
     } else {
       // 先頭に挿入する場合は前に空行不要
@@ -235,11 +243,9 @@ export function addChatNode(
   writeSubAuthors(nodeMap, []);
   const chatText = nodeMap.setContainer('content', new LoroText());
   chatText.insert(0, content);
-  // Author情報をフラット保存
   writeAuthorInfo(nodeMap, authorInfo);
   nodeMap.set('timestamp', Date.now());
   nodeMap.setContainer('reactions', new LoroMap());
-  // #始まりのメッセージは見出し（H1）として設定
   if (/^[#＃]/.test(content)) {
     nodeMap.set('heading', 'h1');
   }
@@ -247,14 +253,12 @@ export function addChatNode(
   // チャットの直後に空docブロックを追加（既になければ）
   if (appendEmptyDoc) {
     const emptyPos = insertChatPos + 1;
-    // 直後が既に空docブロックでないことを確認
     const nextNode = emptyPos < stream.length + 1 ? (stream.get(emptyPos) as LoroMap | null) : null;
     if (!isEmptyDocBlock(nextNode)) {
       const emptyDocMap = stream.insertContainer(emptyPos, new LoroMap());
       emptyDocMap.set('type', 'doc');
       emptyDocMap.setContainer('content', new LoroText());
       emptyDocMap.set('blockId', `blk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
-      // 空ブロックはauthor空
       writeAuthorInfo(emptyDocMap, EMPTY_AUTHOR);
       emptyDocMap.set('timestamp', Date.now());
     }
@@ -269,6 +273,25 @@ export function addChatNode(
     before: null,
     after: null,
   });
+}
+
+/**
+ * Add a chat node to the stream.
+ */
+export function addChatNode(
+  doc: LoroDoc,
+  content: string,
+  authorInfo: AuthorInfo
+): void {
+  const stream = getStream(doc);
+
+  // 1. 上書き可能な空docがあれば、上書き再利用を試みる
+  if (tryOverwriteEmptyDocBlock(doc, stream, content, authorInfo)) {
+    return;
+  }
+
+  // 2. 通常の新規チャット挿入
+  insertChatWithPadding(doc, stream, content, authorInfo);
 }
 
 /**
@@ -561,10 +584,40 @@ export function deleteDocNode(
   const stream = getStream(doc);
   if (nodeIndex >= 0 && nodeIndex < stream.length) {
     const nodeMap = stream.get(nodeIndex) as LoroMap;
-    const blockId = nodeMap ? (nodeMap.get('blockId') as string || '') : '';
-    const blockType = nodeMap ? (nodeMap.get('type') as string || '') : '';
-    const loroTextContent = nodeMap ? nodeMap.get('content') as LoroText | null : null;
+    if (!nodeMap) return;
+
+    const blockId = nodeMap.get('blockId') as string || '';
+    const blockType = nodeMap.get('type') as string || '';
+    const loroTextContent = nodeMap.get('content') as LoroText | null;
     const blockText = loroTextContent ? loroTextContent.toString() : '';
+
+    // 安全装置: 削除しようとしているのが最後のdocブロック（入力欄）であるかチェック
+    if (blockType === 'doc') {
+      let docCount = 0;
+      for (let i = 0; i < stream.length; i++) {
+        const m = stream.get(i) as LoroMap;
+        if (m && m.get('type') === 'doc') {
+          docCount++;
+        }
+      }
+
+      if (docCount === 1) {
+        // 最後の1ブロックの場合は削除せず、内容をクリアするだけにする
+        if (loroTextContent && loroTextContent.length > 0) {
+          loroTextContent.delete(0, loroTextContent.length);
+          doc.commit({ message: `clear:${authorInfo.displayName}:${blockId}` });
+          emitUserAction({
+            type: 'doc-edit',
+            targetId: blockId,
+            before: { text: blockText },
+            after: { text: '' },
+            contentPreview: '',
+            actionDetails: `ブロックをクリア（最後のdocブロックのため削除せずクリア）`,
+          });
+        }
+        return;
+      }
+    }
 
     stream.delete(nodeIndex, 1);
     doc.commit({ message: `delete:${authorInfo.displayName}:${blockId}:${nodeIndex}` });
