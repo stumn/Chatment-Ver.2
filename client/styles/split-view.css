@@ -83,11 +83,14 @@
   transition: background var(--transition-fast);
 }
 
-.split-handle:hover {
+.split-handle:hover,
+.split-handle.is-dragging {
   background: var(--bg-tertiary);
 }
 
-.split-handle:hover .split-handle__grip {
+.split-handle:hover .split-handle__grip,
+.split-handle.is-dragging .split-handle__grip {
+  width: 96px;
   opacity: 1;
   background: var(--accent-primary);
   box-shadow: 0 0 8px var(--accent-primary-glow);

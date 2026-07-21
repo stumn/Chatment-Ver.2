@@ -469,6 +469,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
             onHandleDoubleClick={handleRatioDoubleClick}
             containerRef={containerRef}
             isPlaybackActive={isPlaybackMode}
+            isDragging={isDragging}
             docPanel={
               <DocPanel
                 nodes={docNodes}

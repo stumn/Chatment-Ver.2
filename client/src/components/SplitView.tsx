@@ -13,6 +13,7 @@ interface SplitViewProps {
   onSelectRatio: (ratio: number) => void;
   isPlaybackActive?: boolean;
   myColorIndex?: number;
+  isDragging?: boolean;
 }
 
 export const SplitView: React.FC<SplitViewProps> = ({
@@ -26,6 +27,7 @@ export const SplitView: React.FC<SplitViewProps> = ({
   onSelectRatio,
   isPlaybackActive,
   myColorIndex,
+  isDragging,
 }) => {
   const docHeight = `calc(max(0px, ${ratio * 100}% - 8px))`;
   const chatHeight = `calc(max(0px, ${(1 - ratio) * 100}% - 8px))`;
@@ -36,7 +38,7 @@ export const SplitView: React.FC<SplitViewProps> = ({
         {docPanel}
       </div>
       <div
-        className="split-handle"
+        className={`split-handle ${isDragging ? 'is-dragging' : ''}`}
         onMouseDown={onHandleMouseDown}
         onDoubleClick={onHandleDoubleClick}
         id="split-handle"
