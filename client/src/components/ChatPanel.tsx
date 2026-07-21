@@ -32,21 +32,36 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
   const [showUnreadBanner, setShowUnreadBanner] = React.useState(false);
+  const rafIdRef = useRef<number | null>(null);
+
+  // アンマウント時にタイマーを解除するクリーンアップ
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, []);
 
   // Monitor user scrolling to toggle the bottom lock state
   const handleScroll = React.useCallback(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-    const { scrollHeight, scrollTop, clientHeight } = container;
-    const S = scrollHeight - scrollTop - clientHeight;
+    if (rafIdRef.current !== null) return;
 
-    // threshold = 150px
-    const nearBottom = S < 150;
-    isNearBottomRef.current = nearBottom;
+    rafIdRef.current = requestAnimationFrame(() => {
+      rafIdRef.current = null;
+      const container = messagesContainerRef.current;
+      if (!container) return;
+      const { scrollHeight, scrollTop, clientHeight } = container;
+      const S = scrollHeight - scrollTop - clientHeight;
 
-    if (nearBottom) {
-      setShowUnreadBanner(false);
-    }
+      // threshold = 150px
+      const nearBottom = S < 150;
+      isNearBottomRef.current = nearBottom;
+
+      if (nearBottom) {
+        setShowUnreadBanner((prev) => (prev ? false : prev));
+      }
+    });
   }, []);
 
   // Auto-scroll to bottom on new messages, if not locked
@@ -61,7 +76,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // Instant scroll to bottom when panel is resized via split-handle
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    const id = requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    });
+    return () => cancelAnimationFrame(id);
   }, [ratio]);
 
   const scrollToBottom = React.useCallback(() => {
