@@ -39,6 +39,7 @@ export function useBlockEditor({
   const [isDraggable, setIsDraggable] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const isApplyingHashtagRef = useRef(false); // H1切り替え時の#挿入ループ防止フラグ
+  const pendingCaretPosRef = useRef<number | null>(null);
 
   const isChat = node.type === 'chat';
   const blockAuthor: AuthorInfo = node.author;
@@ -95,6 +96,7 @@ export function useBlockEditor({
         loroMap.set('heading', nextHeading);
         if (nextHeading === 'h1') {
           loroMap.set('indent', 0);
+          loroMap.set('emphasis', 0);
         }
       }
       updateDocContent(doc, index, newText, currentAuthorInfo);
@@ -218,16 +220,71 @@ export function useBlockEditor({
     }
   }, []);
 
+  const handleFocus = useCallback(() => {
+    const wasFocused = isFocused;
+    setIsFocused(true);
+
+    if (!wasFocused && blockHeading === 'h1') {
+      const range = getSelectionRange();
+      if (range !== null) {
+        const match = (node.content || '').match(/^[#＃][ 　]*/);
+        const prefixLen = match ? match[0].length : 2;
+        requestAnimationFrame(() => {
+          setCaretAt(range.start + prefixLen);
+        });
+      }
+    }
+  }, [isFocused, blockHeading, node.content, getSelectionRange, setCaretAt]);
+
   const handleInput = useCallback(() => {
-    if (!doc || !isLastInDoc || isPlaybackActive) return;
+    if (!doc || isPlaybackActive) return;
+
+    if (contentRef.current) {
+      const text = contentRef.current.textContent || '';
+      const currentHeading = loroMap?.get('heading') as string | null;
+      const hasHashtag = /^[#＃]/.test(text);
+
+      if ((hasHashtag && currentHeading !== 'h1') || (!hasHashtag && currentHeading === 'h1')) {
+        const savedRange = getSelectionRange();
+        const nextHeading = hasHashtag ? 'h1' : null;
+
+        // 最新のテキストをCRDTへ即時反映
+        updateDocContent(doc, index, text, currentAuthorInfo);
+
+        if (loroMap) {
+          loroMap.set('heading', nextHeading);
+          if (nextHeading === 'h1') {
+            loroMap.set('emphasis', 0);
+            loroMap.set('indent', 0);
+          }
+
+          const blockId = loroMap.get('blockId') as string || `blk-${index}`;
+          const styleName = nextHeading === 'h1' ? 'h1' : 'normal';
+          doc.commit({ message: `format-style:${currentAuthorInfo.displayName}:${blockId}:${styleName}` });
+          onAfterEdit();
+        }
+
+        if (savedRange !== null) {
+          pendingCaretPosRef.current = savedRange.start;
+          setCaretAt(savedRange.start);
+          requestAnimationFrame(() => {
+            setCaretAt(savedRange.start);
+          });
+          setTimeout(() => {
+            setCaretAt(savedRange.start);
+          }, 0);
+        }
+      }
+    }
+
+    if (!isLastInDoc) return;
     const currentText = contentRef.current?.textContent || '';
-    // If we are at the very last block, and user types something, append an empty block below.
     if (currentText.length > 0) {
       const nextEmphasis = defaultEmphasis === 'h1' ? 0 : (defaultEmphasis as number);
       insertDocNodeAfter(doc, index, '', EMPTY_AUTHOR, nextEmphasis);
       onAfterEdit();
     }
-  }, [doc, isLastInDoc, index, defaultEmphasis, onAfterEdit, isPlaybackActive]);
+  }, [doc, isLastInDoc, index, defaultEmphasis, onAfterEdit, isPlaybackActive, loroMap, currentAuthorInfo, getSelectionRange, setCaretAt]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (isPlaybackActive) {
@@ -249,6 +306,7 @@ export function useBlockEditor({
     if (e.key === 'Tab') {
       if (isAtStart) {
         e.preventDefault();
+        if (blockHeading === 'h1' || (loroMap && loroMap.get('heading') === 'h1')) return;
         if (!requestCautiousEdit('インデントの変更')) return;
         if (doc && loroMap) {
           const currentIndent = loroMap.get('indent') as number || 0;
@@ -289,10 +347,35 @@ export function useBlockEditor({
       }
     }
 
-    // Space / 全角スペース キーの処理 (インデント増加, 最大2に制限)
+    // Space / 全角スペース キーの処理 (インデント増加 または 見出し切り替え)
     if ((e.key === ' ' || e.key === '　' || e.code === 'Space') && !e.shiftKey) {
       if (isAtStart) {
+        if (textContent === '#' || textContent === '＃') {
+          e.preventDefault();
+          if (!requestCautiousEdit('スタイルの変更')) return;
+          if (doc && loroMap) {
+            loroMap.set('heading', 'h1');
+            loroMap.set('emphasis', 0);
+            loroMap.set('indent', 0);
+
+            updateDocContent(doc, index, '# ', currentAuthorInfo);
+            if (contentRef.current) {
+              contentRef.current.textContent = '# ';
+            }
+
+            const blockId = loroMap.get('blockId') as string || `blk-${index}`;
+            doc.commit({ message: `format-style:${currentAuthorInfo.displayName}:${blockId}:h1` });
+            onAfterEdit();
+
+            setTimeout(() => {
+              setCaretAt(2);
+            }, 10);
+          }
+          return;
+        }
+
         e.preventDefault();
+        if (blockHeading === 'h1' || (loroMap && loroMap.get('heading') === 'h1')) return;
         if (!requestCautiousEdit('インデントの変更')) return;
         if (doc && loroMap) {
           const currentIndent = loroMap.get('indent') as number || 0;
@@ -336,6 +419,32 @@ export function useBlockEditor({
     // Backspace キーの処理
     if (e.key === 'Backspace' && !e.shiftKey) {
       const currentIndent = loroMap?.get('indent') as number || 0;
+      const currentHeading = loroMap?.get('heading') as string | null;
+
+      if (doc && loroMap && currentHeading === 'h1') {
+        const srCheck = getSelectionRange();
+        if (srCheck && srCheck.start <= 2) {
+          e.preventDefault();
+          if (!requestCautiousEdit('スタイルの変更')) return;
+
+          loroMap.set('heading', null);
+
+          const cleanedText = textContent.replace(/^[#＃]\s*/, '');
+          updateDocContent(doc, index, cleanedText, currentAuthorInfo);
+          if (contentRef.current) {
+            contentRef.current.textContent = cleanedText;
+          }
+
+          const blockId = loroMap.get('blockId') as string || `blk-${index}`;
+          doc.commit({ message: `format-style:${currentAuthorInfo.displayName}:${blockId}:normal` });
+          onAfterEdit();
+
+          setTimeout(() => {
+            setCaretAt(0);
+          }, 10);
+          return;
+        }
+      }
 
       if (isAtStart) {
         // インデントがあれば先にインデント減少（中身が空かどうかにかかわらず）
@@ -522,48 +631,15 @@ export function useBlockEditor({
     }
   }, [doc, index, node, currentAuthorInfo, defaultEmphasis, onAfterEdit, moveUp, moveDown, focusNextBlock, getSelectionRange, setCaretAt, loroMap, blockIndent, requestCautiousEdit, isFirstInDoc, isPlaybackActive]);
 
+  // DOM再描画やReactレンダリング直後にキャレット位置を復元するパトロール用Effect
   useEffect(() => {
-    const el = contentRef.current;
-    if (!el || isPlaybackActive) return;
-
-    const handleBeforeInput = (e: Event) => {
-      const ie = e as InputEvent;
-      if (!isCautiousMode) return;
-
-      const isFirstAuthor = blockAuthor.userId === currentAuthorInfo.userId && blockAuthor.userId !== '';
-      const isSubAuthor = blockSubAuthors.some(sa => sa.userId === currentAuthorInfo.userId && sa.userId !== '');
-      if (isFirstAuthor || isSubAuthor) return;
-
-      if (!blockAuthor.displayName) return; // 空ブロック
-
-      const inputData = ie.data || '';
-      const isWhitespaceOnly = ie.data !== null && inputData !== '' && inputData.trim().length === 0;
-
-      if (isWhitespaceOnly) {
-        return;
-      }
-
-      const contentPreview = node.content ? `「${node.content.substring(0, 15)}${node.content.length > 15 ? '…' : ''}」` : 'このブロック';
-      if (!requestCautiousEdit(`${contentPreview}への書き込み`)) {
-        ie.preventDefault();
-        // DOM を元の内容に強制リセット（キャンセル時に変更が反映されないようにする）
-        const originalText = loroMap?.get('content')?.toString() || '';
-        isCanceledRef.current = true;
-        el.blur();
-        setTimeout(() => {
-          isCanceledRef.current = false;
-          if (el && el.textContent !== originalText) {
-            el.textContent = originalText;
-          }
-        }, 0);
-      }
-    };
-
-    el.addEventListener('beforeinput', handleBeforeInput);
-    return () => {
-      el.removeEventListener('beforeinput', handleBeforeInput);
-    };
-  }, [doc, index, node, currentAuthorInfo, isCautiousMode, isPlaybackActive, loroMap, requestCautiousEdit, blockAuthor, blockSubAuthors]);
+    if (pendingCaretPosRef.current !== null && contentRef.current) {
+      const pos = pendingCaretPosRef.current;
+      pendingCaretPosRef.current = null;
+      setCaretAt(pos);
+      requestAnimationFrame(() => setCaretAt(pos));
+    }
+  }, [node.content, blockHeading, setCaretAt]);
 
   // H1ボタンなどで見出し状態が変化した際にテキストの先頭の「# 」を同期する処理
   useEffect(() => {
@@ -577,26 +653,56 @@ export function useBlockEditor({
 
     if (currentHeading === 'h1') {
       if (!match) {
+        const savedRange = getSelectionRange();
         isApplyingHashtagRef.current = true;
         loroText.insert(0, '# ');
         doc.commit({ message: `add-hashtag:${loroMap.get('blockId')}` });
         onAfterEdit();
         isApplyingHashtagRef.current = false;
+
+        if (savedRange !== null) {
+          const targetPos = savedRange.start + 2;
+          pendingCaretPosRef.current = targetPos;
+          setCaretAt(targetPos);
+          requestAnimationFrame(() => {
+            setCaretAt(targetPos);
+          });
+        }
       }
     }
-  }, [blockHeading, doc, loroText, loroMap, onAfterEdit, isPlaybackActive, isChat]);
+  }, [blockHeading, doc, loroText, loroMap, onAfterEdit, isPlaybackActive, isChat, getSelectionRange, setCaretAt]);
 
   const setBlockStyle = useCallback((style: 'h1' | 'normal' | 'fade') => {
     if (!doc || !loroMap || isPlaybackActive) return;
 
+    if (contentRef.current && document.activeElement !== contentRef.current) {
+      contentRef.current.focus();
+    }
+
+    let savedRange = getSelectionRange();
     let text = contentRef.current ? (contentRef.current.textContent || '') : '';
+    let removedLen = 0;
+    let addedLen = 0;
 
     if (style !== 'h1') {
+      const match = text.match(/^[#＃\s　]+/);
+      if (match) {
+        removedLen = match[0].length;
+      }
       const cleaned = text.replace(/^[#＃\s　]+/g, '');
       if (text !== cleaned) {
         text = cleaned;
         if (contentRef.current) {
           contentRef.current.textContent = cleaned;
+        }
+      }
+    } else {
+      const match = text.match(/^[#＃][ 　]*/);
+      if (!match) {
+        text = '# ' + text;
+        addedLen = 2;
+        if (contentRef.current) {
+          contentRef.current.textContent = text;
         }
       }
     }
@@ -610,7 +716,15 @@ export function useBlockEditor({
     const currentEmphasis = loroMap.get('emphasis') as number || 0;
 
     const currentStyle = currentHeading === 'h1' ? 'h1' : (currentEmphasis === -1 ? 'fade' : 'normal');
-    if (currentStyle === style) return;
+    if (currentStyle === style) {
+      let targetPos = savedRange ? savedRange.start : text.length;
+      if (addedLen > 0) targetPos += addedLen;
+      if (removedLen > 0) targetPos = Math.max(0, targetPos - removedLen);
+      pendingCaretPosRef.current = targetPos;
+      setCaretAt(targetPos);
+      requestAnimationFrame(() => setCaretAt(targetPos));
+      return;
+    }
 
     if (!requestCautiousEdit('ブロックスタイルの変更')) return;
 
@@ -641,7 +755,23 @@ export function useBlockEditor({
     });
 
     onAfterEdit();
-  }, [doc, loroMap, index, onAfterEdit, isPlaybackActive, requestCautiousEdit, currentAuthorInfo]);
+
+    let targetPos = savedRange ? savedRange.start : text.length;
+    if (addedLen > 0) {
+      targetPos += addedLen;
+    } else if (removedLen > 0) {
+      targetPos = Math.max(0, targetPos - removedLen);
+    }
+
+    pendingCaretPosRef.current = targetPos;
+    setCaretAt(targetPos);
+    requestAnimationFrame(() => {
+      setCaretAt(targetPos);
+    });
+    setTimeout(() => {
+      setCaretAt(targetPos);
+    }, 0);
+  }, [doc, loroMap, index, onAfterEdit, isPlaybackActive, requestCautiousEdit, currentAuthorInfo, getSelectionRange, setCaretAt]);
 
   const adjustIndent = useCallback((direction: number) => {
     if (!doc || !loroMap || isPlaybackActive) return;
@@ -682,6 +812,7 @@ export function useBlockEditor({
     setIsDraggable,
     isFocused,
     setIsFocused,
+    handleFocus,
     handleBlur,
     handleInput,
     handleKeyDown,

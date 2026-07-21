@@ -136,6 +136,8 @@
   cursor: default;
 }
 
+
+
 /* ドキュメントエリアにおける「ドキュメント由来(+1)」と「チャット由来(-1)」の色分け */
 /* ニュートラル状態では全て通常テキストカラー */
 .doc-block--doc .doc-block__content,
@@ -183,11 +185,41 @@
   font-size: 0px;
   color: var(--accent-secondary);
 }
-
+.doc-block--h1 .doc-block__meta-toggle {
+  padding-top: 0;
+}
+.doc-block--h1 .doc-block__content {
+  color: var(--text-primary) !important;
+  opacity: 1 !important;
+}
+.doc-block__timeline-h1-mark {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.35;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: auto;
+  margin-top: 0;
+}
 .doc-block--chat .doc-block__timeline-circle {
   background: var(--accent-primary);
   /* Solid Chat style */
   border-color: var(--accent-primary);
+}
+
+.doc-block__timeline-circle.is-pending {
+  opacity: 0.4;
+  border-color: var(--text-muted) !important;
+  background: var(--bg-elevated) !important;
+}
+
+.doc-block--chat .doc-block__timeline-circle.is-pending {
+  opacity: 0.4;
+  background: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
 }
 
 .doc-block:hover .doc-block__timeline-circle {
@@ -757,6 +789,33 @@
   box-shadow: none;
 }
 
+.outline-sidebar__minimap-h1-btn {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--text-primary);
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+  width: auto;
+  height: auto;
+  line-height: 1;
+}
+
+.outline-sidebar__minimap-h1-btn:hover {
+  opacity: 1;
+  transform: translateX(-50%) scale(1.3);
+}
+
 /* ツールチップポップアップ */
 .outline-sidebar__tooltip {
   position: absolute;
@@ -802,7 +861,8 @@
   border-color: transparent var(--bg-elevated) transparent transparent;
 }
 
-.outline-sidebar__minimap-dot:hover .outline-sidebar__tooltip {
+.outline-sidebar__minimap-dot:hover .outline-sidebar__tooltip,
+.outline-sidebar__minimap-h1-btn:hover .outline-sidebar__tooltip {
   opacity: 1;
   transform: translateY(-50%) scale(1);
 }

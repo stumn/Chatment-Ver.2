@@ -104,7 +104,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           onClick={scrollToBottom}
           id="unread-chat-banner"
         >
-          ⬇️ 新しいメッセージがあります
+          ⇩ 新しいメッセージがあります
         </button>
       )}
     </div>

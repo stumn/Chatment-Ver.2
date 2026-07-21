@@ -3,6 +3,7 @@ import type { StreamNodeWithIndex, EmphasisLevel, AuthorInfo } from '../types';
 import type { LoroDoc } from 'loro-crdt';
 import { useBlockEditor } from '../hooks/useBlockEditor';
 import { BlockTimelineCircle } from './BlockTimelineCircle';
+import { BlockTimelineH1Button } from './BlockTimelineH1Button';
 import { BlockActionToolbar } from './BlockActionToolbar';
 
 interface DocBlockProps {
@@ -62,6 +63,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     setIsDraggable,
     isFocused,
     setIsFocused,
+    handleFocus,
     handleBlur,
     handleInput,
     handleKeyDown,
@@ -89,7 +91,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   };
 
   // Read emphasis level from Map for doc blocks (block level styling)
-  const blockEmphasis = loroMap?.get('emphasis') as EmphasisLevel || 0;
+  const blockEmphasis = blockHeading === 'h1' ? 0 : (loroMap?.get('emphasis') as EmphasisLevel || 0);
 
   // Calculate total reactions and dynamic vote emphasis
   let totalReactions = 0;
@@ -137,6 +139,9 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   // Render content safely via HTML for contentEditable support without React child fights
   const renderContentAsHTML = (): string => {
     let text = node.content || '';
+    if (!isFocused && blockHeading === 'h1') {
+      text = text.replace(/^[#＃]\s*/, '');
+    }
     const urlRegex = /(https?:\/\/[^\s\u3000-\u9fff\uff00-\uffef<>"]+)/g;
     return text.replace(/&/g, '&amp;')
                .replace(/</g, '&lt;')
@@ -147,6 +152,15 @@ export const DocBlock: React.FC<DocBlockProps> = ({
                  `<a href="${url}" target="_blank" rel="noopener noreferrer" class="doc-inline-link" onclick="event.stopPropagation()">${url}</a>`
                );
   };
+
+  React.useEffect(() => {
+    if (contentRef.current) {
+      const html = renderContentAsHTML();
+      if (contentRef.current.innerHTML !== html) {
+        contentRef.current.innerHTML = html;
+      }
+    }
+  }, [isFocused, blockHeading, node.content]);
 
   return (
     <div
@@ -160,27 +174,40 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       onDragEnd={onDragEnd}
       id={`doc-block-${index}`}
     >
-      <BlockTimelineCircle
-        index={index}
-        blockIndent={blockIndent}
-        isChat={isChat}
-        isIndentPending={isIndentPending}
-        showIndentMark={showIndentMark}
-        isContentEmpty={isContentEmpty}
-        isFocused={isFocused}
-        blockAuthor={blockAuthor}
-        blockSubAuthors={blockSubAuthors}
-        timestamp={node.timestamp}
-        totalReactions={totalReactions}
-        onJumpToNode={onJumpToNode}
-      />
+      {blockHeading === 'h1' ? (
+        <BlockTimelineH1Button
+          index={index}
+          isFocused={isFocused}
+          blockAuthor={blockAuthor}
+          blockSubAuthors={blockSubAuthors}
+          timestamp={node.timestamp}
+          totalReactions={totalReactions}
+          onJumpToNode={onJumpToNode}
+        />
+      ) : (
+        <BlockTimelineCircle
+          index={index}
+          blockIndent={blockIndent}
+          isChat={isChat}
+          isIndentPending={isIndentPending}
+          showIndentMark={showIndentMark}
+          isContentEmpty={isContentEmpty}
+          isFocused={isFocused}
+          blockAuthor={blockAuthor}
+          blockSubAuthors={blockSubAuthors}
+          timestamp={node.timestamp}
+          totalReactions={totalReactions}
+          onJumpToNode={onJumpToNode}
+        />
+      )}
       <div className="doc-block__body">
         <div
+          key={node.blockId}
           ref={contentRef}
           className="doc-block__content"
           contentEditable={!isPlaybackActive}
           suppressContentEditableWarning
-          onFocus={() => setIsFocused(true)}
+          onFocus={handleFocus}
           onBlur={handleBlur}
           onInput={handleInput}
           onKeyDown={handleKeyDown}

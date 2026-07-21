@@ -131,6 +131,21 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToN
           /* 折りたたみ時：ミニマップドットインジケーター */
           <div className="outline-sidebar__minimap">
             {positionedItems.map((item) => {
+              if (item.isH1) {
+                return (
+                  <button
+                    key={item.blockId}
+                    className="outline-sidebar__minimap-h1-btn"
+                    style={{ top: `${item.topPercent}%` }}
+                    onClick={() => onJumpToNode(item.index, 'doc', 'minimap')}
+                    aria-label={item.text}
+                  >
+                    #
+                    <span className="outline-sidebar__tooltip">{item.text}</span>
+                  </button>
+                );
+              }
+
               const dotClasses = [
                 'outline-sidebar__minimap-dot',
                 item.isH1 ? 'is-h1' : '',
@@ -180,7 +195,7 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToN
                     onClick={() => onJumpToNode(item.index, 'doc', 'outline')}
                     title={item.text}
                   >
-                    <span className={dotClasses} />
+                    {!item.isH1 && <span className={dotClasses} />}
                     <span className="outline-sidebar__item-text">{item.text}</span>
                   </button>
                 );

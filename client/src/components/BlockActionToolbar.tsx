@@ -55,6 +55,7 @@ export const BlockActionToolbar: React.FC<BlockActionToolbarProps> = ({
           <button
             className={`action-toolbar__btn ${blockIndent === 0 ? 'is-active' : ''}`}
             title="インデントなし (◯)"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => adjustIndent(-blockIndent)}
           >
             ◯
@@ -62,6 +63,7 @@ export const BlockActionToolbar: React.FC<BlockActionToolbarProps> = ({
           <button
             className={`action-toolbar__btn ${blockIndent === 1 ? 'is-active' : ''}`}
             title="インデント1段階 (›)"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => adjustIndent(1 - blockIndent)}
           >
             ›
@@ -69,6 +71,7 @@ export const BlockActionToolbar: React.FC<BlockActionToolbarProps> = ({
           <button
             className={`action-toolbar__btn ${blockIndent === 2 ? 'is-active' : ''}`}
             title="インデント2段階 (»)"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => adjustIndent(2 - blockIndent)}
           >
             »
@@ -80,6 +83,7 @@ export const BlockActionToolbar: React.FC<BlockActionToolbarProps> = ({
           <button
             className={`action-toolbar__btn ${blockHeading === 'h1' ? 'is-active' : ''}`}
             title="見出し (H1)"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => setBlockStyle('h1')}
             style={{ fontSize: '10px' }}
           >
@@ -88,6 +92,7 @@ export const BlockActionToolbar: React.FC<BlockActionToolbarProps> = ({
           <button
             className={`action-toolbar__btn ${blockHeading !== 'h1' && blockEmphasis === 0 ? 'is-active' : ''}`}
             title="標準 (●)"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => setBlockStyle('normal')}
             style={{ fontSize: '10px' }}
           >
@@ -96,6 +101,7 @@ export const BlockActionToolbar: React.FC<BlockActionToolbarProps> = ({
           <button
             className={`action-toolbar__btn ${blockHeading !== 'h1' && blockEmphasis === -1 ? 'is-active' : ''}`}
             title="控えめ (●)"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => setBlockStyle('fade')}
             style={{ fontSize: '10px', color: '#999' }}
           >

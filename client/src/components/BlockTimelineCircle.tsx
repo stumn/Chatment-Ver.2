@@ -14,6 +14,7 @@ interface BlockTimelineCircleProps {
   timestamp: number;
   totalReactions: number;
   onJumpToNode: (index: number, target: 'doc' | 'chat', source?: string) => void;
+  isH1?: boolean;
 }
 
 export const BlockTimelineCircle: React.FC<BlockTimelineCircleProps> = ({
@@ -29,6 +30,7 @@ export const BlockTimelineCircle: React.FC<BlockTimelineCircleProps> = ({
   timestamp,
   totalReactions,
   onJumpToNode,
+  isH1,
 }) => {
   const [showMeta, setShowMeta] = useState(false);
 
@@ -49,7 +51,9 @@ export const BlockTimelineCircle: React.FC<BlockTimelineCircleProps> = ({
       onClick={() => onJumpToNode(index, 'chat', 'doc-block')}
       title="チャット画面へジャンプ"
     >
-      {showIndentMark ? (
+      {isH1 ? (
+        <div className="doc-block__timeline-h1-mark">#</div>
+      ) : showIndentMark ? (
         <div
           className={`doc-block__timeline-circle doc-block__timeline-circle--indent-${blockIndent >= 2 ? 2 : blockIndent}`}
           style={
@@ -69,7 +73,7 @@ export const BlockTimelineCircle: React.FC<BlockTimelineCircleProps> = ({
           ) : null}
         </div>
       ) : blockIndent === 0 ? (
-        <div className="doc-block__timeline-circle"></div>
+        <div className={`doc-block__timeline-circle ${isIndentPending ? 'is-pending' : ''}`}></div>
       ) : (
         <div className="doc-block__timeline-circle-placeholder" style={{ width: '10px', height: '10px' }} />
       )}

@@ -837,14 +837,7 @@ body {
   color: var(--text-primary);
 }
 
-.doc-block--h1 {
-  border-left: 3px solid var(--accent-primary) !important;
-  padding-left: var(--space-md) !important;
-}
 
-[data-theme="dark"] .doc-block--h1 {
-  border-left-color: var(--accent-secondary) !important;
-}
 
 /* ─── Cautious Mode Switch ─── */
 .cautious-mode-container {
