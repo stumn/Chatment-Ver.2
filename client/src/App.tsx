@@ -17,6 +17,7 @@ import { PlaybackControls } from './components/PlaybackControls';
 import { OutlineSidebar } from './components/OutlineSidebar';
 
 import { AdminPanel } from './components/AdminPanel';
+import { CautiousConfirmProvider } from './components/CautiousConfirmModal';
 
 export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ docId, isAdmin }) => {
   const [realName, setRealName] = useState<string | null>(null);
@@ -642,7 +643,11 @@ export const App: React.FC = () => {
   }
 
   if (roomState.verifiedDocId) {
-    return <ChatWorkspace docId={roomState.verifiedDocId} isAdmin={roomState.isAdmin} />;
+    return (
+      <CautiousConfirmProvider>
+        <ChatWorkspace docId={roomState.verifiedDocId} isAdmin={roomState.isAdmin} />
+      </CautiousConfirmProvider>
+    );
   }
 
   return null;

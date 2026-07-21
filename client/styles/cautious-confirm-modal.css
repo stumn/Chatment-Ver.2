@@ -1,0 +1,121 @@
+/* ─── Cautious Edit Confirm Modal CSS ─── */
+
+.cautious-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 2500;
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.cautious-confirm-modal {
+  background: var(--bg-secondary, #ffffff);
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid var(--border-medium, #e2e8f0);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 440px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--text-primary, #1e293b);
+}
+
+.cautious-confirm-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cautious-confirm-header__icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.cautious-confirm-header__title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-primary, #0f172a);
+}
+
+.cautious-confirm-body {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--text-secondary, #475569);
+}
+
+.cautious-confirm-body p {
+  margin: 0 0 8px 0;
+}
+
+.cautious-confirm-body p:last-child {
+  margin-bottom: 0;
+}
+
+.cautious-confirm-preview {
+  background: var(--bg-tertiary, #f8fafc);
+  border-left: 3px solid var(--primary, #3b82f6);
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  margin-top: 8px;
+  word-break: break-all;
+}
+
+.cautious-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.cautious-confirm-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.cautious-confirm-btn:active {
+  transform: scale(0.98);
+}
+
+.cautious-confirm-btn--cancel {
+  background: var(--bg-tertiary, #f1f5f9);
+  color: var(--text-secondary, #475569);
+  border-color: var(--border-subtle, #cbd5e1);
+}
+
+.cautious-confirm-btn--cancel:hover {
+  background: var(--bg-hover, #e2e8f0);
+}
+
+.cautious-confirm-btn--confirm {
+  background: var(--primary, #3b82f6);
+  color: #ffffff;
+}
+
+.cautious-confirm-btn--confirm:hover {
+  background: var(--primary-hover, #2563eb);
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalSlideUp {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}

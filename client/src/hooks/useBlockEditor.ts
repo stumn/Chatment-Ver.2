@@ -3,6 +3,7 @@ import type { EmphasisLevel, AuthorInfo, StreamNode } from '../types';
 import { LoroText, LoroMap, type LoroDoc } from 'loro-crdt';
 import { updateDocContent, moveNode, insertDocNodeAfter, deleteDocNode, EMPTY_AUTHOR } from '../loro/schema';
 import { emitUserAction } from '../loro/sync-client';
+import { useCautiousConfirm } from '../components/CautiousConfirmModal';
 
 interface UseBlockEditorProps {
   doc: LoroDoc | null;
@@ -41,6 +42,8 @@ export function useBlockEditor({
   const isApplyingHashtagRef = useRef(false); // H1切り替え時の#挿入ループ防止フラグ
   const pendingCaretPosRef = useRef<number | null>(null);
 
+  const { confirmCautiousEdit } = useCautiousConfirm();
+
   const isChat = node.type === 'chat';
   const blockAuthor: AuthorInfo = node.author;
   const blockSubAuthors = node.subAuthors || [];
@@ -48,10 +51,23 @@ export function useBlockEditor({
   const blockHeading = node.heading ?? (/^[#＃]/.test(node.content) ? 'h1' : null);
 
   /**
-   * 慎重モードの許可チェック
+   * モーダル閉了後にプログラム的にフォーカスを安定して復帰させる
+   */
+  const restoreFocus = useCallback(() => {
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        if (contentRef.current) {
+          contentRef.current.focus();
+        }
+      }, 10);
+    });
+  }, []);
+
+  /**
+   * 慎重モードの許可チェック (非同期 Promise ベース)
    * actionLabel: ダイアログに表示する操作の説明
    */
-  const requestCautiousEdit = useCallback((actionLabel: string) => {
+  const requestCautiousEditAsync = useCallback(async (actionLabel: string): Promise<boolean> => {
     if (!isCautiousMode) return true;
 
     const isFirstAuthor = blockAuthor.userId === currentAuthorInfo.userId && blockAuthor.userId !== '';
@@ -63,13 +79,21 @@ export function useBlockEditor({
     const subNames = blockSubAuthors.map(sa => sa.displayName).filter(Boolean);
     const ownerName = blockAuthor.displayName + (subNames.length > 0 ? ` と ${subNames.join('・')}` : '');
     const contentPreview = node.content ? `「${node.content.substring(0, 15)}${node.content.length > 15 ? '…' : ''}」` : 'このブロック';
-    const confirmMessage = `${contentPreview}への${actionLabel}\nこのブロックの所有者は「${ownerName}」です。よろしいですか？`;
-    if (window.confirm(confirmMessage)) {
+
+    const ok = await confirmCautiousEdit({
+      actionLabel,
+      ownerName,
+      contentPreview,
+    });
+
+    if (ok) {
       hasEditPermissionRef.current = true;
+      restoreFocus();
       return true;
     }
+    restoreFocus();
     return false;
-  }, [isCautiousMode, blockAuthor, blockSubAuthors, currentAuthorInfo, node.content]);
+  }, [isCautiousMode, blockAuthor, blockSubAuthors, currentAuthorInfo, node.content, confirmCautiousEdit, restoreFocus]);
 
   const handleBlur = useCallback(() => {
     setIsFocused(false);
@@ -286,7 +310,7 @@ export function useBlockEditor({
     }
   }, [doc, isLastInDoc, index, defaultEmphasis, onAfterEdit, isPlaybackActive, loroMap, currentAuthorInfo, getSelectionRange, setCaretAt]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+  const handleKeyDown = useCallback(async (e: React.KeyboardEvent) => {
     if (isPlaybackActive) {
       e.preventDefault();
       return;
@@ -307,7 +331,7 @@ export function useBlockEditor({
       if (isAtStart) {
         e.preventDefault();
         if (blockHeading === 'h1' || (loroMap && loroMap.get('heading') === 'h1')) return;
-        if (!requestCautiousEdit('インデントの変更')) return;
+        if (!(await requestCautiousEditAsync('インデントの変更'))) return;
         if (doc && loroMap) {
           const currentIndent = loroMap.get('indent') as number || 0;
           const nextIndent = e.shiftKey ? Math.max(0, currentIndent - 1) : Math.min(2, currentIndent + 1);
@@ -347,36 +371,12 @@ export function useBlockEditor({
       }
     }
 
-    // Space / 全角スペース キーの処理 (インデント増加 または 見出し切り替え)
+    // Space / 全角スペース キーの処理 (インデント増加)
     if ((e.key === ' ' || e.key === '　' || e.code === 'Space') && !e.shiftKey) {
       if (isAtStart) {
-        if (textContent === '#' || textContent === '＃') {
-          e.preventDefault();
-          if (!requestCautiousEdit('スタイルの変更')) return;
-          if (doc && loroMap) {
-            loroMap.set('heading', 'h1');
-            loroMap.set('emphasis', 0);
-            loroMap.set('indent', 0);
-
-            updateDocContent(doc, index, '# ', currentAuthorInfo);
-            if (contentRef.current) {
-              contentRef.current.textContent = '# ';
-            }
-
-            const blockId = loroMap.get('blockId') as string || `blk-${index}`;
-            doc.commit({ message: `format-style:${currentAuthorInfo.displayName}:${blockId}:h1` });
-            onAfterEdit();
-
-            setTimeout(() => {
-              setCaretAt(2);
-            }, 10);
-          }
-          return;
-        }
-
         e.preventDefault();
         if (blockHeading === 'h1' || (loroMap && loroMap.get('heading') === 'h1')) return;
-        if (!requestCautiousEdit('インデントの変更')) return;
+        if (!(await requestCautiousEditAsync('インデントの変更'))) return;
         if (doc && loroMap) {
           const currentIndent = loroMap.get('indent') as number || 0;
           const nextIndent = Math.min(2, currentIndent + 1);
@@ -425,7 +425,7 @@ export function useBlockEditor({
         const srCheck = getSelectionRange();
         if (srCheck && srCheck.start <= 2) {
           e.preventDefault();
-          if (!requestCautiousEdit('スタイルの変更')) return;
+          if (!(await requestCautiousEditAsync('スタイルの変更'))) return;
 
           loroMap.set('heading', null);
 
@@ -450,7 +450,7 @@ export function useBlockEditor({
         // インデントがあれば先にインデント減少（中身が空かどうかにかかわらず）
         if (currentIndent > 0) {
           e.preventDefault();
-          if (!requestCautiousEdit('インデントの変更')) return;
+          if (!(await requestCautiousEditAsync('インデントの変更'))) return;
           if (doc && loroMap) {
             loroMap.set('indent', currentIndent - 1);
 
@@ -477,7 +477,7 @@ export function useBlockEditor({
         // インデントがない先頭位置で、かつテキストが空の場合 → 空ブロック削除
         if (textContent === '') {
           e.preventDefault();
-          if (!requestCautiousEdit('ブロックの削除')) return;
+          if (!(await requestCautiousEditAsync('ブロックの削除'))) return;
           focusNextBlock(-1);
           if (doc) {
             deleteDocNode(doc, index, currentAuthorInfo);
@@ -489,7 +489,7 @@ export function useBlockEditor({
         // インデントがない先頭位置で、かつテキストがある場合 → 前ブロックとマージ
         if (!isFirstInDoc && doc) {
           e.preventDefault();
-          if (!requestCautiousEdit('ブロックのマージ')) return;
+          if (!(await requestCautiousEditAsync('ブロックのマージ'))) return;
 
           const stream = doc.getMovableList('stream');
           const prevMap = stream.get(index - 1) as LoroMap;
@@ -537,7 +537,7 @@ export function useBlockEditor({
       }
       e.preventDefault();
 
-      if (!requestCautiousEdit('ブロックの分割')) return;
+      if (!(await requestCautiousEditAsync('ブロックの分割'))) return;
 
       // getSelectionRange() を使ってURLリンクがある場合でも正確な位置を取得
       const selRange = getSelectionRange();
@@ -581,7 +581,7 @@ export function useBlockEditor({
     if (e.key === 'Delete' && !e.shiftKey) {
       if (contentRef.current?.textContent === '') {
         e.preventDefault();
-        if (!requestCautiousEdit('ブロックの削除')) return;
+        if (!(await requestCautiousEditAsync('ブロックの削除'))) return;
         focusNextBlock(-1);
         if (doc) {
           deleteDocNode(doc, index, currentAuthorInfo);
@@ -629,7 +629,7 @@ export function useBlockEditor({
         }
       }
     }
-  }, [doc, index, node, currentAuthorInfo, defaultEmphasis, onAfterEdit, moveUp, moveDown, focusNextBlock, getSelectionRange, setCaretAt, loroMap, blockIndent, requestCautiousEdit, isFirstInDoc, isPlaybackActive]);
+  }, [doc, index, node, currentAuthorInfo, defaultEmphasis, onAfterEdit, moveUp, moveDown, focusNextBlock, getSelectionRange, setCaretAt, loroMap, blockIndent, requestCautiousEditAsync, isFirstInDoc, isPlaybackActive]);
 
   // DOM再描画やReactレンダリング直後にキャレット位置を復元するパトロール用Effect
   useEffect(() => {
@@ -672,7 +672,7 @@ export function useBlockEditor({
     }
   }, [blockHeading, doc, loroText, loroMap, onAfterEdit, isPlaybackActive, isChat, getSelectionRange, setCaretAt]);
 
-  const setBlockStyle = useCallback((style: 'h1' | 'normal' | 'fade') => {
+  const setBlockStyle = useCallback(async (style: 'h1' | 'normal' | 'fade') => {
     if (!doc || !loroMap || isPlaybackActive) return;
 
     if (contentRef.current && document.activeElement !== contentRef.current) {
@@ -726,7 +726,7 @@ export function useBlockEditor({
       return;
     }
 
-    if (!requestCautiousEdit('ブロックスタイルの変更')) return;
+    if (!(await requestCautiousEditAsync('ブロックスタイルの変更'))) return;
 
     const beforeStyle = currentHeading === 'h1' ? 'heading' : (currentEmphasis === -1 ? 'fade' : 'normal');
 
@@ -771,11 +771,11 @@ export function useBlockEditor({
     setTimeout(() => {
       setCaretAt(targetPos);
     }, 0);
-  }, [doc, loroMap, index, onAfterEdit, isPlaybackActive, requestCautiousEdit, currentAuthorInfo, getSelectionRange, setCaretAt]);
+  }, [doc, loroMap, index, onAfterEdit, isPlaybackActive, requestCautiousEditAsync, currentAuthorInfo, getSelectionRange, setCaretAt]);
 
-  const adjustIndent = useCallback((direction: number) => {
+  const adjustIndent = useCallback(async (direction: number) => {
     if (!doc || !loroMap || isPlaybackActive) return;
-    if (!requestCautiousEdit('インデントの変更')) return;
+    if (!(await requestCautiousEditAsync('インデントの変更'))) return;
 
     if (contentRef.current) {
       const text = contentRef.current.textContent || '';
@@ -804,7 +804,7 @@ export function useBlockEditor({
       actionDetails: `インデント変更: ${currentIndent} → ${nextIndent}`,
     });
     onAfterEdit();
-  }, [doc, index, loroMap, onAfterEdit, isPlaybackActive, requestCautiousEdit, currentAuthorInfo]);
+  }, [doc, index, loroMap, onAfterEdit, isPlaybackActive, requestCautiousEditAsync, currentAuthorInfo]);
 
   return {
     contentRef,
@@ -818,6 +818,6 @@ export function useBlockEditor({
     handleKeyDown,
     adjustIndent,
     setBlockStyle,
-    requestCautiousEdit,
+    requestCautiousEdit: requestCautiousEditAsync,
   };
 }

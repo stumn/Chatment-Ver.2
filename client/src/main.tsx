@@ -7,6 +7,7 @@ import '../styles/doc-panel.css';
 import '../styles/chat-panel.css';
 import '../styles/animations.css';
 import '../styles/guide-modal.css';
+import '../styles/cautious-confirm-modal.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
