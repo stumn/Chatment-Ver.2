@@ -16,8 +16,8 @@ interface UseEditorKeystrokesProps {
   isLastInDoc?: boolean;
   isPlaybackActive?: boolean;
   onAfterEdit: () => void;
-  requestCautiousEditAsync: (actionLabel: string) => Promise<boolean>;
-  saveContentAndHeadingOnBlur: () => void;
+  requestCautiousEditAsync: (actionLabel: string, afterState?: { content?: string; indent?: number; heading?: string | null; emphasis?: number; isDeleted?: boolean }) => Promise<boolean>;
+  saveContentAndHeadingOnBlur: () => Promise<void> | void;
   moveUp: () => void;
   moveDown: () => void;
   contentRef: RefObject<HTMLDivElement | null>;
@@ -176,43 +176,6 @@ export function useEditorKeystrokes({
   const handleInput = useCallback(() => {
     if (!doc || isPlaybackActive) return;
 
-    if (contentRef.current) {
-      const text = contentRef.current.textContent || '';
-      const currentHeading = loroMap?.get('heading') as string | null;
-      const hasHashtag = /^[#＃]/.test(text);
-
-      if ((hasHashtag && currentHeading !== 'h1') || (!hasHashtag && currentHeading === 'h1')) {
-        const savedRange = getSelectionRange();
-        const nextHeading = hasHashtag ? 'h1' : null;
-
-        updateDocContent(doc, index, text, currentAuthorInfo);
-
-        if (loroMap) {
-          loroMap.set('heading', nextHeading);
-          if (nextHeading === 'h1') {
-            loroMap.set('emphasis', 0);
-            loroMap.set('indent', 0);
-          }
-
-          const blockId = (loroMap.get('blockId') as string) || `blk-${index}`;
-          const styleName = nextHeading === 'h1' ? 'h1' : 'normal';
-          doc.commit({ message: `format-style:${currentAuthorInfo.displayName}:${blockId}:${styleName}` });
-          onAfterEdit();
-        }
-
-        if (savedRange !== null) {
-          pendingCaretPosRef.current = savedRange.start;
-          setCaretAt(savedRange.start);
-          requestAnimationFrame(() => {
-            setCaretAt(savedRange.start);
-          });
-          setTimeout(() => {
-            setCaretAt(savedRange.start);
-          }, 0);
-        }
-      }
-    }
-
     if (!isLastInDoc) return;
     const currentText = contentRef.current?.textContent || '';
     if (currentText.length > 0) {
@@ -220,7 +183,7 @@ export function useEditorKeystrokes({
       insertDocNodeAfter(doc, index, '', EMPTY_AUTHOR, nextEmphasis);
       onAfterEdit();
     }
-  }, [doc, isLastInDoc, index, defaultEmphasis, onAfterEdit, isPlaybackActive, loroMap, currentAuthorInfo, getSelectionRange, setCaretAt, contentRef]);
+  }, [doc, isLastInDoc, index, defaultEmphasis, onAfterEdit, isPlaybackActive, contentRef]);
 
   const handleKeyDown = useCallback(async (e: React.KeyboardEvent) => {
     if (isPlaybackActive) {
@@ -229,7 +192,6 @@ export function useEditorKeystrokes({
     }
 
     const textContent = contentRef.current?.textContent || '';
-
     const srCheck = getSelectionRange();
     const isAtStart = srCheck
       ? (srCheck.start === 0 && srCheck.end === 0) || textContent.replace(/[\s　]+/g, '').length === 0
@@ -425,18 +387,37 @@ export function useEditorKeystrokes({
       }
     }
 
-    // Enter キーの処理
+    // Ctrl + Enter での手動確定処理
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      await saveContentAndHeadingOnBlur();
+      return;
+    }
+
+    // Enter キーの処理（ブロックの分割 or 行追加）
     if (e.key === 'Enter' && !e.shiftKey) {
       if ((e.nativeEvent as any).isComposing) {
         return;
       }
       e.preventDefault();
 
-      if (!(await requestCautiousEditAsync('ブロックの分割'))) return;
-
       const selRange = getSelectionRange();
-      const sCaretPos = selRange ? selRange.start : (contentRef.current?.textContent?.length || 0);
       const newText = contentRef.current?.textContent || '';
+      const sCaretPos = selRange ? selRange.start : newText.length;
+      const isAtEnd = sCaretPos >= newText.length;
+
+      // ブロック途中の場合のみ「ブロックの分割」の確認ダイアログを表示（文末の場合は対象外としてそのまま行追加）
+      if (!isAtEnd) {
+        const textBefore = newText.substring(0, sCaretPos);
+        const textAfter = newText.substring(sCaretPos);
+        const isH1 = /^[#＃]/.test(textBefore);
+        if (!(await requestCautiousEditAsync('ブロックの分割', {
+          content: `${textBefore}\n↓\n${textAfter}`,
+          heading: isH1 ? 'h1' : null,
+        }))) {
+          return;
+        }
+      }
 
       let isH1 = false;
       if (/^[#＃]/.test(newText)) {
