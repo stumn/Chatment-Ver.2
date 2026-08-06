@@ -5,7 +5,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const { connectDB, User, Room, SystemLog, UserActionLog, DocumentSnapshot } = require('./db');
-const { getSnapshot, applyUpdate } = require('./snapshot-manager');
+const { getSnapshot, applyUpdate, getOrCreateDoc } = require('./snapshot-manager');
 
 const app = express();
 const server = http.createServer(app);
@@ -111,6 +111,82 @@ app.post('/api/rooms/:roomId/status', async (req, res) => {
     res.json(room);
   } catch (err) {
     console.error('[API] POST room status error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Cosense用プレーンテキストエクスポート
+app.get('/api/rooms/:roomId/export/cosense-text', async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const room = await Room.findOne({ docId: roomId });
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found' });
+    }
+    const spaceName = room.title || room.docId;
+
+    const doc = await getOrCreateDoc(roomId);
+    const stream = doc.getMovableList('stream');
+    const length = stream.length;
+
+    const lines = [];
+    lines.push(`[[${spaceName}]]`);
+
+    for (let i = 0; i < length; i++) {
+      const loroMap = stream.get(i);
+      if (!loroMap) continue;
+
+      const contentVal = loroMap.get('content');
+      let contentStr = '';
+      if (contentVal && typeof contentVal === 'object' && typeof contentVal.toString === 'function') {
+        contentStr = contentVal.toString();
+      } else {
+        contentStr = contentVal || '';
+      }
+
+      const realName = loroMap.get('authorRealName') || '';
+      const indent = loroMap.get('indent') || 0;
+
+      let processedText = contentStr;
+      const isHeading = processedText.trim().startsWith('#');
+
+      if (isHeading) {
+        const headingText = processedText.trim().replace(/^#\s*/, '');
+        processedText = `[[${headingText}]]`;
+      }
+
+      // 見出し以外で本名が存在する場合にのみ文末に付与
+      if (!isHeading && realName) {
+        processedText = `${processedText}（${realName}）`;
+      }
+
+      // インデントの適用（半角スペース）
+      if (indent === 0) {
+        processedText = ` ${processedText}`;
+      } else if (indent >= 1) {
+        processedText = `  ${processedText}`;
+      }
+
+      lines.push(processedText);
+    }
+
+    // 末尾フッター（コピー日時）
+    const now = new Date();
+    const formattedDate = now.toLocaleString('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZone: 'Asia/Tokyo'
+    });
+    lines.push(`[# Copy from Chatment: ${formattedDate}]`);
+
+    res.set('Content-Type', 'text/plain; charset=utf-8');
+    res.send(lines.join('\n'));
+  } catch (err) {
+    console.error('[API] GET export cosense text error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

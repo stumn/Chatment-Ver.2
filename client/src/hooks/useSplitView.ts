@@ -46,9 +46,17 @@ export function useSplitView() {
   }, [ratio]);
 
   const handleDoubleClick = useCallback(() => {
-    setRatio(0.5);
-    saveSplitRatio(0.5);
-  }, []);
+    let nextRatio = 0.5;
+    if (ratio >= 0.35 && ratio <= 0.65) {
+      nextRatio = 0.0;
+    } else if (ratio < 0.35) {
+      nextRatio = 1.0;
+    } else {
+      nextRatio = 0.5;
+    }
+    setRatio(nextRatio);
+    saveSplitRatio(nextRatio);
+  }, [ratio]);
 
   useEffect(() => {
     window.addEventListener('mousemove', handleMouseMove);

@@ -11,6 +11,7 @@ interface ChatInputProps {
   onHandleNameChange: (info: AuthorInfo) => void;
   onAfterSend: () => void;
   isPlaybackActive?: boolean;
+  useCtrlEnter: boolean;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -20,6 +21,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onHandleNameChange,
   onAfterSend,
   isPlaybackActive,
+  useCtrlEnter,
 }) => {
   const [text, setText] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -54,12 +56,19 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      e.preventDefault(); // 改行を禁止する
-      if (e.ctrlKey || e.metaKey) {
-        sendMessage();
+      if (useCtrlEnter) {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      } else {
+        if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          sendMessage();
+        }
       }
     }
-  }, [sendMessage]);
+  }, [sendMessage, useCtrlEnter]);
 
   const handleSelectOption = (info: AuthorInfo) => {
     emitUserAction({
@@ -130,7 +139,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={isPlaybackActive ? 'プレイバック再生中は送信できません' : 'チャットメッセージを入力... (Ctrl + Enter で送信)'}
+          placeholder={
+            isPlaybackActive
+              ? 'プレイバック再生中は送信できません'
+              : useCtrlEnter
+                ? 'チャットメッセージを入力... (Ctrl + Enter で送信)'
+                : 'チャットメッセージを入力... (Enter で送信, Shift + Enter で改行)'
+          }
           rows={1}
           id="chat-input-textarea"
           disabled={isPlaybackActive}

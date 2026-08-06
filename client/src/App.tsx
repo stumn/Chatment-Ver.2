@@ -97,6 +97,17 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
   }, [theme]);
 
+  const [useCtrlEnter, setUseCtrlEnter] = useState<boolean>(() => {
+    const saved = localStorage.getItem('chat_use_ctrl_enter');
+    return saved ? saved === 'true' : false;
+  });
+
+  const handleToggleCtrlEnter = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextVal = e.target.checked;
+    setUseCtrlEnter(nextVal);
+    localStorage.setItem('chat_use_ctrl_enter', String(nextVal));
+  }, []);
+
   const toggleHeader = useCallback(() => {
     setIsHeaderCollapsed(prev => {
       const next = !prev;
@@ -353,6 +364,34 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
 
             {/* 各種メタ操作 */}
             <div className="app-header__meta-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Ctrl + Enter 送信設定 */}
+              <div className="chat-ctrl-enter-container" title="Ctrl + Enter で送信" style={{ display: 'flex', alignItems: 'center' }}>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '11px',
+                    color: 'var(--text-muted)',
+                    cursor: isPlaybackMode ? 'not-allowed' : 'pointer',
+                    userSelect: 'none',
+                    opacity: isPlaybackMode ? 0.5 : 1,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={useCtrlEnter}
+                    onChange={handleToggleCtrlEnter}
+                    disabled={isPlaybackMode}
+                    id="chat-ctrl-enter-checkbox"
+                    style={{ cursor: isPlaybackMode ? 'not-allowed' : 'pointer' }}
+                  />
+                  <span>Ctrl+Enter送信</span>
+                </label>
+              </div>
+
+              <div className="toolbar-divider" style={{ width: '1px', height: '18px', background: 'var(--border-medium)' }} />
+
               <div className="cautious-mode-container" title={isCautiousMode ? "慎重モードをオフにする" : "慎重モードをオンにする"} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <span className="cautious-mode-label" style={{ display: 'flex', alignItems: 'center' }}>
                   <svg
@@ -520,6 +559,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
               onHandleNameChange={setCurrentAuthorInfo}
               onAfterSend={handleAfterEdit}
               isPlaybackActive={isPlaybackMode}
+              useCtrlEnter={useCtrlEnter}
             />
           </div>
         </div>

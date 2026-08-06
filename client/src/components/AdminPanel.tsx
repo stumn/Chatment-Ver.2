@@ -91,6 +91,23 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
+  const handleCopyCosenseText = async (docId: string) => {
+    try {
+      const res = await fetch(`/api/rooms/${docId}/export/cosense-text`);
+      if (!res.ok) {
+        if (res.status === 404) {
+          throw new Error('ルームが見つかりません。');
+        }
+        throw new Error('Cosense用テキストの取得に失敗しました。');
+      }
+      const text = await res.text();
+      await navigator.clipboard.writeText(text);
+      alert('Cosense用のテキストをクリップボードにコピーしました！');
+    } catch (err: any) {
+      alert(err.message || 'コピー中にエラーが発生しました。');
+    }
+  };
+
   const RoomRow = ({ room, statusBadge, actions }: { room: Room; statusBadge: React.ReactNode; actions: React.ReactNode }) => (
     <tr key={room.docId}>
       <td>
@@ -102,7 +119,14 @@ export const AdminPanel: React.FC = () => {
       <td>{statusBadge}</td>
       <td>{room.userIds?.length || 0}人</td>
       <td>{formatDate(room.updatedAt)}</td>
-      <td><div className="action-buttons">{actions}</div></td>
+      <td>
+        <div className="action-buttons">
+          <button className="btn-action btn-action--copy" onClick={() => handleCopyCosenseText(room.docId)}>
+            📋 コピー
+          </button>
+          {actions}
+        </div>
+      </td>
     </tr>
   );
 

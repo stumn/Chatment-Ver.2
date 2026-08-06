@@ -279,3 +279,16 @@
   padding: var(--space-xl);
   font-style: italic;
 }
+
+/* コピーボタンのスタイル */
+.btn-action--copy {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.btn-action--copy:hover {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
