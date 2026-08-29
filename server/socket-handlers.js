@@ -14,6 +14,7 @@ function registerSocketHandlers(io, helpers) {
       try {
         let assignedColorIndex = colorIndex;
         const existingForColor = await User.findOne({ userName }).select('colorIndex');
+        const isNew = !existingForColor;
         if (existingForColor) {
           assignedColorIndex = existingForColor.colorIndex;
         } else if (assignedColorIndex === undefined || assignedColorIndex === null || assignedColorIndex < 0) {
@@ -47,8 +48,6 @@ function registerSocketHandlers(io, helpers) {
             setDefaultsOnInsert: true,
           }
         );
-
-        const isNew = result.__v === 0 && result.rooms.length <= 1;
 
         socket.userName = userName;
         socket.userAttribute = attribute;
