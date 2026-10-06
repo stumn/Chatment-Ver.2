@@ -64,14 +64,14 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--accent-primary); /* Chat origin is filled */
-  border: 2px solid var(--accent-primary);
+  background: var(--split-chat); /* Chat origin is filled */
+  border: 2px solid var(--split-chat);
   z-index: 2;
 }
 
 .chat-message--doc::after {
   background: var(--bg-elevated); /* Doc origin is hollow */
-  border-color: var(--accent-secondary);
+  border-color: var(--split-doc);
 }
 
 .chat-message__body {

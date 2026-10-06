@@ -3,7 +3,7 @@ import { getRatioColorStyle, formatRatioLabel } from '../utils/splitColor';
 import { emitUserAction } from '../loro/sync-client';
 
 export interface TelomereProps {
-  ratioBands?: number[];
+  ratios?: { id: string; ratio: number }[];
   myRatio: number;
   onSelectRatio: (ratio: number) => void;
   isDragging?: boolean;
@@ -12,8 +12,6 @@ export interface TelomereProps {
 // 調整可能な定数 (丸の基本サイズを元に戻して視認性を確保)
 export const TELOMERE_CONFIG = {
   NUM_BANDS: 16,
-  MERGE_THRESHOLD: 4,     // 4人以上で1つの集約丸にまとめる
-  R_BASE: 6,              // 通常の丸の半径 (px, 直径 12px)
   R_MY: 9,                // 自分の丸の外枠半径 (px, 外枠直径 18px, 内側丸直径 12px)
   R_MIN: 9,               // 集約丸の最小半径 (px, 直径 18px)
   R_MAX: 20,              // 集約丸の最大半径 (px, 直径 40px)
@@ -22,7 +20,7 @@ export const TELOMERE_CONFIG = {
 };
 
 export const Telomere: React.FC<TelomereProps> = ({
-  ratioBands = [],
+  ratios = [],
   myRatio,
   onSelectRatio,
   isDragging = false,
@@ -54,19 +52,20 @@ export const Telomere: React.FC<TelomereProps> = ({
     }
   }, []);
 
-  const { NUM_BANDS, MERGE_THRESHOLD, R_MY, R_MIN, R_MAX, K, SHOW_NUMBER_R_MIN } = TELOMERE_CONFIG;
+  const { NUM_BANDS, R_MY, R_MIN, R_MAX, K } = TELOMERE_CONFIG;
 
-  // 自分の帯インデックス (0〜15)
   const clampedMyRatio = Math.max(0, Math.min(1, myRatio));
   const myBand = Math.min(NUM_BANDS - 1, Math.max(0, Math.floor(clampedMyRatio * NUM_BANDS)));
-
-  // 各帯の他者データ算出
+  // サーバーから受け取った「他の参加者」の位置だけを集計する。
+  // 自分の位置はローカルの myRatio を使い、サーバー集計とは混ぜない。
   const bandsData = [];
   for (let i = 0; i < NUM_BANDS; i++) {
-    const totalCount = ratioBands[i] || 0;
-    // 自分を除く人数 (自分の帯なら -1)
-    const count = (i === myBand) ? Math.max(0, totalCount - 1) : totalCount;
-    if (count > 0) {
+    const otherCount = ratios.filter(({ ratio }) => {
+      const clamped = Math.max(0, Math.min(1, ratio));
+      return Math.min(NUM_BANDS - 1, Math.floor(clamped * NUM_BANDS)) === i;
+    }).length;
+    const count = otherCount + (i === myBand ? 1 : 0);
+    if (count > 0 && (i !== myBand || otherCount > 0)) {
       const centerT = (i + 0.5) / NUM_BANDS;
       bandsData.push({
         bandIndex: i,
@@ -85,53 +84,33 @@ export const Telomere: React.FC<TelomereProps> = ({
       {bandsData.map(({ bandIndex, count, centerT }) => {
         const topPosition = `calc(${centerT * 100}%)`;
         const colorStyle = getRatioColorStyle(centerT);
-
-        if (count >= MERGE_THRESHOLD) {
-          // 4人以上: 集約された大きな丸
-          const r = Math.min(R_MAX, Math.round(R_MIN + K * Math.sqrt(count)));
-          const diameter = r * 2;
-          const displayCount = count > 99 ? '99+' : String(count);
-          const showCountNumber = r >= SHOW_NUMBER_R_MIN;
-          const tooltip = `この付近 ${count}人 (${formatRatioLabel(centerT, true)}) - クリックで位置同期`;
-
+        if (count === 1) {
+          const tooltip = `この付近 1人 (${formatRatioLabel(centerT, true)}) - クリックで位置同期`;
           return (
             <div
               key={`band-${bandIndex}`}
               className="telomere-band-cluster"
-              style={{
-                top: topPosition,
-              }}
+              style={{ top: topPosition }}
               title={tooltip}
               onClick={(e) => {
                 e.stopPropagation();
                 onSelectRatio(centerT);
               }}
-              onMouseEnter={() => handleHoverLog('cluster', count, centerT)}
+              onMouseEnter={() => handleHoverLog('other', count, centerT)}
             >
-              <div
-                className="telomere-cluster-dot"
-                style={{
-                  ...colorStyle,
-                  width: `${diameter}px`,
-                  height: `${diameter}px`,
-                }}
-              >
-                {showCountNumber && (
-                  <span className="telomere-cluster-count">{displayCount}</span>
-                )}
-              </div>
+              <div className="telomere-other-dot" style={colorStyle} />
             </div>
           );
         }
 
-        // 1〜3人: 個別の丸を横に並べる
-        const tooltip = `ほかの参加者 (${formatRatioLabel(centerT, true)}) - クリックで位置同期`;
-        const dots = Array.from({ length: count });
+        const radius = Math.min(R_MAX, Math.round(R_MIN + K * Math.sqrt(Math.max(0, count - 1))));
+        const displayCount = count > 99 ? '99+' : String(count);
+        const tooltip = `この付近 ${count}人 (${formatRatioLabel(centerT, true)}) - クリックで位置同期`;
 
         return (
           <div
             key={`band-${bandIndex}`}
-            className="telomere-band-individual"
+            className="telomere-band-cluster"
             style={{
               top: topPosition,
             }}
@@ -142,41 +121,44 @@ export const Telomere: React.FC<TelomereProps> = ({
             }}
             onMouseEnter={() => handleHoverLog('other', count, centerT)}
           >
-            <div className="telomere-dots-row">
-              {dots.map((_, dotIdx) => (
-                <div
-                  key={dotIdx}
-                  className="telomere-other-dot"
-                  style={colorStyle}
-                />
-              ))}
-            </div>
+          <div
+            className="telomere-cluster-dot"
+            style={{
+              ...colorStyle,
+              width: `${radius * 2}px`,
+              height: `${radius * 2}px`,
+            }}
+          >
+            <span className="telomere-cluster-count">{displayCount}</span>
+          </div>
           </div>
         );
       })}
 
       {/* ─── 自分の丸 (最前面・二重丸・即時追従) ─── */}
-      <div
-        className={`telomere-my-pin ${isDragging ? 'is-dragging' : ''}`}
-        style={{
-          top: `calc(${clampedMyRatio * 100}%)`,
-        }}
-        title={myLabel}
-        onMouseEnter={() => handleHoverLog('me', 1, clampedMyRatio)}
-      >
+      {!(bandsData.some(({ bandIndex, count }) => bandIndex === myBand && count >= 2)) && (
         <div
-          className="telomere-my-outer-ring"
+          className={`telomere-my-pin ${isDragging ? 'is-dragging' : ''}`}
           style={{
-            width: `${R_MY * 2}px`,
-            height: `${R_MY * 2}px`,
+            top: `calc(${clampedMyRatio * 100}%)`,
           }}
+          title={myLabel}
+          onMouseEnter={() => handleHoverLog('me', 1, clampedMyRatio)}
         >
           <div
-            className="telomere-my-inner-dot"
-            style={getRatioColorStyle(clampedMyRatio)}
-          />
+            className="telomere-my-outer-ring"
+            style={{
+              width: `${R_MY * 2}px`,
+              height: `${R_MY * 2}px`,
+            }}
+          >
+            <div
+              className="telomere-my-inner-dot"
+              style={getRatioColorStyle(clampedMyRatio)}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

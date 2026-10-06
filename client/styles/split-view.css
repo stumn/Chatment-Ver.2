@@ -27,16 +27,16 @@
   z-index: 0;
   pointer-events: none;
   background-image: linear-gradient(to bottom,
-      rgba(255, 255, 255, 0.95) 0% 10%,
-      rgba(236, 236, 236, 0.9) 10% 20%,
-      rgba(221, 221, 221, 0.86) 20% 30%,
-      rgba(206, 206, 206, 0.82) 30% 40%,
-      rgba(191, 191, 191, 0.78) 40% 50%,
-      rgba(176, 176, 176, 0.74) 50% 60%,
-      rgba(160, 160, 160, 0.7) 60% 70%,
-      rgba(144, 144, 144, 0.66) 70% 80%,
-      rgba(128, 128, 128, 0.62) 80% 90%,
-      rgba(112, 112, 112, 0.58) 90% 100%);
+      rgba(232, 121, 58, 0.95) 0%,
+      rgba(207, 120, 72, 0.9) 10%,
+      rgba(182, 118, 86, 0.86) 20%,
+      rgba(157, 117, 100, 0.82) 30%,
+      rgba(132, 115, 114, 0.78) 40%,
+      rgba(107, 114, 128, 0.74) 50%,
+      rgba(97, 117, 164, 0.7) 60%,
+      rgba(88, 121, 184, 0.66) 70%,
+      rgba(78, 124, 204, 0.62) 80%,
+      rgba(59, 130, 246, 0.58) 100%);
   border-left: 1px solid rgba(255, 255, 255, 0.55);
   box-shadow: inset 1px 0 0 rgba(0, 0, 0, 0.04);
   opacity: 0.95;
@@ -144,7 +144,7 @@
   justify-content: flex-end;
   cursor: pointer;
   pointer-events: auto;
-  transition: top 500ms cubic-bezier(0.2, 0, 0, 1), transform 200ms ease;
+  transition: transform 200ms ease;
 }
 
 .telomere-band-cluster:hover,
@@ -165,7 +165,7 @@
   border-radius: 50%;
   border: 1px solid var(--split-dot-border);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-  transition: width 500ms ease, height 500ms ease, background-color 500ms ease;
+  transition: none;
   flex-shrink: 0;
 }
 
@@ -177,7 +177,7 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
-  transition: width 500ms cubic-bezier(0.2, 0, 0, 1), height 500ms cubic-bezier(0.2, 0, 0, 1), background-color 500ms ease;
+  transition: none;
   user-select: none;
 }
 
@@ -197,7 +197,7 @@
   z-index: 120;
   pointer-events: auto;
   cursor: default;
-  transition: top 80ms ease-out;
+  transition: none;
 }
 
 .telomere-my-pin.is-dragging {

@@ -24,6 +24,8 @@
   --accent-primary-glow: rgba(59, 130, 246, 0.3);
   --accent-secondary: #57534e;
   --accent-secondary-hover: #292524;
+  --split-chat: #e8793a;
+  --split-doc: #3b82f6;
 
   /* Chat bubbles */
   --bubble-own: #3b82f6;
@@ -785,6 +787,8 @@ body {
   --accent-primary-glow: rgba(96, 165, 250, 0.3);
   --accent-secondary: #d6d3d1;
   --accent-secondary-hover: #fafaf9;
+  --split-chat: #e8793a;
+  --split-doc: #3b82f6;
 
   /* Chat bubbles */
   --bubble-own: #3b82f6;

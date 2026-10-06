@@ -1,21 +1,21 @@
 // ─── 比率連動カラーおよびラベルユーティリティ ───
-// 配色方針: 暖(やわらかい橙 #e8793a) ← 中灰(#6b7280: 対比2.5以上) → 青(#3b82f6)
-// t=0 (チャット全開): 青 #3b82f6
+// 配色方針: やわらかい橙(#e8793a) ← 中灰(#6b7280: 対比2.5以上) → 青(#3b82f6)
+// t=0 (ドキュメント全開): やわらかい橙 #e8793a
 // t=0.5 (中間): 中灰 #6b7280 (背景に負けず「どちらでもない」に見える)
-// t=1 (ドキュメント全開): やわらかい橙 #e8793a
+// t=1 (チャット全開): 青 #3b82f6
 
 export const COLOR_TABLE_FALLBACK: [number, string][] = [
-  [0.0, '#3b82f6'],
-  [0.1, '#457fe1'],
-  [0.2, '#4e7ccc'],
-  [0.3, '#5879b8'],
-  [0.4, '#6175a4'],
+  [0.0, '#e8793a'], // やわらかい橙
+  [0.1, '#cf7848'],
+  [0.2, '#b67656'],
+  [0.3, '#9d7564'],
+  [0.4, '#847372'],
   [0.5, '#6b7280'], // 中灰 (中間)
-  [0.6, '#847372'],
-  [0.7, '#9d7564'],
-  [0.8, '#b67656'],
-  [0.9, '#cf7848'],
-  [1.0, '#e8793a'], // やわらかい橙
+  [0.6, '#6175a4'],
+  [0.7, '#5879b8'],
+  [0.8, '#4e7ccc'],
+  [0.9, '#457fe1'],
+  [1.0, '#3b82f6'], // 青
 ];
 
 /**
@@ -62,8 +62,8 @@ export function getFallbackColorAtRatio(t: number): string {
 
 /**
  * 比率 t に応じた CSS color-mix 式、およびフォールバック HEX を含むスタイルオブジェクトを生成
- * t <= 0.5: 青(#3b82f6) 〜 中灰(#6b7280)
- * t > 0.5 : 中灰(#6b7280) 〜 やわらかい橙(#e8793a)
+ * t <= 0.5: やわらかい橙(#e8793a) 〜 中灰(#6b7280)
+ * t > 0.5 : 中灰(#6b7280) 〜 青(#3b82f6)
  */
 export function getRatioColorStyle(t: number): React.CSSProperties {
   const clamped = Math.max(0, Math.min(1, t));
@@ -71,16 +71,16 @@ export function getRatioColorStyle(t: number): React.CSSProperties {
 
   let cssColorMix: string;
   if (clamped <= 0.5) {
-    const bluePct = Math.round((1 - clamped * 2) * 100);
-    cssColorMix = `color-mix(in oklch, #3b82f6 ${bluePct}%, #6b7280)`;
+    const orangePct = Math.round((1 - clamped * 2) * 100);
+    cssColorMix = `color-mix(in oklch, #e8793a ${orangePct}%, #6b7280)`;
   } else {
     const grayPct = Math.round((1 - (clamped - 0.5) * 2) * 100);
-    cssColorMix = `color-mix(in oklch, #6b7280 ${grayPct}%, #e8793a)`;
+    cssColorMix = `color-mix(in oklch, #6b7280 ${grayPct}%, #3b82f6)`;
   }
 
   return {
-    backgroundColor: fallback,
-    background: cssColorMix,
+    background: fallback,
+    backgroundImage: cssColorMix,
     // @ts-ignore custom property
     '--split-t': `${clamped}`,
   };

@@ -23,6 +23,16 @@ function getBandCounts(docId) {
   return bands;
 }
 
+function getRatios(docId) {
+  const ratios = [];
+  for (const [id, item] of ratioMemory.entries()) {
+    if (item.docId === docId && typeof item.ratio === 'number') {
+      ratios.push({ id, ratio: item.ratio, docId });
+    }
+  }
+  return ratios;
+}
+
 function scheduleEmitRatioBands(io, docId) {
   if (!docId) return;
   let throttle = roomThrottleMap.get(docId);
@@ -38,6 +48,7 @@ function scheduleEmitRatioBands(io, docId) {
       throttle.lastEmitted = serialized;
       io.in(docId).emit('ratioBands', currentBands);
     }
+    io.in(docId).emit('ratioChange', getRatios(docId));
   };
 
   if (!throttle.timer) {
@@ -176,6 +187,7 @@ function registerSocketHandlers(io, helpers) {
 
       // 初期参加時に帯集計配列を送信
       socket.emit('ratioBands', getBandCounts(docId));
+      socket.emit('ratioChange', getRatios(docId));
     });
 
     socket.on('send-update', async ({ docId, update }) => {

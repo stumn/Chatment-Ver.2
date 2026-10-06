@@ -569,7 +569,6 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
               />
             }
             ratios={ratios}
-            ratioBands={ratioBands}
             myColorIndex={myColorIndex}
             onSelectRatio={(newRatio) => {
               console.log("[App] onSelectRatio called with newRatio:", newRatio);
