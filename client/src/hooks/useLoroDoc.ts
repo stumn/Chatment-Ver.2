@@ -16,6 +16,7 @@ export function useLoroDoc(userName: string | null, docId: string, isAdmin?: boo
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [userCount, setUserCount] = useState<number>(0);
   const [ratios, setRatios] = useState<{ id: string; ratio: number; docId: string; userName?: string; colorIndex?: number }[]>([]);
+  const [ratioBands, setRatioBands] = useState<number[]>([]);
   const [isReady, setIsReady] = useState(false);
   const autoSaveRef = useRef<ReturnType<typeof createAutoSave> | null>(null);
   const [canUndo, setCanUndo] = useState(false);
@@ -102,6 +103,9 @@ export function useLoroDoc(userName: string | null, docId: string, isAdmin?: boo
           setMyColorIndex(myItem.colorIndex);
         }
       },
+      onRatioBandsChange: (bands) => {
+        setRatioBands(bands);
+      },
       onLoginAck: (ack) => {
         if (userName === ack.userName) {
           setMyColorIndex(ack.colorIndex);
@@ -135,6 +139,7 @@ export function useLoroDoc(userName: string | null, docId: string, isAdmin?: boo
     triggerSave,
     docId,
     ratios,
+    ratioBands,
     canUndo,
     canRedo,
     myColorIndex,

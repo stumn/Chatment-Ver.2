@@ -111,98 +111,138 @@
   background: var(--accent-primary);
 }
 
-/* ─── Telomere Split Ratio Sync Groups (グループ化デザイン) ─── */
-.telomere-group-bar {
+/* ─── Telomere Container & Indicators ─── */
+.telomere-container {
   position: absolute;
-  right: 12px;
+  top: 0;
+  bottom: 0;
+  right: 14px;
+  width: 0;
+  pointer-events: none;
   z-index: 100;
-  /* つまみクリックを優先するため高めに設定 */
+}
+
+/* 輪郭線定義 (ライト/ダーク) */
+:root {
+  --split-dot-border: rgba(0, 0, 0, 0.35);
+  --split-my-ring: #1c1917;
+}
+
+[data-theme="dark"] {
+  --split-dot-border: rgba(255, 255, 255, 0.6);
+  --split-my-ring: #fafaf9;
+}
+
+/* 他者の丸 (帯ごと) */
+.telomere-band-cluster,
+.telomere-band-individual {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
   display: flex;
   align-items: center;
-  justify-content: center;
-  height: 24px;
-  padding: 3px 8px;
-  border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  border: 1.5px solid var(--border-medium);
-  box-shadow: var(--shadow-sm), 0 2px 8px rgba(0, 0, 0, 0.06);
-  transform: translateY(-50%);
+  justify-content: flex-end;
   cursor: pointer;
   pointer-events: auto;
-  transition: top 0.08s ease-out, transform var(--transition-fast) ease, background var(--transition-fast) ease, border-color var(--transition-fast) ease, box-shadow var(--transition-fast) ease;
+  transition: top 500ms cubic-bezier(0.2, 0, 0, 1), transform 200ms ease;
 }
 
-.telomere-group-bar:hover {
-  transform: translateY(-50%) scale(1.08);
-  background: rgba(255, 255, 255, 0.98);
-  border-color: var(--border-focus);
-  box-shadow: var(--shadow-md), 0 4px 12px rgba(0, 0, 0, 0.1);
+.telomere-band-cluster:hover,
+.telomere-band-individual:hover {
+  transform: translateY(-50%) scale(1.1);
 }
 
-/* 自分がいるグループの位置は青い枠線でハイライト */
-.telomere-group-bar.is-me {
-  border-color: var(--accent-primary);
-  box-shadow: var(--shadow-sm), 0 0 6px var(--accent-primary-glow);
-}
-
-.telomere-group-bar.is-me:hover {
-  box-shadow: var(--shadow-md), 0 0 10px 2px var(--accent-primary-glow);
-}
-
-/* 複数ユーザーで共有されている位置はうっすら明滅させる */
-.telomere-group-bar.is-shared {
-  animation: telomereSharedPulse 3s infinite ease-in-out;
-}
-
-.telomere-group-bar__dots {
+/* 1〜3人の横並び丸 (元の12pxサイズに復元) */
+.telomere-dots-row {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.telomere-user-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  flex-shrink: 0;
-  box-shadow: 0 0.5px 2px rgba(0, 0, 0, 0.1);
-}
-
-/* 自分のドットは少し目立たせる */
-.telomere-user-dot.is-me {
+.telomere-other-dot {
   width: 12px;
   height: 12px;
-  border-color: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  border-radius: 50%;
+  border: 1px solid var(--split-dot-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: width 500ms ease, height 500ms ease, background-color 500ms ease;
+  flex-shrink: 0;
 }
 
-/* ダークモード対応 */
-[data-theme="dark"] .telomere-group-bar {
-  background: rgba(30, 41, 59, 0.8);
-  border-color: var(--border-subtle);
+/* 4人以上の集約丸 */
+.telomere-cluster-dot {
+  border-radius: 50%;
+  border: 1.5px solid var(--split-dot-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
+  transition: width 500ms cubic-bezier(0.2, 0, 0, 1), height 500ms cubic-bezier(0.2, 0, 0, 1), background-color 500ms ease;
+  user-select: none;
 }
 
-[data-theme="dark"] .telomere-group-bar.is-me {
-  border-color: var(--accent-primary);
+.telomere-cluster-count {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8), 0 0 1px rgba(0, 0, 0, 0.9);
 }
 
-@keyframes telomereSharedPulse {
-  0% {
-    opacity: 0.9;
-    box-shadow: var(--shadow-sm), 0 0 4px rgba(59, 130, 246, 0.05);
-  }
+/* 自分の丸 (最前面・二重丸・即時追従・元のサイズに復元) */
+.telomere-my-pin {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 120;
+  pointer-events: auto;
+  cursor: default;
+  transition: top 80ms ease-out;
+}
 
-  50% {
-    opacity: 1;
-    box-shadow: var(--shadow-md), 0 0 10px 1px rgba(59, 130, 246, 0.15);
-  }
+.telomere-my-pin.is-dragging {
+  transition: none !important;
+}
 
-  100% {
-    opacity: 0.9;
-    box-shadow: var(--shadow-sm), 0 0 4px rgba(59, 130, 246, 0.05);
+.telomere-my-outer-ring {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--split-my-ring);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(2px);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 150ms ease;
+}
+
+[data-theme="dark"] .telomere-my-outer-ring {
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.6);
+}
+
+.telomere-my-pin:hover .telomere-my-outer-ring {
+  transform: scale(1.12);
+}
+
+.telomere-my-inner-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+/* prefers-reduced-motion アクセシビリティ対応 */
+@media (prefers-reduced-motion: reduce) {
+  .telomere-band-cluster,
+  .telomere-band-individual,
+  .telomere-other-dot,
+  .telomere-cluster-dot,
+  .telomere-my-pin,
+  .telomere-my-outer-ring {
+    transition: none !important;
+    animation: none !important;
   }
 }

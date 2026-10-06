@@ -10,6 +10,7 @@ interface SyncClientOptions {
   onConnectionChange: (state: ConnectionState) => void;
   onUserCountChange?: (count: number) => void;
   onRatioChange?: (ratios: { id: string; ratio: number; docId: string; userName?: string; colorIndex?: number }[]) => void;
+  onRatioBandsChange?: (bands: number[]) => void;
   onLoginAck?: (ack: { userName: string; colorIndex: number }) => void;
 }
 let socket: Socket | null = null;
@@ -68,6 +69,9 @@ export function initSyncClient(options: SyncClientOptions): () => void {
   });
   socket.on('ratioChange', (ratios: any[]) => {
     onRatioChange?.(ratios);
+  });
+  socket.on('ratioBands', (bands: number[]) => {
+    options.onRatioBandsChange?.(bands);
   });
 
   socket.on('login-ack', (ack: { userName: string; colorIndex: number }) => {

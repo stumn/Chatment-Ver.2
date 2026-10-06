@@ -1,6 +1,5 @@
 import React from 'react';
 import { Telomere } from './Telomere';
-import { getSocketId } from '../loro/sync-client';
 
 interface SplitViewProps {
   ratio: number;
@@ -9,7 +8,8 @@ interface SplitViewProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   docPanel: React.ReactNode;
   chatPanel: React.ReactNode;
-  ratios: { id: string; ratio: number; docId: string; userName?: string; colorIndex?: number }[];
+  ratios?: { id: string; ratio: number; docId: string; userName?: string; colorIndex?: number }[];
+  ratioBands?: number[];
   onSelectRatio: (ratio: number) => void;
   isPlaybackActive?: boolean;
   myColorIndex?: number;
@@ -24,6 +24,7 @@ export const SplitView: React.FC<SplitViewProps> = ({
   docPanel,
   chatPanel,
   ratios,
+  ratioBands,
   onSelectRatio,
   isPlaybackActive,
   myColorIndex,
@@ -50,11 +51,10 @@ export const SplitView: React.FC<SplitViewProps> = ({
       </div>
       {!isPlaybackActive && (
         <Telomere
-          ratioArray={ratios}
+          ratioBands={ratioBands}
           myRatio={ratio}
-          myId={getSocketId()}
-          myColorIndex={myColorIndex}
           onSelectRatio={onSelectRatio}
+          isDragging={isDragging}
         />
       )}
     </div>

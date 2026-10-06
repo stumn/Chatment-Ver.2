@@ -1,7 +1,53 @@
 const { User, Room } = require('./db');
 const { getSnapshot, applyUpdate } = require('./snapshot-manager');
 
-let ratioMemory = [];
+// ─── 仕切り位置の集計・配信設定 ───
+const NUM_BANDS = 16;
+const EMIT_INTERVAL_MS = 500;
+const DISCONNECT_GRACE_PERIOD_MS = 10000;
+
+// socketId -> { ratio: number, docId: string, disconnectTimer?: NodeJS.Timeout }
+const ratioMemory = new Map();
+// docId -> { timer: NodeJS.Timeout | null, lastEmitted: string | null }
+const roomThrottleMap = new Map();
+
+function getBandCounts(docId) {
+  const bands = new Array(NUM_BANDS).fill(0);
+  for (const item of ratioMemory.values()) {
+    if (item.docId === docId && typeof item.ratio === 'number') {
+      const clamped = Math.max(0, Math.min(1, item.ratio));
+      const bandIndex = Math.min(NUM_BANDS - 1, Math.floor(clamped * NUM_BANDS));
+      bands[bandIndex]++;
+    }
+  }
+  return bands;
+}
+
+function scheduleEmitRatioBands(io, docId) {
+  if (!docId) return;
+  let throttle = roomThrottleMap.get(docId);
+  if (!throttle) {
+    throttle = { timer: null, lastEmitted: null };
+    roomThrottleMap.set(docId, throttle);
+  }
+
+  const broadcastIfChanged = () => {
+    const currentBands = getBandCounts(docId);
+    const serialized = JSON.stringify(currentBands);
+    if (throttle.lastEmitted !== serialized) {
+      throttle.lastEmitted = serialized;
+      io.in(docId).emit('ratioBands', currentBands);
+    }
+  };
+
+  if (!throttle.timer) {
+    broadcastIfChanged();
+    throttle.timer = setTimeout(() => {
+      throttle.timer = null;
+      broadcastIfChanged();
+    }, EMIT_INTERVAL_MS);
+  }
+}
 
 function registerSocketHandlers(io, helpers) {
   const { saveSystemLog, saveUserActionLog } = helpers;
@@ -128,8 +174,8 @@ function registerSocketHandlers(io, helpers) {
       const count = io.sockets.adapter.rooms.get(docId)?.size || 0;
       io.in(docId).emit('user-count', count);
 
-      const roomRatios = ratioMemory.filter(item => item.docId === docId);
-      socket.emit('ratioChange', roomRatios);
+      // 初期参加時に帯集計配列を送信
+      socket.emit('ratioBands', getBandCounts(docId));
     });
 
     socket.on('send-update', async ({ docId, update }) => {
@@ -167,36 +213,44 @@ function registerSocketHandlers(io, helpers) {
       }
     });
 
-    socket.on('ratioChange', async (ratio) => {
-      if (!socket.docId) return;
-      const existing = ratioMemory.find(item => item.id === socket.id);
+    socket.on('ratioChange', (ratio) => {
+      if (!socket.docId || typeof ratio !== 'number' || isNaN(ratio)) return;
+      const clamped = Math.max(0, Math.min(1, ratio));
+      const existing = ratioMemory.get(socket.id);
       if (existing) {
-        existing.ratio = ratio;
+        if (existing.disconnectTimer) {
+          clearTimeout(existing.disconnectTimer);
+          existing.disconnectTimer = null;
+        }
+        existing.ratio = clamped;
       } else {
-        ratioMemory.push({
-          id: socket.id,
-          ratio,
+        ratioMemory.set(socket.id, {
+          ratio: clamped,
           docId: socket.docId,
-          userName: socket.userName,
-          colorIndex: socket.colorIndex
+          disconnectTimer: null
         });
       }
-      const roomRatios = ratioMemory.filter(item => item.docId === socket.docId);
-      io.in(socket.docId).emit('ratioChange', roomRatios);
+      scheduleEmitRatioBands(io, socket.docId);
     });
 
     socket.on('disconnect', async (reason) => {
       console.log(`[WS] Client disconnected: ${socket.id}, reason: ${reason}`);
       await saveSystemLog('info', 'disconnect', { socketId: socket.id, userName: socket.userName, reason }, socket.roomId, socket.docId);
 
-      ratioMemory = ratioMemory.filter(item => item.id !== socket.id);
+      const entry = ratioMemory.get(socket.id);
+      if (entry) {
+        // 接続切断後、10秒間の猶予を経て集計から除外
+        entry.disconnectTimer = setTimeout(() => {
+          ratioMemory.delete(socket.id);
+          if (entry.docId) {
+            scheduleEmitRatioBands(io, entry.docId);
+          }
+        }, DISCONNECT_GRACE_PERIOD_MS);
+      }
 
       if (socket.docId) {
         const count = io.sockets.adapter.rooms.get(socket.docId)?.size || 0;
         io.in(socket.docId).emit('user-count', count);
-
-        const roomRatios = ratioMemory.filter(item => item.docId === socket.docId);
-        io.in(socket.docId).emit('ratioChange', roomRatios);
       }
     });
   });
