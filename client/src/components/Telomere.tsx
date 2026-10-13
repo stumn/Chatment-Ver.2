@@ -105,12 +105,15 @@ export const Telomere: React.FC<TelomereProps> = ({
 
         const radius = Math.min(R_MAX, Math.round(R_MIN + K * Math.sqrt(Math.max(0, count - 1))));
         const displayCount = count > 99 ? '99+' : String(count);
-        const tooltip = `この付近 ${count}人 (${formatRatioLabel(centerT, true)}) - クリックで位置同期`;
+        const isMyBand = bandIndex === myBand;
+        const tooltip = isMyBand
+          ? `この付近 ${count}人 (あなたを含む) (${formatRatioLabel(centerT, true)}) - クリックで位置同期`
+          : `この付近 ${count}人 (${formatRatioLabel(centerT, true)}) - クリックで位置同期`;
 
         return (
           <div
             key={`band-${bandIndex}`}
-            className="telomere-band-cluster"
+            className={`telomere-band-cluster ${isMyBand ? 'has-me' : ''}`}
             style={{
               top: topPosition,
             }}
@@ -119,10 +122,10 @@ export const Telomere: React.FC<TelomereProps> = ({
               e.stopPropagation();
               onSelectRatio(centerT);
             }}
-            onMouseEnter={() => handleHoverLog('other', count, centerT)}
+            onMouseEnter={() => handleHoverLog(isMyBand ? 'me' : 'other', count, centerT)}
           >
           <div
-            className="telomere-cluster-dot"
+            className={`telomere-cluster-dot ${isMyBand ? 'has-me' : ''}`}
             style={{
               ...colorStyle,
               width: `${radius * 2}px`,
@@ -136,7 +139,8 @@ export const Telomere: React.FC<TelomereProps> = ({
       })}
 
       {/* ─── 自分の丸 (最前面・二重丸・即時追従) ─── */}
-      {!(bandsData.some(({ bandIndex, count }) => bandIndex === myBand && count >= 2)) && (
+      {/* 自分が単独の帯にいる時、またはドラッグ中は手元ピンを表示 */}
+      {(!(bandsData.some(({ bandIndex, count }) => bandIndex === myBand && count >= 2)) || isDragging) && (
         <div
           className={`telomere-my-pin ${isDragging ? 'is-dragging' : ''}`}
           style={{

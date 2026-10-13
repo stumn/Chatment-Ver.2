@@ -181,6 +181,21 @@
   user-select: none;
 }
 
+/* 自分が含まれる集約丸 (外枠を二重にして「自分がここにいる」ことを明示) */
+.telomere-band-cluster.has-me {
+  z-index: 120;
+}
+
+.telomere-cluster-dot.has-me {
+  outline: 2.5px solid var(--split-my-ring);
+  outline-offset: 2.5px;
+  box-shadow: 0 0 0 2px var(--bg-primary, #ffffff), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .telomere-cluster-dot.has-me {
+  box-shadow: 0 0 0 2px var(--bg-primary, #18181b), 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
 .telomere-cluster-count {
   font-size: 11px;
   font-weight: 700;
