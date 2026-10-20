@@ -7,10 +7,12 @@
 
 const { io } = require('socket.io-client');
 const readline = require('readline');
+const { Loro, LoroMap } = require('loro-crdt');
 
 // ─── 設定デフォルト値 ───
 const DEFAULT_URL = process.env.SERVER_URL || 'http://localhost:3005';
 const NUM_BANDS = 16;
+const SIMULATED_EMOJIS = ['👍', '❤️', '😂', '🎉', '👀', '✨', '🔥'];
 
 // ─── 引数解析 ───
 const args = process.argv.slice(2);
@@ -27,6 +29,8 @@ const parsedDist = getArg('--dist', '-d');
 const parsedMode = getArg('--mode', '-m');
 const parsedUrl = getArg('--url', '-u') || DEFAULT_URL;
 const parsedDocId = getArg('--doc', '--docId');
+const parsedNoReactions = args.includes('--no-reactions');
+const parsedEnableReactions = !parsedNoReactions;
 
 // ─── 分布ジェネレータ ───
 // ratio: 0.0 (上端/チャット最大) 〜 1.0 (下端/ドキュメント最大)
@@ -118,7 +122,7 @@ async function promptOptions() {
   }
 
   rl.close();
-  return { count, dist, mode, url: parsedUrl, docId: parsedDocId };
+  return { count, dist, mode, url: parsedUrl, docId: parsedDocId, enableReactions: parsedEnableReactions };
 }
 
 // ─── ルーム取得 ───
@@ -142,17 +146,21 @@ async function resolveDocId(serverUrl, specifiedDocId) {
 
 // ─── クライアント管理クラス ───
 class SimulatedClient {
-  constructor({ id, username, docId, serverUrl, initialRatio, mode }) {
+  constructor({ id, username, docId, serverUrl, initialRatio, mode, enableReactions = true }) {
     this.id = id;
     this.username = username;
     this.docId = docId;
     this.serverUrl = serverUrl;
     this.ratio = initialRatio;
     this.mode = mode;
+    this.enableReactions = enableReactions;
     this.socket = null;
     this.wanderTimer = null;
     this.churnTimer = null;
+    this.reactionTimer = null;
     this.isConnected = false;
+    this.doc = null;
+    this.userId = `user-sim-${id}-${Math.random().toString(36).slice(2, 6)}`;
   }
 
   connect() {
@@ -176,13 +184,35 @@ class SimulatedClient {
       });
     });
 
-    this.socket.on('sync-snapshot', () => {
+    this.socket.on('sync-snapshot', (snapshot) => {
       // join-doc がサーバー側で完了した確実に安全なタイミングで仕切り位置送信
       this.socket.emit('ratioChange', this.ratio);
+
+      if (this.enableReactions && snapshot) {
+        try {
+          this.doc = new Loro();
+          this.doc.import(Buffer.isBuffer(snapshot) ? snapshot : Buffer.from(snapshot));
+          if (!this.reactionTimer) {
+            this.startReactions();
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
 
       // モードに応じた挙動
       if (this.mode === 'wander' && !this.wanderTimer) {
         this.startWandering();
+      }
+    });
+
+    this.socket.on('receive-update', (update) => {
+      if (this.doc && update) {
+        try {
+          this.doc.import(Buffer.isBuffer(update) ? update : Buffer.from(update));
+        } catch (e) {
+          // ignore
+        }
       }
     });
 
@@ -208,6 +238,55 @@ class SimulatedClient {
     }, wanderInterval);
   }
 
+  // 絵文字リアクションのランダムトグル
+  startReactions() {
+    const reactionInterval = 3000 + Math.random() * 5000; // 3〜8秒ごと
+    this.reactionTimer = setInterval(() => {
+      if (!this.isConnected || !this.socket || !this.doc) return;
+      try {
+        const stream = this.doc.getMovableList('stream');
+        if (!stream || stream.length === 0) return;
+        const targetIdx = Math.floor(Math.random() * stream.length);
+        const nodeMap = stream.get(targetIdx);
+        if (!nodeMap) return;
+
+        let emojiReactions;
+        try {
+          emojiReactions = nodeMap.getOrCreateContainer('emojiReactions', new LoroMap());
+        } catch {
+          emojiReactions = nodeMap.setContainer('emojiReactions', new LoroMap());
+        }
+
+        const emoji = SIMULATED_EMOJIS[Math.floor(Math.random() * SIMULATED_EMOJIS.length)];
+        const key = `${this.userId}|${emoji}`;
+        const exists = emojiReactions.get(key) === true;
+        const isAdding = !exists;
+
+        if (exists) {
+          emojiReactions.delete(key);
+        } else {
+          emojiReactions.set(key, true);
+        }
+
+        const blockId = (nodeMap.get('blockId') || '').toString();
+        this.doc.commit({ message: `emojiReaction:${this.userId}:${blockId}:${emoji}` });
+        const update = this.doc.exportFrom();
+
+        this.socket.emit('send-update', { docId: this.docId, update });
+        this.socket.emit('user-action', {
+          type: 'emojiReaction',
+          targetId: blockId,
+          contentPreview: emoji,
+          actionDetails: isAdding ? `絵文字リアクション追加: ${emoji}` : `絵文字リアクション削除: ${emoji}`,
+          before: exists ? { emoji, active: true } : null,
+          after: isAdding ? { emoji, active: true } : null,
+        });
+      } catch (err) {
+        // ignore
+      }
+    }, reactionInterval);
+  }
+
   updateRatio(newRatio) {
     this.ratio = newRatio;
     if (this.isConnected && this.socket) {
@@ -223,6 +302,10 @@ class SimulatedClient {
     if (this.churnTimer) {
       clearTimeout(this.churnTimer);
       this.churnTimer = null;
+    }
+    if (this.reactionTimer) {
+      clearInterval(this.reactionTimer);
+      this.reactionTimer = null;
     }
   }
 
@@ -270,6 +353,7 @@ async function run() {
       serverUrl: config.url,
       initialRatio: initRatio,
       mode: config.mode,
+      enableReactions: config.enableReactions,
     });
     clients.push(client);
   }

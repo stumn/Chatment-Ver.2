@@ -1,10 +1,12 @@
 import React from 'react';
 import type { StreamNodeWithIndex, EmphasisLevel, AuthorInfo } from '../types';
 import type { LoroDoc } from 'loro-crdt';
+import { toggleEmojiReaction } from '../loro/schema';
 import { useBlockEditor } from '../hooks/useBlockEditor';
 import { BlockTimelineCircle } from './BlockTimelineCircle';
 import { BlockTimelineH1Button } from './BlockTimelineH1Button';
 import { BlockActionToolbar } from './BlockActionToolbar';
+import { EmojiReactionChips } from './EmojiReactionChips';
 
 interface DocBlockProps {
   nodeWithIndex: StreamNodeWithIndex;
@@ -84,6 +86,12 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     onAfterEdit,
   });
 
+  const handleToggleEmoji = (emoji: string) => {
+    if (!doc || isPlaybackActive) return;
+    toggleEmojiReaction(doc, index, currentAuthorInfo.userId, emoji);
+    onAfterEdit();
+  };
+
   const getIndentMargin = (indent: number) => {
     if (indent === 1) return 32;
     if (indent >= 2) return 60;
@@ -103,6 +111,9 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       if (emoji === '⇧') upvotes++;
       if (emoji === '⇩') downvotes++;
     });
+  }
+  if ('emojiReactions' in node && node.emojiReactions) {
+    totalReactions += Object.values(node.emojiReactions).filter(v => v === true).length;
   }
   const voteScore = upvotes - downvotes;
 
@@ -213,6 +224,13 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           onKeyDown={handleKeyDown}
           dangerouslySetInnerHTML={{ __html: renderContentAsHTML() }}
           style={{ cursor: isPlaybackActive ? 'default' : 'text' }}
+        />
+        <EmojiReactionChips
+          emojiReactions={node.emojiReactions}
+          currentUserId={currentAuthorInfo.userId}
+          onToggleEmoji={handleToggleEmoji}
+          disabled={isPlaybackActive}
+          variant="doc"
         />
       </div>
       <BlockActionToolbar

@@ -21,6 +21,7 @@ export interface ChatNodeData {
   author: AuthorInfo;
   timestamp: number;
   reactions: Record<string, string>;
+  emojiReactions?: Record<string, boolean>;
   emphasis?: EmphasisLevel;
   heading?: 'h1' | null;
   indent?: number;
@@ -34,11 +35,18 @@ export interface DocNodeData {
   author: AuthorInfo;
   timestamp: number;
   reactions: Record<string, string>;
+  emojiReactions?: Record<string, boolean>;
   emphasis?: EmphasisLevel;
   heading?: 'h1' | null;
   indent?: number;
   /** 共同編集者の一覧。編集順に追記される */
   subAuthors?: AuthorInfo[];
+}
+
+export interface EmojiReactionSummary {
+  emoji: string;
+  count: number;
+  hasReacted: boolean;
 }
 
 export type StreamNode = ChatNodeData | DocNodeData;

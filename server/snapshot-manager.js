@@ -46,6 +46,7 @@ async function getOrCreateDoc(docId) {
       
       nodeMap.set('timestamp', Date.now());
       nodeMap.setContainer('reactions', new LoroMap());
+      nodeMap.setContainer('emojiReactions', new LoroMap());
     }
     
     doc.commit({ message: 'system:init-empty-blocks' });

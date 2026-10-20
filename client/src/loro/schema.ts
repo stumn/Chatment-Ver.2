@@ -130,6 +130,11 @@ function tryOverwriteEmptyDocBlock(
     } catch {
       targetMap.setContainer('reactions', new LoroMap());
     }
+    try {
+      targetMap.getOrCreateContainer('emojiReactions', new LoroMap());
+    } catch {
+      targetMap.setContainer('emojiReactions', new LoroMap());
+    }
 
     if (/^[#＃]/.test(content)) {
       targetMap.set('heading', 'h1');
@@ -150,6 +155,8 @@ function tryOverwriteEmptyDocBlock(
       emptyDocMap.set('blockId', `blk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
       writeAuthorInfo(emptyDocMap, EMPTY_AUTHOR);
       emptyDocMap.set('timestamp', Date.now());
+      emptyDocMap.setContainer('reactions', new LoroMap());
+      emptyDocMap.setContainer('emojiReactions', new LoroMap());
     }
 
     doc.commit({ message: `chat:${authorInfo.displayName}:${chatId}:${content}` });
@@ -246,6 +253,7 @@ function insertChatWithPadding(
   writeAuthorInfo(nodeMap, authorInfo);
   nodeMap.set('timestamp', Date.now());
   nodeMap.setContainer('reactions', new LoroMap());
+  nodeMap.setContainer('emojiReactions', new LoroMap());
   if (/^[#＃]/.test(content)) {
     nodeMap.set('heading', 'h1');
   }
@@ -261,6 +269,8 @@ function insertChatWithPadding(
       emptyDocMap.set('blockId', `blk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
       writeAuthorInfo(emptyDocMap, EMPTY_AUTHOR);
       emptyDocMap.set('timestamp', Date.now());
+      emptyDocMap.setContainer('reactions', new LoroMap());
+      emptyDocMap.setContainer('emojiReactions', new LoroMap());
     }
   }
 
@@ -351,6 +361,7 @@ export function insertDocNodeAfter(
 
   nodeMap.set('timestamp', Date.now());
   nodeMap.setContainer('reactions', new LoroMap());
+  nodeMap.setContainer('emojiReactions', new LoroMap());
   doc.commit({ message: `doc:${initialAuthorInfo.displayName || 'unknown'}:${blockId}:${text}` });
   emitUserAction({
     type: 'doc-add',
@@ -503,6 +514,51 @@ export function addReaction(
     actionDetails: emoji ? `リアクション追加: ${emoji}` : 'リアクション削除',
   });
 }
+
+/**
+ * Toggle an emoji reaction on a node.
+ * Uses a flat LoroMap `emojiReactions` with key `${userId}|${emoji}` and value `true`.
+ */
+export function toggleEmojiReaction(
+  doc: LoroDoc,
+  nodeIndex: number,
+  userId: string,
+  emoji: string
+): void {
+  const stream = getStream(doc);
+  const nodeMap = stream.get(nodeIndex) as LoroMap;
+  if (!nodeMap) return;
+
+  let emojiReactions: LoroMap;
+  try {
+    emojiReactions = nodeMap.getOrCreateContainer('emojiReactions', new LoroMap()) as LoroMap;
+  } catch {
+    emojiReactions = nodeMap.setContainer('emojiReactions', new LoroMap());
+  }
+
+  const key = `${userId}|${emoji}`;
+  const exists = emojiReactions.get(key) === true;
+  const isAdding = !exists;
+
+  if (exists) {
+    emojiReactions.delete(key);
+  } else {
+    emojiReactions.set(key, true);
+  }
+
+  const blockId = nodeMap ? ((nodeMap.get('blockId') as string) || '') : '';
+  doc.commit({ message: `emojiReaction:${userId}:${blockId}:${emoji}:${isAdding ? 'add' : 'remove'}` });
+
+  emitUserAction({
+    type: 'emojiReaction',
+    targetId: blockId,
+    before: exists ? { emoji, active: true } : null,
+    after: isAdding ? { emoji, active: true } : null,
+    contentPreview: emoji,
+    actionDetails: isAdding ? `絵文字リアクション追加: ${emoji}` : `絵文字リアクション削除: ${emoji}`,
+  });
+}
+
 
 /**
  * Update a document node's text content.
@@ -671,6 +727,16 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
         reactions = {};
       }
 
+      let emojiReactions: Record<string, boolean> = {};
+      try {
+        const emojiMap = loroMap.get('emojiReactions') as LoroMap | null;
+        if (emojiMap && typeof emojiMap.toJSON === 'function') {
+          emojiReactions = emojiMap.toJSON() as Record<string, boolean>;
+        }
+      } catch {
+        emojiReactions = {};
+      }
+
       let id = loroMap.get('blockId') as string | undefined;
       if (!id) {
         id = `chat-${timestamp}-${i}`;
@@ -681,7 +747,7 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
       const subAuthors = readSubAuthors(loroMap);
 
       nodes.push({
-        node: { type: 'chat', content: contentStr, blockId: id, author, timestamp, reactions, emphasis: emphasis as any, heading, indent, subAuthors },
+        node: { type: 'chat', content: contentStr, blockId: id, author, timestamp, reactions, emojiReactions, emphasis: emphasis as any, heading, indent, subAuthors },
         id,
         index: i,
         loroMap,
@@ -709,8 +775,18 @@ export function getAllNodes(doc: LoroDoc): StreamNodeWithIndex[] {
         // no reactions
       }
 
+      let emojiReactions: Record<string, boolean> = {};
+      try {
+        const emojiMap = loroMap.get('emojiReactions') as LoroMap | null;
+        if (emojiMap && typeof emojiMap.toJSON === 'function') {
+          emojiReactions = emojiMap.toJSON() as Record<string, boolean>;
+        }
+      } catch {
+        // no emojiReactions
+      }
+
       nodes.push({
-        node: { type: 'doc', content, blockId, author, timestamp, reactions, emphasis: emphasis as any, heading, indent, subAuthors },
+        node: { type: 'doc', content, blockId, author, timestamp, reactions, emojiReactions, emphasis: emphasis as any, heading, indent, subAuthors },
         id: blockId,
         index: i,
         loroMap,

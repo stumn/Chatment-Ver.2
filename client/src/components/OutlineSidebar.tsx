@@ -29,7 +29,9 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToN
     .filter(({ node }) => {
       const text = node.content?.trim() ?? '';
       if (!text) return false;
-      const hasReactions = !!node.reactions && Object.keys(node.reactions).length > 0;
+      const hasReactions =
+        (!!node.reactions && Object.keys(node.reactions).length > 0) ||
+        (!!node.emojiReactions && Object.keys(node.emojiReactions).length > 0);
       const isTopLevel = (node.indent ?? 0) === 0;
       // chatノードのH1判定：headingフィールドまたは#始まり
       const isH1 = node.heading === 'h1' || /^[#＃]/.test(node.content ?? '');
@@ -46,14 +48,21 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToN
       }
       const voteScore = upvotes - downvotes;
       const isH1 = node.heading === 'h1' || /^[#＃]/.test(node.content ?? '');
+      const legacyPositiveCount = Object.values(node.reactions ?? {}).filter((emoji) => POSITIVE_REACTIONS.has(emoji)).length;
+      const emojiPositiveCount = Object.values(node.emojiReactions ?? {}).filter((v) => v === true).length;
+      const positiveReactionCount = legacyPositiveCount + emojiPositiveCount;
+      const hasReactions =
+        (!!node.reactions && Object.keys(node.reactions).length > 0) ||
+        (!!node.emojiReactions && Object.keys(node.emojiReactions).length > 0);
+
       return {
         index,
         text: node.content?.trim() ?? '',
         isH1,
         blockId: id,
-        positiveReactionCount: Object.values(node.reactions ?? {}).filter((emoji) => POSITIVE_REACTIONS.has(emoji)).length,
+        positiveReactionCount,
         indent: (node as any).indent ?? 0,
-        hasReactions: !!node.reactions && Object.keys(node.reactions).length > 0,
+        hasReactions,
         voteScore,
         type: node.type,
       };
