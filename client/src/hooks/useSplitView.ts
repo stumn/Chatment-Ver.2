@@ -5,21 +5,31 @@ const DEFAULT_RATIO = 0.4; // 40% doc, 60% chat
 const MIN_RATIO = 0.0;
 const MAX_RATIO = 1.0;
 
-export function useSplitView() {
+interface UseSplitViewOptions {
+  onDragStart?: (startRatio: number) => void;
+  onDragEnd?: (startRatio: number, endRatio: number, durationMs: number) => void;
+}
+
+export function useSplitView(options?: UseSplitViewOptions) {
   const [ratio, setRatio] = useState(() => {
     return loadSplitRatio() ?? DEFAULT_RATIO;
   });
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
+  const dragStartTimeRef = useRef<number>(0);
+  const dragStartRatioRef = useRef<number>(DEFAULT_RATIO);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     isDraggingRef.current = true;
+    dragStartTimeRef.current = performance.now();
+    dragStartRatioRef.current = ratio;
     setIsDragging(true);
     document.body.style.cursor = 'row-resize';
     document.body.style.userSelect = 'none';
-  }, []);
+    options?.onDragStart?.(ratio);
+  }, [ratio, options]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDraggingRef.current || !containerRef.current) return;
@@ -37,13 +47,18 @@ export function useSplitView() {
 
   const handleMouseUp = useCallback(() => {
     if (!isDraggingRef.current) return;
+    const duration = Math.round(performance.now() - dragStartTimeRef.current);
+    const startRatio = dragStartRatioRef.current;
+    const endRatio = ratio;
+
     isDraggingRef.current = false;
     setIsDragging(false);
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
     // Persist ratio
     saveSplitRatio(ratio);
-  }, [ratio]);
+    options?.onDragEnd?.(startRatio, endRatio, duration);
+  }, [ratio, options]);
 
   const handleDoubleClick = useCallback(() => {
     let nextRatio = 0.5;

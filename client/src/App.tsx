@@ -130,8 +130,26 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
   }, []);
   const chatPanelRef = useRef<HTMLDivElement>(null);
 
-  const { doc, nodes, connectionState, userCount, isReady, triggerSave, ratios, undo, redo, canUndo, canRedo, myColorIndex } = useLoroDoc(realName, docId, isAdmin);
-  const { ratio, setRatio, containerRef, handleMouseDown, handleDoubleClick, isDragging } = useSplitView();
+  const { doc, nodes, connectionState, userCount, isReady, triggerSave, ratios, ratioBands, undo, redo, canUndo, canRedo, myColorIndex } = useLoroDoc(realName, docId, isAdmin);
+  const { ratio, setRatio, containerRef, handleMouseDown, handleDoubleClick, isDragging } = useSplitView({
+    onDragStart: (startRatio) => {
+      emitUserAction({
+        type: 'split-drag-start',
+        actionDetails: '仕切り位置ドラッグ開始',
+        before: Number(startRatio.toFixed(3)),
+      });
+    },
+    onDragEnd: (startRatio, endRatio, durationMs) => {
+      emitRatioChange(endRatio);
+      lastSentRatio.current = endRatio;
+      emitUserAction({
+        type: 'split-drag-end',
+        actionDetails: `仕切り位置ドラッグ終了 (${durationMs}ms)`,
+        before: Number(startRatio.toFixed(3)),
+        after: Number(endRatio.toFixed(3)),
+      });
+    }
+  });
   const { docNodes, chatNodes } = useOverflow(nodes, chatPanelRef, 36);
   const {
     isPlaybackMode,
@@ -191,30 +209,36 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
     latestRatio.current = ratio;
   }, [ratio]);
 
+  // 初回接続時に現在の比率を同期
+  useEffect(() => {
+    if (connectionState === 'connected') {
+      emitRatioChange(ratio);
+      lastSentRatio.current = ratio;
+    }
+  }, [connectionState]);
+
   useEffect(() => {
     if (ratio === lastSentRatio.current) return;
 
-    // 1. Throttle: Send ratio update every 30ms during continuous changes (~33fps)
-    if (!throttleTimeout.current) {
-      throttleTimeout.current = setTimeout(() => {
-        throttleTimeout.current = null;
-        emitRatioChange(latestRatio.current);
-        lastSentRatio.current = latestRatio.current;
-      }, 30);
-    }
-
-    // 2. Debounce: Ensure final position is sent 30ms after movements stop
-    if (debounceTimeout.current) {
-      clearTimeout(debounceTimeout.current);
-    }
-    debounceTimeout.current = setTimeout(() => {
-      debounceTimeout.current = null;
-      if (latestRatio.current !== lastSentRatio.current) {
-        emitRatioChange(latestRatio.current);
-        lastSentRatio.current = latestRatio.current;
+    if (isDragging) {
+      // ドラッグ中は300msごとにスロットル送信
+      if (!throttleTimeout.current) {
+        throttleTimeout.current = setTimeout(() => {
+          throttleTimeout.current = null;
+          emitRatioChange(latestRatio.current);
+          lastSentRatio.current = latestRatio.current;
+        }, 300);
       }
-    }, 30);
-  }, [ratio]);
+    } else {
+      // ドラッグ外（ダブルクリックやクリック等の即時変更）
+      if (throttleTimeout.current) {
+        clearTimeout(throttleTimeout.current);
+        throttleTimeout.current = null;
+      }
+      emitRatioChange(ratio);
+      lastSentRatio.current = ratio;
+    }
+  }, [ratio, isDragging]);
 
   // Clean up timers on unmount
   useEffect(() => {

@@ -58,8 +58,8 @@ export const BlockTimelineCircle: React.FC<BlockTimelineCircleProps> = ({
           className={`doc-block__timeline-circle doc-block__timeline-circle--indent-${blockIndent >= 2 ? 2 : blockIndent}`}
           style={
             isIndentPending
-              ? (isChat ? { color: 'var(--accent-primary)', opacity: 0.4 } : { color: 'var(--text-muted)' })
-              : (isChat ? { color: 'var(--accent-primary)' } : undefined)
+              ? (isChat ? { color: 'var(--split-chat)', opacity: 0.4 } : { color: 'var(--split-doc)' })
+              : (isChat ? { color: 'var(--split-chat)' } : { color: 'var(--split-doc)' })
           }
         >
           {blockIndent === 1 ? (
@@ -79,7 +79,7 @@ export const BlockTimelineCircle: React.FC<BlockTimelineCircleProps> = ({
       )}
       {showMeta && !isContentEmpty && (
         <div className="doc-block__meta-tooltip">
-          <span className="doc-block__author" style={{ color: isChat ? 'var(--accent-primary)' : 'var(--accent-secondary)' }}>
+          <span className="doc-block__author" style={{ color: isChat ? 'var(--split-chat)' : 'var(--split-doc)' }}>
             {blockAuthor.displayName || '不明'}
             {blockSubAuthors.length > 0 && ` (+${blockSubAuthors.map(sa => sa.displayName).join('・')})`}
           </span>
