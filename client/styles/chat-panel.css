@@ -254,11 +254,9 @@
 }
 
 /* ─── Emoji Picker Popover ─── */
+/* position / top / bottom / right は JS (style prop) で動的に設定 */
 .emoji-reaction-picker-popover {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  right: 0;
-  z-index: 1000;
+  z-index: 9999;
   background: var(--bg-surface);
   border: 1px solid var(--border-medium);
   border-radius: var(--radius-lg);
@@ -305,8 +303,8 @@
 }
 
 .emoji-picker-loading {
-  width: 320px;
-  height: 200px;
+  width: 240px;
+  height: 300px;
   display: flex;
   align-items: center;
   justify-content: center;

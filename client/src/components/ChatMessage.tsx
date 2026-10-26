@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import type { StreamNodeWithIndex } from '../types';
 import type { LoroDoc } from 'loro-crdt';
 import { addReaction, toggleEmojiReaction } from '../loro/schema';
@@ -28,6 +28,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 }) => {
   const { node, index } = nodeWithIndex;
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
 
   const formatTime = (ts: number) => {
     const d = new Date(ts);
@@ -171,6 +172,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             </button>
             <div className="chat-message__picker-container">
               <button
+                ref={addButtonRef}
                 className={`chat-message__reaction-badge chat-message__reaction-badge--add ${isPickerOpen ? 'chat-message__reaction-badge--active' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -187,6 +189,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                 isOpen={isPickerOpen}
                 onClose={() => setIsPickerOpen(false)}
                 onSelectEmoji={handleSelectEmojiFromPicker}
+                buttonRef={addButtonRef}
               />
             </div>
           </div>

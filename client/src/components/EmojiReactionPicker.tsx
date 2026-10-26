@@ -1,27 +1,47 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import type { EmojiClickData } from 'emoji-picker-react';
-import { PRESET_REACTIONS } from '../types';
+
+const PICKER_WIDTH = 240;
+const PICKER_HEIGHT = 280;
 
 const LazyEmojiPicker = React.lazy(() => import('emoji-picker-react'));
-
-// 👍 を除いたクイックリアクション候補
-const QUICK_EMOJIS = PRESET_REACTIONS.filter((e) => e !== '👍');
 
 interface EmojiReactionPickerProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectEmoji: (emoji: string) => void;
+  buttonRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
 export const EmojiReactionPicker: React.FC<EmojiReactionPickerProps> = ({
   isOpen,
   onClose,
   onSelectEmoji,
+  buttonRef,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{
+    top?: number;
+    bottom?: number;
+    right: number;
+  }>({ right: 0 });
 
   useEffect(() => {
     if (!isOpen) return;
+
+    if (buttonRef?.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const rightOffset = window.innerWidth - rect.right;
+
+      if (spaceBelow >= PICKER_HEIGHT || spaceBelow >= spaceAbove) {
+        setPos({ top: rect.bottom + 8, right: rightOffset });
+      } else {
+        setPos({ bottom: window.innerHeight - rect.top + 8, right: rightOffset });
+      }
+    }
 
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -45,7 +65,7 @@ export const EmojiReactionPicker: React.FC<EmojiReactionPickerProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, buttonRef]);
 
   if (!isOpen) return null;
 
@@ -54,43 +74,43 @@ export const EmojiReactionPicker: React.FC<EmojiReactionPickerProps> = ({
     onClose();
   };
 
-  const handleQuickClick = (emoji: string) => {
-    onSelectEmoji(emoji);
-    onClose();
-  };
-
-  return (
+  // document.body に直接マウント → isolation: isolate の親コンテキストを完全脱出
+  return ReactDOM.createPortal(
     <div
       ref={containerRef}
       className="emoji-reaction-picker-popover"
+      style={{
+        position: 'fixed',
+        top: pos.top,
+        bottom: pos.bottom,
+        right: pos.right,
+      }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="emoji-reaction-picker-quick">
-        {QUICK_EMOJIS.map((emoji) => (
-          <button
-            key={emoji}
-            type="button"
-            className="emoji-reaction-quick-btn"
-            onClick={() => handleQuickClick(emoji)}
-            title={emoji}
-          >
-            {emoji}
-          </button>
-        ))}
-      </div>
-      <div className="emoji-reaction-picker-body">
-        <React.Suspense fallback={<div className="emoji-picker-loading">絵文字を読み込み中...</div>}>
-          <LazyEmojiPicker
-            onEmojiClick={handleEmojiClick}
-            skinTonesDisabled={true}
-            searchPlaceholder="絵文字を検索..."
-            lazyLoadEmojis={true}
-            width={320}
-            height={360}
-            previewConfig={{ showPreview: false }}
-          />
-        </React.Suspense>
-      </div>
-    </div>
+      <React.Suspense
+        fallback={
+          <div className="emoji-picker-loading">絵文字を読み込み中...</div>
+        }
+      >
+        <LazyEmojiPicker
+          onEmojiClick={handleEmojiClick}
+          skinTonesDisabled
+          searchPlaceholder="絵文字を検索..."
+          lazyLoadEmojis
+          columns={9}
+          width={PICKER_WIDTH}
+          height={PICKER_HEIGHT}
+          previewConfig={{ showPreview: false }}
+          style={
+            {
+              '--epr-emoji-size': '22px',
+              '--epr-category-navigation-button-size': '20px',
+              '--epr-search-input-height': '26px',
+            } as React.CSSProperties
+          }
+        />
+      </React.Suspense>
+    </div>,
+    document.body,
   );
 };
