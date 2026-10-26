@@ -267,6 +267,21 @@
   animation: fadeIn 0.15s ease-out;
 }
 
+/* ピッカー内の余白微調整（検索ボックスとカテゴリナビの間、カテゴリナビと絵文字一覧の間の余白を狭くする） */
+.emoji-reaction-picker-popover aside.epr-category-nav {
+  padding: 2px 8px !important;
+}
+
+.emoji-reaction-picker-popover .epr-header > div:first-child {
+  padding: 6px 8px 2px 8px !important;
+}
+
+.emoji-reaction-picker-popover .epr-emoji-category-label {
+  font-size: 12px !important;
+  height: 22px !important;
+  line-height: 22px !important;
+}
+
 .emoji-reaction-picker-quick {
   display: flex;
   align-items: center;

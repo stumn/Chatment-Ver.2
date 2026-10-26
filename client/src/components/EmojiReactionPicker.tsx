@@ -106,6 +106,9 @@ export const EmojiReactionPicker: React.FC<EmojiReactionPickerProps> = ({
               '--epr-emoji-size': '22px',
               '--epr-category-navigation-button-size': '20px',
               '--epr-search-input-height': '26px',
+              '--epr-header-padding': '3px 8px',
+              '--epr-category-label-height': '22px',
+              '--epr-category-padding': '0 8px',
             } as React.CSSProperties
           }
         />
