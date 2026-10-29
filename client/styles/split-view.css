@@ -78,8 +78,8 @@
   position: relative;
   z-index: 50;
   background: var(--bg-secondary);
-  border-top: 1px solid #000;
-  border-bottom: 1px solid #000;
+  border-top: 1px solid #9F9E9E;
+  border-bottom: 1px solid #9F9E9E;
   transition: background var(--transition-fast);
 }
 
