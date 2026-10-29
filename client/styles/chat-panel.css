@@ -9,10 +9,12 @@
 .chat-panel__messages {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 48px; /* Match total doc padding exactly */
+  padding: 24px 48px;
+  /* Match total doc padding exactly */
   display: flex;
   flex-direction: column;
-  align-items: center; /* Center children horizontally */
+  align-items: center;
+  /* Center children horizontally */
   gap: 0;
 }
 
@@ -31,16 +33,19 @@
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  padding: 10px 12px; /* Increased vertical padding to separate messages */
+  padding: 10px 12px;
+  /* Increased vertical padding to separate messages */
   position: relative;
   width: 100%;
-  max-width: 767px; /* Match inner doc-paper width precisely (815px - 48px padding) */
+  max-width: 767px;
+  /* Match inner doc-paper width precisely (815px - 48px padding) */
   border-radius: var(--radius-sm);
   transition: background var(--transition-fast);
 }
 
 .chat-message:hover {
-  background: var(--bg-tertiary); /* Highlight row on hover */
+  background: var(--bg-tertiary);
+  /* Highlight row on hover */
 }
 
 /* Timeline Vertical Line */
@@ -49,7 +54,8 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 23px; /* Center precisely at 24px */
+  left: 23px;
+  /* Center precisely at 24px */
   width: 2px;
   background: var(--border-medium);
   z-index: 1;
@@ -59,18 +65,22 @@
 .chat-message::after {
   content: '';
   position: absolute;
-  top: 18px; /* Adjusted to match new 10px padding (was 14px with 4px padding) */
-  left: 19px; /* Center precisely at 24px */
+  top: 18px;
+  /* Adjusted to match new 10px padding (was 14px with 4px padding) */
+  left: 19px;
+  /* Center precisely at 24px */
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--split-chat); /* Chat origin is filled */
+  background: var(--split-chat);
+  /* Chat origin is filled */
   border: 2px solid var(--split-chat);
   z-index: 2;
 }
 
 .chat-message--doc::after {
-  background: var(--bg-elevated); /* Doc origin is hollow */
+  background: var(--bg-elevated);
+  /* Doc origin is hollow */
   border-color: var(--split-doc);
 }
 
@@ -78,16 +88,19 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0px; /* Narrowed gap between author and content */
+  gap: 0px;
+  /* Narrowed gap between author and content */
   min-width: 0;
-  margin-left: 60px; /* Text starts precisely at 72px from edge (12 padding + 60 margin) */
+  margin-left: 60px;
+  /* Text starts precisely at 72px from edge (12 padding + 60 margin) */
 }
 
 .chat-message__header {
   position: relative;
   display: flex;
   align-items: baseline;
-  margin-bottom: 2px; /* Tiny separation between header and content line-height */
+  margin-bottom: 2px;
+  /* Tiny separation between header and content line-height */
 }
 
 .chat-message__time {
@@ -154,7 +167,8 @@
 }
 
 .chat-message__reaction-badge--active {
-  background: hsla(260, 65%, 55%, 0.15); /* Primary accent tint */
+  background: hsla(260, 65%, 55%, 0.15);
+  /* Primary accent tint */
   border-color: var(--accent-primary);
   color: var(--accent-primary);
 }
@@ -253,6 +267,7 @@
   font-size: 11px;
   padding: 2px 6px;
 }
+
 .emoji-reaction-chip--more:hover {
   background: transparent;
   transform: none;
@@ -277,7 +292,7 @@
   padding: 2px 8px !important;
 }
 
-.emoji-reaction-picker-popover .epr-header > div:first-child {
+.emoji-reaction-picker-popover .epr-header>div:first-child {
   padding: 6px 8px 2px 8px !important;
 }
 
@@ -334,7 +349,8 @@
 
 .chat-message__actions {
   position: relative;
-  opacity: 1; /* Always visible for slack style */
+  opacity: 1;
+  /* Always visible for slack style */
 }
 
 .chat-message__react-btn {
@@ -398,9 +414,10 @@
 .chat-input {
   display: flex;
   align-items: flex-end;
-  justify-content: center; /* Center inner content */
+  justify-content: center;
+  /* Center inner content */
   gap: var(--space-sm);
-  padding: 10px 48px 18px 48px;
+  padding: 8px 48px 8px 48px;
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
@@ -497,8 +514,13 @@
 }
 
 @keyframes jump-flash-shadow {
-  0% { box-shadow: inset 0 0 0 1000px hsla(45, 100%, 50%, 0.4); }
-  100% { box-shadow: inset 0 0 0 1000px hsla(45, 100%, 50%, 0); }
+  0% {
+    box-shadow: inset 0 0 0 1000px hsla(45, 100%, 50%, 0.4);
+  }
+
+  100% {
+    box-shadow: inset 0 0 0 1000px hsla(45, 100%, 50%, 0);
+  }
 }
 
 .jump-flash-animated {
@@ -508,7 +530,8 @@
 /* ─── Unread Message Banner ─── */
 .chat-panel__unread-banner {
   position: absolute;
-  bottom: 84px; /* Float right above the input bar */
+  bottom: 84px;
+  /* Float right above the input bar */
   left: 50%;
   transform: translateX(-50%);
   background: var(--accent-primary);
@@ -542,6 +565,7 @@
     opacity: 0;
     transform: translateX(-50%) translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
@@ -605,8 +629,15 @@
 }
 
 @keyframes dropdownAppear {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .chat-input__handle-option {
