@@ -70,7 +70,7 @@
 
 .split-handle {
   flex-shrink: 0;
-  height: 16px;
+  height: 12px;
   cursor: row-resize;
   display: flex;
   align-items: center;
@@ -78,8 +78,8 @@
   position: relative;
   z-index: 50;
   background: var(--bg-secondary);
-  border-top: 1px solid #9F9E9E;
-  border-bottom: 1px solid #9F9E9E;
+  border-top: 1.75px solid #9F9E9E;
+  border-bottom: 1.75px solid #9F9E9E;
   transition: background var(--transition-fast);
 }
 
