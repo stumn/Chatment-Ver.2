@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { EmphasisLevel, AuthorInfo } from './types';
 import { useLoroDoc } from './hooks/useLoroDoc';
-import { usePlayback } from './hooks/usePlayback';
 import { emitRatioChange, emitUserAction } from './loro/sync-client';
 import { useOverflow } from './hooks/useOverflow';
 import { useSplitView } from './hooks/useSplitView';
@@ -13,7 +12,6 @@ import { ChatPanel } from './components/ChatPanel';
 import { ChatInput } from './components/ChatInput';
 import { ConnectionStatus } from './components/ConnectionStatus';
 import { GuideModal } from './components/GuideModal';
-import { PlaybackControls } from './components/PlaybackControls';
 import { OutlineSidebar } from './components/OutlineSidebar';
 import { ExportDialog } from './components/ExportDialog';
 
@@ -153,21 +151,6 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
     }
   });
   const { docNodes, chatNodes } = useOverflow(nodes, chatPanelRef, 36);
-  const {
-    isPlaybackMode,
-    playbackSteps,
-    currentStepIndex,
-    isAutoplay,
-    startPlayback,
-    exitPlayback,
-    handlePrev,
-    handleNext,
-    handlePrev3,
-    handleNext3,
-    handleScrub,
-    togglePlay,
-  } = usePlayback({ doc, nodes });
-
   const lastLoggedRatio = useRef<number>(ratio);
   const prevIsDragging = useRef<boolean>(false);
 
@@ -342,13 +325,8 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
     );
   }
 
-  const activeHighlightBlockId = isPlaybackMode ? playbackSteps[currentStepIndex]?.targetBlockId : null;
-  const activeDeletedIndex = isPlaybackMode && playbackSteps[currentStepIndex]?.action === 'delete'
-    ? playbackSteps[currentStepIndex]?.deletedIndex
-    : null;
-
   return (
-    <div className={`app ${isPlaybackMode ? 'playback-active' : ''} ${isSidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`} id="app">
+    <div className={`app ${isSidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`} id="app">
       <OutlineSidebar
         nodes={nodes}
         onJumpToNode={handleJumpToNode}
@@ -399,18 +377,16 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
                     gap: '4px',
                     fontSize: '11px',
                     color: 'var(--text-muted)',
-                    cursor: isPlaybackMode ? 'not-allowed' : 'pointer',
+                    cursor: 'pointer',
                     userSelect: 'none',
-                    opacity: isPlaybackMode ? 0.5 : 1,
                   }}
                 >
                   <input
                     type="checkbox"
                     checked={useCtrlEnter}
                     onChange={handleToggleCtrlEnter}
-                    disabled={isPlaybackMode}
                     id="chat-ctrl-enter-checkbox"
-                    style={{ cursor: isPlaybackMode ? 'not-allowed' : 'pointer' }}
+                    style={{ cursor: 'pointer' }}
                   />
                   <span>Ctrl+Enter送信</span>
                 </label>
@@ -498,19 +474,6 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
                 <span className="btn-label-text">{hasReceivedServerSnapshot ? '持ち出す' : '同期中です'}</span>
               </button>
 
-              <button
-                className={`guide-toggle-btn ${isPlaybackMode ? 'guide-toggle-btn--active' : ''}`}
-                onClick={isPlaybackMode ? exitPlayback : startPlayback}
-                title={isPlaybackMode ? "これまでの流れの確認を終了" : "これまでの流れ（編集履歴）を確認する"}
-              >
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: 'scaleX(-1)' }}>
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                  <polyline points="3 3 3 8 8 8" />
-                  <line x1="12" y1="7" x2="12" y2="12" />
-                  <line x1="12" y1="12" x2="16" y2="14" />
-                </svg>
-                <span className="btn-label-text">これまでの流れ</span>
-              </button>
             </div>
           </div>
 
@@ -548,9 +511,9 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
               )}
             </button>
             <span className="app-header__user">
-              {!isPlaybackMode && <span className="app-header__user-icon" title={`現在 ${userCount} 人が接続中`}></span>}
+              <span className="app-header__user-icon" title={`現在 ${userCount} 人が接続中`}></span>
               <span>{currentAuthorInfo?.displayName || realName}</span>
-              {!isPlaybackMode && <ConnectionStatus state={connectionState} userName={currentAuthorInfo?.displayName || ''} colorIndex={myColorIndex} />}
+              <ConnectionStatus state={connectionState} userName={currentAuthorInfo?.displayName || ''} colorIndex={myColorIndex} />
             </span>
           </div>
         </div>
@@ -563,7 +526,6 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
             onHandleMouseDown={handleMouseDown}
             onHandleDoubleClick={handleRatioDoubleClick}
             containerRef={containerRef}
-            isPlaybackActive={isPlaybackMode}
             isDragging={isDragging}
             docPanel={
               <DocPanel
@@ -579,9 +541,6 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
                 onDragEnd={handleDragEnd}
                 onAfterEdit={handleAfterEdit}
                 onJumpToNode={handleJumpToNode}
-                isPlaybackActive={isPlaybackMode}
-                activeHighlightBlockId={activeHighlightBlockId}
-                activeDeletedIndex={activeDeletedIndex}
                 isCautiousMode={isCautiousMode}
               />
             }
@@ -595,8 +554,6 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
                 ratio={ratio}
                 onAfterEdit={handleAfterEdit}
                 onJumpToNode={handleJumpToNode}
-                isPlaybackActive={isPlaybackMode}
-                activeHighlightBlockId={activeHighlightBlockId}
               />
             }
             ratios={ratios}
@@ -613,28 +570,12 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
               handleNameOptions={handleNameOptions}
               onHandleNameChange={setCurrentAuthorInfo}
               onAfterSend={handleAfterEdit}
-              isPlaybackActive={isPlaybackMode}
               useCtrlEnter={useCtrlEnter}
             />
           </div>
         </div>
       </main>
       <GuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
-      {isPlaybackMode && (
-        <PlaybackControls
-          currentStep={currentStepIndex}
-          totalSteps={playbackSteps.length}
-          description={playbackSteps[currentStepIndex]?.description || ''}
-          isAutoplay={isAutoplay}
-          onPrev={handlePrev}
-          onNext={handleNext}
-          onPrev3={handlePrev3}
-          onNext3={handleNext3}
-          onTogglePlay={togglePlay}
-          onScrub={handleScrub}
-          onExit={exitPlayback}
-        />
-      )}
     </div>
   );
 };

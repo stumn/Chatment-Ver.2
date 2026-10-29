@@ -14,7 +14,6 @@ interface UseBlockLoroSyncProps {
   defaultEmphasis: number | 'h1';
   isFirstInDoc?: boolean;
   isLastInDoc?: boolean;
-  isPlaybackActive?: boolean;
   onAfterEdit: () => void;
   requestCautiousEditAsync: (actionLabel: string, afterState?: { content?: string; indent?: number; heading?: string | null; emphasis?: number; isDeleted?: boolean }) => Promise<boolean>;
   contentRef: RefObject<HTMLDivElement | null>;
@@ -30,14 +29,13 @@ export function useBlockLoroSync({
   defaultEmphasis,
   isFirstInDoc,
   isLastInDoc,
-  isPlaybackActive,
   onAfterEdit,
   requestCautiousEditAsync,
   contentRef,
 }: UseBlockLoroSyncProps) {
 
   const saveContentAndHeadingOnBlur = useCallback(async () => {
-    if (!doc || !contentRef.current || isPlaybackActive) return;
+    if (!doc || !contentRef.current) return;
     const newText = contentRef.current.textContent || '';
     const currentText = loroMap?.get('content')?.toString() || node.content || '';
 
@@ -76,7 +74,7 @@ export function useBlockLoroSync({
       updateDocContent(doc, index, newText, currentAuthorInfo);
       onAfterEdit();
     }
-  }, [doc, index, node, loroMap, onAfterEdit, isPlaybackActive, currentAuthorInfo, contentRef, requestCautiousEditAsync]);
+  }, [doc, index, node, loroMap, onAfterEdit, currentAuthorInfo, contentRef, requestCautiousEditAsync]);
 
   const moveUp = useCallback(() => {
     if (!doc || isFirstInDoc) return;
@@ -101,7 +99,7 @@ export function useBlockLoroSync({
   }, [doc, index, isLastInDoc, onAfterEdit, currentAuthorInfo]);
 
   const adjustIndent = useCallback(async (direction: number) => {
-    if (!doc || !loroMap || isPlaybackActive) return;
+    if (!doc || !loroMap) return;
     const currentIndent = (loroMap.get('indent') as number) || 0;
     const nextIndent = Math.max(0, Math.min(2, currentIndent + direction));
     const currentHeading = loroMap.get('heading') as string | null;
@@ -144,7 +142,7 @@ export function useBlockLoroSync({
       actionDetails: `インデント変更: ${currentIndent} → ${nextIndent}`,
     });
     onAfterEdit();
-  }, [doc, index, node.content, loroMap, onAfterEdit, isPlaybackActive, requestCautiousEditAsync, currentAuthorInfo, contentRef]);
+  }, [doc, index, node.content, loroMap, onAfterEdit, requestCautiousEditAsync, currentAuthorInfo, contentRef]);
 
   const setBlockStyle = useCallback(async (
     style: 'h1' | 'normal' | 'fade',
@@ -152,7 +150,7 @@ export function useBlockLoroSync({
     setCaretAt: (charPos: number) => void,
     setPendingCaretPos: (pos: number | null) => void,
   ) => {
-    if (!doc || !loroMap || isPlaybackActive) return;
+    if (!doc || !loroMap) return;
 
     if (contentRef.current && document.activeElement !== contentRef.current) {
       contentRef.current.focus();
@@ -249,7 +247,7 @@ export function useBlockLoroSync({
     setTimeout(() => {
       setCaretAt(targetPos);
     }, 0);
-  }, [doc, loroMap, index, node.content, onAfterEdit, isPlaybackActive, requestCautiousEditAsync, currentAuthorInfo, contentRef]);
+  }, [doc, loroMap, index, node.content, onAfterEdit, requestCautiousEditAsync, currentAuthorInfo, contentRef]);
 
   return {
     saveContentAndHeadingOnBlur,

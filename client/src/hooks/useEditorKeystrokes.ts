@@ -14,7 +14,6 @@ interface UseEditorKeystrokesProps {
   defaultEmphasis: number | 'h1';
   isFirstInDoc?: boolean;
   isLastInDoc?: boolean;
-  isPlaybackActive?: boolean;
   onAfterEdit: () => void;
   requestCautiousEditAsync: (actionLabel: string, afterState?: { content?: string; indent?: number; heading?: string | null; emphasis?: number; isDeleted?: boolean }) => Promise<boolean>;
   saveContentAndHeadingOnBlur: () => Promise<void> | void;
@@ -35,7 +34,6 @@ export function useEditorKeystrokes({
   defaultEmphasis,
   isFirstInDoc,
   isLastInDoc,
-  isPlaybackActive,
   onAfterEdit,
   requestCautiousEditAsync,
   saveContentAndHeadingOnBlur,
@@ -174,7 +172,7 @@ export function useEditorKeystrokes({
   }, [resetPermission, saveContentAndHeadingOnBlur, isCanceledRef]);
 
   const handleInput = useCallback(() => {
-    if (!doc || isPlaybackActive) return;
+    if (!doc) return;
 
     if (!isLastInDoc) return;
     const currentText = contentRef.current?.textContent || '';
@@ -183,14 +181,9 @@ export function useEditorKeystrokes({
       insertDocNodeAfter(doc, index, '', EMPTY_AUTHOR, nextEmphasis);
       onAfterEdit();
     }
-  }, [doc, isLastInDoc, index, defaultEmphasis, onAfterEdit, isPlaybackActive, contentRef]);
+  }, [doc, isLastInDoc, index, defaultEmphasis, onAfterEdit, contentRef]);
 
   const handleKeyDown = useCallback(async (e: React.KeyboardEvent) => {
-    if (isPlaybackActive) {
-      e.preventDefault();
-      return;
-    }
-
     const textContent = contentRef.current?.textContent || '';
     const srCheck = getSelectionRange();
     const isAtStart = srCheck
@@ -503,7 +496,7 @@ export function useEditorKeystrokes({
         }
       }
     }
-  }, [doc, index, currentAuthorInfo, defaultEmphasis, onAfterEdit, moveUp, moveDown, focusNextBlock, getSelectionRange, setCaretAt, loroMap, blockIndent, requestCautiousEditAsync, isFirstInDoc, isPlaybackActive, blockHeading, contentRef]);
+  }, [doc, index, currentAuthorInfo, defaultEmphasis, onAfterEdit, moveUp, moveDown, focusNextBlock, getSelectionRange, setCaretAt, loroMap, blockIndent, requestCautiousEditAsync, isFirstInDoc, blockHeading, contentRef]);
 
   // DOM再描画やReactレンダリング直後にキャレット位置を復元するパトロール用Effect
   useEffect(() => {
@@ -517,7 +510,7 @@ export function useEditorKeystrokes({
 
   // H1ボタンなどで見出し状態が変化した際にテキストの先頭の「# 」を同期する処理
   useEffect(() => {
-    if (!doc || !loroText || !loroMap || isPlaybackActive) return;
+    if (!doc || !loroText || !loroMap) return;
     if (isChat) return;
     if (isApplyingHashtagRef.current) return;
 
@@ -544,7 +537,7 @@ export function useEditorKeystrokes({
         }
       }
     }
-  }, [blockHeading, doc, loroText, loroMap, onAfterEdit, isPlaybackActive, isChat, getSelectionRange, setCaretAt]);
+  }, [blockHeading, doc, loroText, loroMap, onAfterEdit, isChat, getSelectionRange, setCaretAt]);
 
   return {
     isDraggable,

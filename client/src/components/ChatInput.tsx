@@ -10,7 +10,6 @@ interface ChatInputProps {
   handleNameOptions: AuthorInfo[];
   onHandleNameChange: (info: AuthorInfo) => void;
   onAfterSend: () => void;
-  isPlaybackActive?: boolean;
   useCtrlEnter: boolean;
 }
 
@@ -20,7 +19,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   handleNameOptions,
   onHandleNameChange,
   onAfterSend,
-  isPlaybackActive,
   useCtrlEnter,
 }) => {
   const [text, setText] = useState('');
@@ -42,7 +40,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const sendMessage = useCallback(() => {
     const trimmed = text.trim();
-    if (!trimmed || !doc || isPlaybackActive) return;
+    if (!trimmed || !doc) return;
 
     addChatNode(doc, trimmed, currentAuthorInfo);
     setText('');
@@ -52,7 +50,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     requestAnimationFrame(() => {
       inputRef.current?.focus();
     });
-  }, [text, doc, currentAuthorInfo, onAfterSend, isPlaybackActive]);
+  }, [text, doc, currentAuthorInfo, onAfterSend]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -83,7 +81,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   return (
     <div className="chat-input" id="chat-input">
-      <div className="chat-input__wrapper" style={{ display: 'flex', alignItems: 'center', opacity: isPlaybackActive ? 0.6 : 1 }}>
+      <div className="chat-input__wrapper" style={{ display: 'flex', alignItems: 'center' }}>
 
         {/* ハンドルネームドロップダウン */}
         <div
@@ -93,8 +91,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         >
           <button
             className="chat-input__handle-btn"
-            onClick={() => !isPlaybackActive && setDropdownOpen(prev => !prev)}
-            disabled={isPlaybackActive}
+            onClick={() => setDropdownOpen(prev => !prev)}
             title="ハンドルネームを変更"
             aria-haspopup="listbox"
             aria-expanded={dropdownOpen}
@@ -140,25 +137,20 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           onChange={e => setText(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={
-            isPlaybackActive
-              ? 'プレイバック再生中は送信できません'
-              : useCtrlEnter
+            useCtrlEnter
                 ? 'チャットメッセージを入力... (Ctrl + Enter で送信)'
                 : 'チャットメッセージを入力... (Enter で送信, Shift + Enter で改行)'
           }
           rows={1}
           id="chat-input-textarea"
-          disabled={isPlaybackActive}
-          style={{ cursor: isPlaybackActive ? 'not-allowed' : 'text' }}
         />
         <div className="chat-input__buttons">
           <button
             className="chat-input__btn chat-input__btn--send"
             onClick={sendMessage}
-            disabled={isPlaybackActive || !text.trim()}
+            disabled={!text.trim()}
             title="チャットとして送信"
             id="send-chat-btn"
-            style={{ cursor: isPlaybackActive ? 'not-allowed' : 'pointer' }}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="22" y1="2" x2="11" y2="13" />

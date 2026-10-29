@@ -12,8 +12,6 @@ interface ChatMessageProps {
   userId: string;
   onAfterEdit: () => void;
   onJumpToNode: (index: number, target: 'doc' | 'chat', source?: string) => void;
-  isPlaybackActive?: boolean;
-  activeHighlightBlockId?: string | null;
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
@@ -23,8 +21,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   userId,
   onAfterEdit,
   onJumpToNode,
-  isPlaybackActive,
-  activeHighlightBlockId,
 }) => {
   const { node, index } = nodeWithIndex;
   const [isPickerOpen, setIsPickerOpen] = useState(false);
@@ -37,14 +33,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
   const handleVote = (emoji: '⇧' | '⇩', e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!doc || isPlaybackActive) return;
+    if (!doc) return;
     const newEmoji = myReaction === emoji ? '' : emoji;
     addReaction(doc, index, userId, newEmoji);
     onAfterEdit();
   };
 
   const handleToggleEmoji = (emoji: string) => {
-    if (!doc || isPlaybackActive) return;
+    if (!doc) return;
     toggleEmojiReaction(doc, index, userId, emoji);
     onAfterEdit();
   };
@@ -93,7 +89,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
   const isChat = node.type === 'chat';
   const typeClass = isChat ? 'chat-message--chat' : 'chat-message--doc';
-  const isHighlighted = activeHighlightBlockId === nodeWithIndex.id;
 
   // #始まりのコンテンツは見出しとして扱う（全角半角対応）
   const content = node.content;
@@ -124,7 +119,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
   return (
     <div
-      className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'} ${typeClass} ${headingClass} ${isHighlighted ? 'playback-highlight' : ''}`}
+      className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'} ${typeClass} ${headingClass}`}
       id={`chat-message-${index}`}
       onClick={() => onJumpToNode(index, 'doc', 'chat-message')}
       style={{ cursor: 'pointer' }}
@@ -142,7 +137,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           emojiReactions={node.emojiReactions}
           currentUserId={userId}
           onToggleEmoji={handleToggleEmoji}
-          disabled={isPlaybackActive}
           variant="chat"
         />
       </div>
@@ -153,9 +147,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             <button
               className={`chat-message__reaction-badge chat-message__reaction-badge--upvote ${myReaction === '⇧' ? 'chat-message__reaction-badge--active' : ''}`}
               onClick={(e) => handleVote('⇧', e)}
-              disabled={isPlaybackActive}
-              title={isPlaybackActive ? 'プレイバック中は投票できません' : 'いいね (Upvote)'}
-              style={{ cursor: isPlaybackActive ? 'not-allowed' : 'pointer', opacity: isPlaybackActive ? 0.6 : 1 }}
+                  title="いいね (Upvote)"
               aria-label="いいね"
             >
               👍 {upvotes > 0 && upvotes}
@@ -163,9 +155,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             <button
               className={`chat-message__reaction-badge chat-message__reaction-badge--downvote ${myReaction === '⇩' ? 'chat-message__reaction-badge--active' : ''}`}
               onClick={(e) => handleVote('⇩', e)}
-              disabled={isPlaybackActive}
-              title={isPlaybackActive ? 'プレイバック中は投票できません' : 'よくないね (Downvote)'}
-              style={{ cursor: isPlaybackActive ? 'not-allowed' : 'pointer', opacity: isPlaybackActive ? 0.6 : 1 }}
+              title="よくないね (Downvote)"
               aria-label="よくないね"
             >
               👎 {downvotes > 0 && downvotes}
@@ -176,11 +166,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                 className={`chat-message__reaction-badge chat-message__reaction-badge--add ${isPickerOpen ? 'chat-message__reaction-badge--active' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!isPlaybackActive) setIsPickerOpen((prev) => !prev);
+                  setIsPickerOpen((prev) => !prev);
                 }}
-                disabled={isPlaybackActive}
-                title={isPlaybackActive ? 'プレイバック中はリアクションできません' : '絵文字を追加'}
-                style={{ cursor: isPlaybackActive ? 'not-allowed' : 'pointer', opacity: isPlaybackActive ? 0.6 : 1 }}
+                title="絵文字を追加"
                 aria-label="絵文字リアクションを追加"
               >
                 ＋

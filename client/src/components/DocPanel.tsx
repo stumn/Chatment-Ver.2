@@ -16,9 +16,6 @@ interface DocPanelProps {
   onDragEnd: (e: React.DragEvent) => void;
   onAfterEdit: () => void;
   onJumpToNode: (index: number, target: 'doc' | 'chat') => void;
-  isPlaybackActive?: boolean;
-  activeHighlightBlockId?: string | null;
-  activeDeletedIndex?: number | null;
   isCautiousMode?: boolean;
 }
 
@@ -35,9 +32,6 @@ export const DocPanel: React.FC<DocPanelProps> = ({
   onDragEnd,
   onAfterEdit,
   onJumpToNode,
-  isPlaybackActive,
-  activeHighlightBlockId,
-  activeDeletedIndex,
   isCautiousMode,
 }) => {
 
@@ -49,27 +43,21 @@ export const DocPanel: React.FC<DocPanelProps> = ({
     return (
       <div className="doc-panel" id="doc-panel" style={{ position: 'relative' }}>
         <div className="doc-panel__content">
-          {typeof activeDeletedIndex === 'number' ? (
+          <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
             <div className="doc-paper">
-              <div id="doc-block-deletion-line" className="doc-block-deletion-line" />
+              <p style={{
+                color: 'var(--text-muted)',
+                fontSize: 'var(--font-size-sm)',
+                marginBottom: '16px',
+                padding: '0 4px',
+                textAlign: 'center',
+                lineHeight: '1.7',
+              }}>
+                チャットからでも、ここドキュメントからでも、書き込めます。<br />
+                ドキュメントから書き込む場合は、前の行の最後でEnter（改行）すると、次の行が作れます。
+              </p>
             </div>
-          ) : (
-            <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-              <div className="doc-paper">
-                <p style={{
-                  color: 'var(--text-muted)',
-                  fontSize: 'var(--font-size-sm)',
-                  marginBottom: '16px',
-                  padding: '0 4px',
-                  textAlign: 'center',
-                  lineHeight: '1.7',
-                }}>
-                  チャットからでも、ここドキュメントからでも、書き込めます。<br />
-                  ドキュメントから書き込む場合は、前の行の最後でEnter（改行）すると、次の行が作れます。
-                </p>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     );
@@ -94,9 +82,6 @@ export const DocPanel: React.FC<DocPanelProps> = ({
           )}
           {nodes.map((nodeWithIndex, arrayIndex) => (
             <React.Fragment key={nodeWithIndex.id}>
-              {activeDeletedIndex === arrayIndex && (
-                <div id="doc-block-deletion-line" className="doc-block-deletion-line" />
-              )}
               <DocBlock
                 nodeWithIndex={nodeWithIndex}
                 doc={doc}
@@ -113,13 +98,8 @@ export const DocPanel: React.FC<DocPanelProps> = ({
                 onDragEnd={onDragEnd}
                 onAfterEdit={onAfterEdit}
                 onJumpToNode={onJumpToNode}
-                isPlaybackActive={isPlaybackActive}
-                activeHighlightBlockId={activeHighlightBlockId}
                 isCautiousMode={isCautiousMode}
               />
-              {activeDeletedIndex === nodes.length && arrayIndex === nodes.length - 1 && (
-                <div id="doc-block-deletion-line" className="doc-block-deletion-line" />
-              )}
             </React.Fragment>
           ))}
         </div>

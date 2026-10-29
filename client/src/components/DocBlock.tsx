@@ -24,8 +24,6 @@ interface DocBlockProps {
   onDragEnd: (e: React.DragEvent) => void;
   onAfterEdit: () => void;
   onJumpToNode: (index: number, target: 'doc' | 'chat', source?: string) => void;
-  isPlaybackActive?: boolean;
-  activeHighlightBlockId?: string | null;
   isCautiousMode?: boolean;
 }
 
@@ -45,8 +43,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   onDragEnd,
   onAfterEdit,
   onJumpToNode,
-  isPlaybackActive,
-  activeHighlightBlockId,
   isCautiousMode,
 }) => {
   const { node, index, loroText, loroMap } = nodeWithIndex;
@@ -81,13 +77,12 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     defaultEmphasis,
     isFirstInDoc,
     isLastInDoc,
-    isPlaybackActive,
     isCautiousMode,
     onAfterEdit,
   });
 
   const handleToggleEmoji = (emoji: string) => {
-    if (!doc || isPlaybackActive) return;
+    if (!doc) return;
     toggleEmojiReaction(doc, index, currentAuthorInfo.userId, emoji);
     onAfterEdit();
   };
@@ -129,7 +124,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     const intensity = Math.min(1.0, Math.floor(Math.abs(voteScore) / 2) * 0.15 + 0.1);
     dynamicStyle = { ...dynamicStyle, background: `hsla(0, 70%, 55%, ${intensity})` };
   }
-  const isHighlighted = activeHighlightBlockId === nodeWithIndex.id;
   const showDragHandle = true;
   const isContentEmpty = node.content === '';
   const showIndentMark = (blockIndent > 0) && (!isContentEmpty || isFocused);
@@ -143,7 +137,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     `doc-emphasis-${blockEmphasis}`,
     isDropTarget ? 'doc-block--drop-target' : '',
     isDragging ? 'doc-block--dragging' : '',
-    isHighlighted ? 'playback-highlight' : '',
     isContentEmpty ? 'doc-block--empty' : '',
   ].filter(Boolean).join(' ');
 
@@ -177,7 +170,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     <div
       className={blockClass}
       style={dynamicStyle}
-      draggable={isPlaybackActive ? false : isDraggable}
+      draggable={isDraggable}
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
@@ -216,25 +209,23 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           key={node.blockId}
           ref={contentRef}
           className="doc-block__content"
-          contentEditable={!isPlaybackActive}
+          contentEditable
           suppressContentEditableWarning
           onFocus={handleFocus}
           onBlur={handleBlur}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           dangerouslySetInnerHTML={{ __html: renderContentAsHTML() }}
-          style={{ cursor: isPlaybackActive ? 'default' : 'text' }}
+          style={{ cursor: 'text' }}
         />
         <EmojiReactionChips
           emojiReactions={node.emojiReactions}
           currentUserId={currentAuthorInfo.userId}
           onToggleEmoji={handleToggleEmoji}
-          disabled={isPlaybackActive}
           variant="doc"
         />
       </div>
       <BlockActionToolbar
-        isPlaybackActive={isPlaybackActive}
         showDragHandle={showDragHandle}
         blockIndent={blockIndent}
         blockHeading={blockHeading}

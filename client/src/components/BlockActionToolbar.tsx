@@ -1,7 +1,6 @@
 import React from 'react';
 
 interface BlockActionToolbarProps {
-  isPlaybackActive?: boolean;
   showDragHandle: boolean;
   blockIndent: number;
   blockHeading: string | null;
@@ -12,7 +11,6 @@ interface BlockActionToolbarProps {
 }
 
 export const BlockActionToolbar: React.FC<BlockActionToolbarProps> = ({
-  isPlaybackActive,
   showDragHandle,
   blockIndent,
   blockHeading,
@@ -21,8 +19,6 @@ export const BlockActionToolbar: React.FC<BlockActionToolbarProps> = ({
   adjustIndent,
   setBlockStyle,
 }) => {
-  if (isPlaybackActive) return null;
-
   return (
     <div className="doc-block__action-toolbar" onClick={(e) => e.stopPropagation()}>
       {/* ドラッグハンドルをツールバーの左側に配置し、高さを縦全体に持たせる */}
@@ -30,10 +26,10 @@ export const BlockActionToolbar: React.FC<BlockActionToolbarProps> = ({
         <div
           className="action-toolbar__drag-handle"
           title="ドラッグしてこの行を並び替え"
-          onMouseEnter={() => !isPlaybackActive && setIsDraggable(true)}
+          onMouseEnter={() => setIsDraggable(true)}
           onMouseLeave={() => setIsDraggable(false)}
           style={{
-            cursor: isPlaybackActive ? 'not-allowed' : 'grab',
+            cursor: 'grab',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

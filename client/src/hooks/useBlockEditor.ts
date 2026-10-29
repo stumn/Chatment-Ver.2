@@ -15,7 +15,6 @@ interface UseBlockEditorProps {
   defaultEmphasis: number | 'h1';
   isFirstInDoc?: boolean;
   isLastInDoc?: boolean;
-  isPlaybackActive?: boolean;
   isCautiousMode?: boolean;
   onAfterEdit: () => void;
 }
@@ -30,7 +29,6 @@ export function useBlockEditor({
   defaultEmphasis,
   isFirstInDoc,
   isLastInDoc,
-  isPlaybackActive,
   isCautiousMode,
   onAfterEdit,
 }: UseBlockEditorProps) {
@@ -65,7 +63,6 @@ export function useBlockEditor({
     defaultEmphasis,
     isFirstInDoc,
     isLastInDoc,
-    isPlaybackActive,
     onAfterEdit,
     requestCautiousEditAsync,
     contentRef,
@@ -94,7 +91,6 @@ export function useBlockEditor({
     defaultEmphasis,
     isFirstInDoc,
     isLastInDoc,
-    isPlaybackActive,
     onAfterEdit,
     requestCautiousEditAsync,
     saveContentAndHeadingOnBlur,

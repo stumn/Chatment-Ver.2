@@ -10,7 +10,6 @@ interface SplitViewProps {
   chatPanel: React.ReactNode;
   ratios?: { id: string; ratio: number; docId: string; userName?: string; colorIndex?: number }[];
   onSelectRatio: (ratio: number) => void;
-  isPlaybackActive?: boolean;
   myColorIndex?: number;
   isDragging?: boolean;
 }
@@ -24,7 +23,6 @@ export const SplitView: React.FC<SplitViewProps> = ({
   chatPanel,
   ratios,
   onSelectRatio,
-  isPlaybackActive,
   myColorIndex,
   isDragging,
 }) => {
@@ -47,14 +45,12 @@ export const SplitView: React.FC<SplitViewProps> = ({
       <div className="split-panel split-panel--chat" style={{ height: chatHeight }}>
         {chatPanel}
       </div>
-      {!isPlaybackActive && (
-        <Telomere
-          ratios={ratios}
-          myRatio={ratio}
-          onSelectRatio={onSelectRatio}
-          isDragging={isDragging}
-        />
-      )}
+      <Telomere
+        ratios={ratios}
+        myRatio={ratio}
+        onSelectRatio={onSelectRatio}
+        isDragging={isDragging}
+      />
     </div>
   );
 };
