@@ -15,16 +15,18 @@ import { ConnectionStatus } from './components/ConnectionStatus';
 import { GuideModal } from './components/GuideModal';
 import { PlaybackControls } from './components/PlaybackControls';
 import { OutlineSidebar } from './components/OutlineSidebar';
+import { ExportDialog } from './components/ExportDialog';
 
 import { AdminPanel } from './components/AdminPanel';
 import { CautiousConfirmProvider } from './components/CautiousConfirmModal';
 
-export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ docId, isAdmin }) => {
+export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitle: string }> = ({ docId, isAdmin, roomTitle }) => {
   const [realName, setRealName] = useState<string | null>(null);
   const [currentAuthorInfo, setCurrentAuthorInfo] = useState<AuthorInfo | null>(null);
   const [handleNameOptions, setHandleNameOptions] = useState<AuthorInfo[]>([]);
   const [userId] = useState(() => `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
   const [defaultEmphasis, setDefaultEmphasis] = useState<EmphasisLevel | 'h1'>(0);
+  const [isExportOpen, setIsExportOpen] = useState(false);
 
   /** ログイン情報からハンドルネーム候補2件を生成 */
   const generateHandleNameOptions = useCallback((name: string, attribute: string, age: string, uid: string): AuthorInfo[] => {
@@ -130,7 +132,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
   }, []);
   const chatPanelRef = useRef<HTMLDivElement>(null);
 
-  const { doc, nodes, connectionState, userCount, isReady, triggerSave, ratios, ratioBands, undo, redo, canUndo, canRedo, myColorIndex } = useLoroDoc(realName, docId, isAdmin);
+  const { doc, nodes, connectionState, userCount, isReady, hasReceivedServerSnapshot, triggerSave, ratios, ratioBands, undo, redo, canUndo, canRedo, myColorIndex } = useLoroDoc(realName, docId, isAdmin);
   const { ratio, setRatio, containerRef, handleMouseDown, handleDoubleClick, isDragging } = useSplitView({
     onDragStart: (startRatio) => {
       emitUserAction({
@@ -482,6 +484,19 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
                 </svg>
                 <span className="btn-label-text">ガイド</span>
               </button>
+              <button
+                className="guide-toggle-btn"
+                onClick={() => setIsExportOpen(true)}
+                disabled={!hasReceivedServerSnapshot}
+                title={hasReceivedServerSnapshot ? '文章を持ち出す' : '同期中です'}
+              >
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 3v12" />
+                  <path d="m7 10 5 5 5-5" />
+                  <path d="M5 21h14" />
+                </svg>
+                <span className="btn-label-text">{hasReceivedServerSnapshot ? '持ち出す' : '同期中です'}</span>
+              </button>
 
               <button
                 className={`guide-toggle-btn ${isPlaybackMode ? 'guide-toggle-btn--active' : ''}`}
@@ -514,6 +529,22 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean }> = ({ d
                 <svg viewBox="0 0 24 24" width="15" height="15">
                   <path fill="currentColor" d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41l-1.06-1.06zm1.06-12.37c-.39-.39-1.02-.39-1.41 0l-1.06 1.06c-.39.38-.39 1.02 0 1.41s1.02.39 1.41 0l1.06-1.06c.38-.38.38-1.02 0-1.41zm-12.37 12.37l-1.06 1.06c-.39.39-.39 1.02 0 1.41s1.02.39 1.41 0l1.06-1.06c.39-.38.39-1.02 0-1.41z" />
                 </svg>
+              )}
+              {isExportOpen && (
+                <ExportDialog
+                  nodes={nodes}
+                  roomTitle={roomTitle}
+                  roomUrl={`${window.location.origin}/#${docId}`}
+                  isAdmin={isAdmin}
+                  onClose={() => setIsExportOpen(false)}
+                  onLog={({ type, order, format, settings, lines }) => {
+                    const logSettings = order === 'both' ? settings.doc : settings[order];
+                    emitUserAction({
+                      type: `export-${type}`,
+                      actionDetails: JSON.stringify({ order, format, includeAuthor: logSettings.includeAuthor, includeTime: logSettings.includeTime, includeReactions: logSettings.includeReactions, lines }),
+                    });
+                  }}
+                />
               )}
             </button>
             <span className="app-header__user">
@@ -619,11 +650,13 @@ export const App: React.FC = () => {
     error: string | null;
     verifiedDocId: string | null;
     isAdmin: boolean;
+    title: string;
   }>({
     loading: true,
     error: null,
     verifiedDocId: null,
     isAdmin: false,
+    title: 'Chatment',
   });
 
   const verifyRoom = useCallback(async (targetDocId: string) => {
@@ -652,6 +685,7 @@ export const App: React.FC = () => {
         error: null,
         verifiedDocId: targetDocId,
         isAdmin: isAdminParam,
+        title: room.title || 'Chatment',
       });
     } catch (err: any) {
       setRoomState({
@@ -659,6 +693,7 @@ export const App: React.FC = () => {
         error: err.message || 'エラーが発生しました。',
         verifiedDocId: null,
         isAdmin: false,
+        title: 'Chatment',
       });
     }
   }, []);
@@ -677,7 +712,7 @@ export const App: React.FC = () => {
     const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0];
     if (!hash) {
       // ハッシュが空＝ルームIDなし → エラー
-      setRoomState({ loading: false, error: 'ルームURLが指定されていません。管理者からルームのURLを受け取ってください。', verifiedDocId: null, isAdmin: false });
+      setRoomState({ loading: false, error: 'ルームURLが指定されていません。管理者からルームのURLを受け取ってください。', verifiedDocId: null, isAdmin: false, title: 'Chatment' });
       return;
     }
     verifyRoom(hash);
@@ -709,7 +744,7 @@ export const App: React.FC = () => {
   if (roomState.verifiedDocId) {
     return (
       <CautiousConfirmProvider>
-        <ChatWorkspace docId={roomState.verifiedDocId} isAdmin={roomState.isAdmin} />
+        <ChatWorkspace docId={roomState.verifiedDocId} isAdmin={roomState.isAdmin} roomTitle={roomState.title} />
       </CautiousConfirmProvider>
     );
   }

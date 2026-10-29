@@ -7,6 +7,7 @@ interface SyncClientOptions {
   docId: string;
   isAdmin?: boolean;
   onRemoteUpdate: () => void;
+  onSnapshotReceived?: () => void;
   onConnectionChange: (state: ConnectionState) => void;
   onUserCountChange?: (count: number) => void;
   onRatioChange?: (ratios: { id: string; ratio: number; docId: string; userName?: string; colorIndex?: number }[]) => void;
@@ -40,6 +41,7 @@ export function initSyncClient(options: SyncClientOptions): () => void {
     try {
       doc.import(new Uint8Array(snapshotData));
       onRemoteUpdate();
+      options.onSnapshotReceived?.();
       console.log('[Sync] Loaded server snapshot');
     } catch (err) {
       console.warn('[Sync] Failed to import server snapshot:', err);

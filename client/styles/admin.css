@@ -282,6 +282,9 @@
 
 /* コピーボタンのスタイル */
 .btn-action--copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   background: rgba(16, 185, 129, 0.1);
   color: #10b981;
   border-color: rgba(16, 185, 129, 0.3);

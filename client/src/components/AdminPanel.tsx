@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import '../../styles/admin.css';
+import { createDoc, getAllNodes } from '../loro/schema';
+import { ExportDialog } from './ExportDialog';
+import type { StreamNodeWithIndex } from '../types';
 
 interface Room {
   _id: string;
@@ -20,6 +23,8 @@ export const AdminPanel: React.FC = () => {
   // 新規作成ダイアログ用
   const [isCreating, setIsCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
+  const [exportState, setExportState] = useState<{ docId: string; title: string; nodes: StreamNodeWithIndex[] } | null>(null);
+  const [isExportLoading, setIsExportLoading] = useState(false);
 
   const fetchRooms = async () => {
     try {
@@ -91,20 +96,24 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
-  const handleCopyCosenseText = async (docId: string) => {
+  const handleExport = async (room: Room) => {
     try {
-      const res = await fetch(`/api/rooms/${docId}/export/cosense-text`);
+      setIsExportLoading(true);
+      const res = await fetch(`/api/snapshot/${room.docId}`);
       if (!res.ok) {
         if (res.status === 404) {
           throw new Error('ルームが見つかりません。');
         }
-        throw new Error('Cosense用テキストの取得に失敗しました。');
+        throw new Error('ルームの内容の取得に失敗しました。');
       }
-      const text = await res.text();
-      await navigator.clipboard.writeText(text);
-      alert('Cosense用のテキストをクリップボードにコピーしました！');
+      const snapshot = await res.arrayBuffer();
+      const doc = createDoc();
+      doc.import(new Uint8Array(snapshot));
+      setExportState({ docId: room.docId, title: room.title || 'Chatment', nodes: getAllNodes(doc) });
     } catch (err: any) {
       alert(err.message || 'コピー中にエラーが発生しました。');
+    } finally {
+      setIsExportLoading(false);
     }
   };
 
@@ -121,8 +130,13 @@ export const AdminPanel: React.FC = () => {
       <td>{formatDate(room.updatedAt)}</td>
       <td>
         <div className="action-buttons">
-          <button className="btn-action btn-action--copy" onClick={() => handleCopyCosenseText(room.docId)}>
-            📋 コピー
+          <button className="btn-action btn-action--copy" onClick={() => handleExport(room)} disabled={isExportLoading}>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 3v12" />
+              <path d="m7 10 5 5 5-5" />
+              <path d="M5 21h14" />
+            </svg>
+            持ち出す
           </button>
           {actions}
         </div>
@@ -355,6 +369,33 @@ export const AdminPanel: React.FC = () => {
           </>
         )}
       </div>
+      {exportState && (
+        <ExportDialog
+          nodes={exportState.nodes}
+          roomTitle={exportState.title}
+          roomUrl={`${window.location.origin}/#${exportState.docId}`}
+          isAdmin
+          onClose={() => setExportState(null)}
+          onLog={({ type, order, format, settings, lines }) => {
+            const logSettings = order === 'both' ? settings.doc : settings[order];
+            void fetch(`/api/rooms/${exportState.docId}/export-log`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                details: {
+                  type: `export-${type}`,
+                  order,
+                  format,
+                  includeAuthor: logSettings.includeAuthor,
+                  includeTime: logSettings.includeTime,
+                  includeReactions: logSettings.includeReactions,
+                  lines,
+                },
+              }),
+            });
+          }}
+        />
+      )}
     </div>
   );
 };

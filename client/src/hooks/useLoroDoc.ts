@@ -18,6 +18,7 @@ export function useLoroDoc(userName: string | null, docId: string, isAdmin?: boo
   const [ratios, setRatios] = useState<{ id: string; ratio: number; docId: string; userName?: string; colorIndex?: number }[]>([]);
   const [ratioBands, setRatioBands] = useState<number[]>([]);
   const [isReady, setIsReady] = useState(false);
+  const [hasReceivedServerSnapshot, setHasReceivedServerSnapshot] = useState(false);
   const autoSaveRef = useRef<ReturnType<typeof createAutoSave> | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
@@ -47,6 +48,7 @@ export function useLoroDoc(userName: string | null, docId: string, isAdmin?: boo
     // 1. Create LoroDoc
     const doc = createDoc();
     docRef.current = doc;
+    setHasReceivedServerSnapshot(false);
 
     // 2. Load from LocalStorage
     const saved = loadSnapshot(docId);
@@ -83,6 +85,7 @@ export function useLoroDoc(userName: string | null, docId: string, isAdmin?: boo
       onRemoteUpdate: () => {
         refreshNodes();
       },
+      onSnapshotReceived: () => setHasReceivedServerSnapshot(true),
       onConnectionChange: (state) => {
         setConnectionState(state);
         if (state === 'connected' && userName) {
@@ -135,6 +138,7 @@ export function useLoroDoc(userName: string | null, docId: string, isAdmin?: boo
     connectionState,
     userCount,
     isReady,
+    hasReceivedServerSnapshot,
     refreshNodes,
     triggerSave,
     docId,

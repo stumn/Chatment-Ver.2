@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^npm install fflate$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
