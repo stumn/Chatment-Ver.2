@@ -137,9 +137,9 @@
   justify-content: center;
   gap: 4px;
   min-width: 44px;
-  height: 44px;
+  height: 32px;
   padding: 0 12px;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
   background: var(--bg-tertiary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-full);
@@ -197,6 +197,11 @@
   align-items: center;
   gap: 4px;
   margin-top: 6px;
+}
+
+.emoji-reaction-chips--chat {
+  justify-content: flex-end;
+  align-self: flex-end;
 }
 
 .emoji-reaction-chip {

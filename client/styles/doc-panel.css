@@ -1126,76 +1126,56 @@
   }
 }
 
-/* ─── Document Block Emoji Reaction Chips ─── */
-.emoji-reaction-chips--doc {
-  display: inline-flex;
-  flex-wrap: wrap;
+/* ─── Document Reaction Jump ─── */
+.doc-block__reaction-jump {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 20px;
+  display: flex;
   align-items: center;
-  gap: 3px;
-  margin-top: 2px;
-  margin-bottom: 2px;
-  /* 低コントラストで目立たせず、常時表示。ホバー時に少しコントラストを上げる（切り替えやすい構成） */
-  opacity: 0.65;
-  transition: opacity var(--transition-fast);
-}
-
-.doc-block:hover .emoji-reaction-chips--doc {
-  opacity: 1;
-}
-
-.emoji-reaction-chips--doc .emoji-reaction-chip {
-  height: 18px;
-  padding: 0 5px;
-  font-size: 10px;
-  background: rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: var(--radius-full);
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--split-chat);
   cursor: pointer;
-  user-select: none;
-  line-height: 1;
-  color: var(--text-muted);
-  transition: all var(--transition-fast);
+  opacity: 0.9;
+  pointer-events: auto;
+  transition: color var(--transition-fast), transform var(--transition-fast), opacity var(--transition-fast);
+  z-index: 100;
 }
 
-[data-theme="dark"] .emoji-reaction-chips--doc .emoji-reaction-chip {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: var(--text-secondary);
+.doc-block__reaction-jump svg {
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
 }
 
-.emoji-reaction-chips--doc .emoji-reaction-chip:hover {
-  background: var(--bg-elevated);
-  border-color: var(--border-medium);
-  transform: translateY(-1px);
-  color: var(--text-primary);
+.doc-block__reaction-jump path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
-.emoji-reaction-chips--doc .emoji-reaction-chip--active {
-  background: hsla(260, 65%, 55%, 0.12) !important;
-  border-color: var(--accent-primary) !important;
-  color: var(--accent-primary) !important;
-  font-weight: 600;
+.doc-block__reaction-jump circle:first-child {
+  fill: transparent;
+  stroke: currentColor;
+  stroke-width: 2;
 }
 
-.emoji-reaction-chips--doc .emoji-reaction-chip__emoji {
-  font-size: 11px;
-  line-height: 1;
+.doc-block__reaction-jump-eye {
+  fill: currentColor;
+  stroke: none;
 }
 
-.emoji-reaction-chips--doc .emoji-reaction-chip__count {
-  font-size: 9px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-
-.emoji-reaction-chips--doc .emoji-reaction-chip--more {
-  cursor: default;
-  background: transparent !important;
-  border-style: dashed;
-  color: var(--text-muted);
-  font-size: 9px;
-  padding: 0 4px;
+.doc-block__reaction-jump:hover,
+.doc-block__reaction-jump:focus-visible {
+  color: var(--split-chat);
+  opacity: 1;
+  transform: translateY(-50%) scale(1.12);
+  outline: none;
 }

@@ -1,12 +1,10 @@
 import React from 'react';
 import type { StreamNodeWithIndex, EmphasisLevel, AuthorInfo } from '../types';
 import type { LoroDoc } from 'loro-crdt';
-import { toggleEmojiReaction } from '../loro/schema';
 import { useBlockEditor } from '../hooks/useBlockEditor';
 import { BlockTimelineCircle } from './BlockTimelineCircle';
 import { BlockTimelineH1Button } from './BlockTimelineH1Button';
 import { BlockActionToolbar } from './BlockActionToolbar';
-import { EmojiReactionChips } from './EmojiReactionChips';
 
 interface DocBlockProps {
   nodeWithIndex: StreamNodeWithIndex;
@@ -81,12 +79,6 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     onAfterEdit,
   });
 
-  const handleToggleEmoji = (emoji: string) => {
-    if (!doc) return;
-    toggleEmojiReaction(doc, index, currentAuthorInfo.userId, emoji);
-    onAfterEdit();
-  };
-
   const getIndentMargin = (indent: number) => {
     if (indent === 1) return 32;
     if (indent >= 2) return 60;
@@ -110,6 +102,8 @@ export const DocBlock: React.FC<DocBlockProps> = ({
   if ('emojiReactions' in node && node.emojiReactions) {
     totalReactions += Object.values(node.emojiReactions).filter(v => v === true).length;
   }
+  const hasEmojiReactions = 'emojiReactions' in node
+    && Object.values(node.emojiReactions ?? {}).some(value => value === true);
   const voteScore = upvotes - downvotes;
 
   let dynamicStyle: React.CSSProperties = {
@@ -218,13 +212,31 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           dangerouslySetInnerHTML={{ __html: renderContentAsHTML() }}
           style={{ cursor: 'text' }}
         />
-        <EmojiReactionChips
-          emojiReactions={node.emojiReactions}
-          currentUserId={currentAuthorInfo.userId}
-          onToggleEmoji={handleToggleEmoji}
-          variant="doc"
-        />
       </div>
+      {hasEmojiReactions && (
+        <button
+          type="button"
+          className="doc-block__reaction-jump"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onJumpToNode(index, 'chat', 'doc-reaction');
+          }}
+          title="チャット側のリアクションへジャンプ"
+          aria-label="チャット側のリアクションへジャンプ"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="8.5" />
+            <circle className="doc-block__reaction-jump-eye" cx="9" cy="10" r="1" />
+            <circle className="doc-block__reaction-jump-eye" cx="15" cy="10" r="1" />
+            <path d="M8.5 14c1.8 2.2 5.2 2.2 7 0" />
+          </svg>
+        </button>
+      )}
       <BlockActionToolbar
         showDragHandle={showDragHandle}
         blockIndent={blockIndent}

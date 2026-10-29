@@ -19,12 +19,12 @@ interface OutlineSidebarProps {
   isCollapsed: boolean;
   onToggle: () => void;
   onOpenSidebar?: () => void;
-  docId?: string;
+  roomTitle?: string;
 }
 
 const POSITIVE_REACTIONS = new Set(['👍', '❤️', '😂', '🎉', '👀', '⇧']);
 
-export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToNode, isCollapsed, onToggle, onOpenSidebar, docId }) => {
+export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToNode, isCollapsed, onToggle, onOpenSidebar, roomTitle }) => {
   const outlineItems: OutlineItem[] = nodes
     .filter(({ node }) => {
       const text = node.content?.trim() ?? '';
@@ -111,7 +111,7 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToN
             {!isCollapsed && (
               <span className="outline-sidebar__brand-text">
                 <span className="outline-sidebar__brand-name">Chatment</span>
-                {docId ? <span className="outline-sidebar__brand-room">#{docId}</span> : null}
+                {roomTitle ? <span className="outline-sidebar__brand-room">{roomTitle}</span> : null}
               </span>
             )}
           </button>

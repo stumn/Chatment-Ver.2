@@ -333,7 +333,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
         isCollapsed={isSidebarCollapsed}
         onToggle={toggleSidebar}
         onOpenSidebar={openSidebar}
-        docId={docId}
+        roomTitle={roomTitle}
       />
 
       <header className="app-header" id="app-header">

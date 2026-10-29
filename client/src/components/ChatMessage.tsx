@@ -133,12 +133,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         <div className={`chat-message__content ${emphasisClass}`} style={dynamicStyle}>
           {renderWithLinks(content)}
         </div>
-        <EmojiReactionChips
-          emojiReactions={node.emojiReactions}
-          currentUserId={userId}
-          onToggleEmoji={handleToggleEmoji}
-          variant="chat"
-        />
+        {isHeading && (
+          <EmojiReactionChips
+            emojiReactions={node.emojiReactions}
+            currentUserId={userId}
+            onToggleEmoji={handleToggleEmoji}
+            variant="chat"
+          />
+        )}
       </div>
 
       {!isHeading && (
@@ -181,6 +183,12 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               />
             </div>
           </div>
+          <EmojiReactionChips
+            emojiReactions={node.emojiReactions}
+            currentUserId={userId}
+            onToggleEmoji={handleToggleEmoji}
+            variant="chat"
+          />
         </div>
       )}
     </div>
