@@ -323,6 +323,7 @@ body {
 .app-main {
   flex: 1;
   overflow: hidden;
+  min-width: 0;
 }
 
 /* ─── Connection Status ─── */
