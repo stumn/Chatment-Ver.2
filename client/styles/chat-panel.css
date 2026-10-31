@@ -160,6 +160,14 @@
   transition: all var(--transition-fast);
 }
 
+.chat-message__reaction-badge--upvote {
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.chat-message__reaction-badge--downvote {
+  background: rgba(239, 68, 68, 0.12);
+}
+
 .chat-message__reaction-badge:hover {
   background: var(--bg-elevated);
   border-color: var(--border-medium);
