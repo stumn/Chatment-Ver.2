@@ -5,6 +5,7 @@ import { useBlockEditor } from '../hooks/useBlockEditor';
 import { BlockTimelineCircle } from './BlockTimelineCircle';
 import { BlockTimelineH1Button } from './BlockTimelineH1Button';
 import { BlockActionToolbar } from './BlockActionToolbar';
+import { useThemeCustomization } from '../contexts/ThemeCustomizationContext';
 
 interface DocBlockProps {
   nodeWithIndex: StreamNodeWithIndex;
@@ -99,24 +100,77 @@ export const DocBlock: React.FC<DocBlockProps> = ({
       if (emoji === '⇩') downvotes++;
     });
   }
+  let emojiReactionCount = 0;
   if ('emojiReactions' in node && node.emojiReactions) {
-    totalReactions += Object.values(node.emojiReactions).filter(v => v === true).length;
+    emojiReactionCount = Object.values(node.emojiReactions).filter(v => v === true).length;
+    totalReactions += emojiReactionCount;
   }
-  const hasEmojiReactions = 'emojiReactions' in node
-    && Object.values(node.emojiReactions ?? {}).some(value => value === true);
+  const hasEmojiReactions = emojiReactionCount > 0;
   const voteScore = upvotes - downvotes;
+
+  const { themeSettings } = useThemeCustomization();
+  const showEmojiIndicator = hasEmojiReactions && themeSettings.reactionIcon === 'smile';
 
   let dynamicStyle: React.CSSProperties = {
     marginLeft: `${getIndentMargin(blockIndent)}px`,
     width: `calc(100% - ${getIndentMargin(blockIndent)}px)`,
     transition: 'background 0.3s ease, margin-left 0.2s ease, width 0.2s ease',
   };
-  if (voteScore > 0) {
-    const intensity = Math.min(1.0, Math.floor(voteScore / 2) * 0.15 + 0.1);
-    dynamicStyle = { ...dynamicStyle, background: `hsla(130, 60%, 45%, ${intensity})` };
-  } else if (voteScore < 0) {
-    const intensity = Math.min(1.0, Math.floor(Math.abs(voteScore) / 2) * 0.15 + 0.1);
-    dynamicStyle = { ...dynamicStyle, background: `hsla(0, 70%, 55%, ${intensity})` };
+
+  if (voteScore !== 0) {
+    const isPositive = voteScore > 0;
+    const rawIntensity = isPositive
+      ? Math.min(1.0, Math.floor(voteScore / 2) * 0.15 + 0.1)
+      : Math.min(1.0, Math.floor(Math.abs(voteScore) / 2) * 0.15 + 0.1);
+
+    // 背景色の濃さテーマ（全体薄めの場合、控えめで淡い色合いにする）
+    const effectiveIntensity = themeSettings.bgIntensity === 'soft'
+      ? Math.min(0.35, rawIntensity * 0.45)
+      : rawIntensity;
+
+    const hsl = isPositive ? '130, 60%, 45%' : '0, 70%, 55%';
+
+    // ベースの背景（通常ベタ塗り vs グラデーション）
+    // 「緑と赤の背景色について、右端から左にかけて薄くなっていき、中央で消えるようなグラデーションにする」
+    const baseBackground = themeSettings.bgStyle === 'gradient'
+      ? `linear-gradient(to left, hsla(${hsl}, ${effectiveIntensity}) 0%, hsla(${hsl}, ${effectiveIntensity * 0.35}) 35%, transparent 50%, transparent 100%)`
+      : `hsla(${hsl}, ${effectiveIntensity})`;
+
+    // インデントが最も深い部分（indent >= 2, margin = 60px）の投稿の半分と同じ幅
+    // 最深ブロック幅 = (100% - 60px)。その半分 = 50% - 30px (親幅基準)。
+    // 現在のブロック幅 = 100% - indentMargin。
+    // したがって、現在のブロックに対する幅は calc(50% + (indentMargin / 2 - 30)px)
+    const indentMargin = getIndentMargin(blockIndent);
+    const maxIndentMargin = 60;
+    const offsetPx = indentMargin / 2 - maxIndentMargin / 2;
+    const stripeWidth = offsetPx === 0
+      ? '50%'
+      : `calc(50% ${offsetPx > 0 ? '+' : '-'} ${Math.abs(offsetPx)}px)`;
+
+    // ストライプ（緑：右上がり＝135deg、赤：右下がり＝45deg、どの行でも最深インデントの半分幅）
+    if (themeSettings.stripes === 'stripe') {
+      const angle = isPositive ? '135deg' : '45deg';
+      // 文字が重なっても邪魔にならないよう大幅に薄く調整
+      const stripeAlpha = Math.min(0.09, effectiveIntensity * 0.08 + 0.03);
+      const stripeColor = isPositive
+        ? `hsla(130, 60%, 40%, ${stripeAlpha})`
+        : `hsla(0, 70%, 50%, ${stripeAlpha})`;
+
+      // 絵文字記号がある場合はその部分（右端44px）にストライプがかからないようにする
+      const rightOffset = showEmojiIndicator ? 44 : 0;
+      const finalStripeWidth = rightOffset > 0 ? `calc(${stripeWidth} - ${rightOffset}px)` : stripeWidth;
+      const finalStripePos = rightOffset > 0 ? `right ${rightOffset}px center` : 'right center';
+
+      dynamicStyle = {
+        ...dynamicStyle,
+        background: `repeating-linear-gradient(${angle}, ${stripeColor} 0px, ${stripeColor} 2px, transparent 2px, transparent 8px) ${finalStripePos} / ${finalStripeWidth} 100% no-repeat, ${baseBackground}`,
+      };
+    } else {
+      dynamicStyle = {
+        ...dynamicStyle,
+        background: baseBackground,
+      };
+    }
   }
   const showDragHandle = true;
   const isContentEmpty = node.content === '';
@@ -142,13 +196,13 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     }
     const urlRegex = /(https?:\/\/[^\s\u3000-\u9fff\uff00-\uffef<>"]+)/g;
     return text.replace(/&/g, '&amp;')
-               .replace(/</g, '&lt;')
-               .replace(/>/g, '&gt;')
-               .replace(/"/g, '&quot;')
-               .replace(/'/g, '&#039;')
-               .replace(urlRegex, (url) =>
-                 `<a href="${url}" target="_blank" rel="noopener noreferrer" class="doc-inline-link" onclick="event.stopPropagation()">${url}</a>`
-               );
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
+      .replace(urlRegex, (url) =>
+        `<a href="${url}" target="_blank" rel="noopener noreferrer" class="doc-inline-link" onclick="event.stopPropagation()">${url}</a>`
+      );
   };
 
   React.useEffect(() => {
@@ -213,7 +267,7 @@ export const DocBlock: React.FC<DocBlockProps> = ({
           style={{ cursor: 'text' }}
         />
       </div>
-      {hasEmojiReactions && (
+      {showEmojiIndicator && (
         <button
           type="button"
           className="doc-block__reaction-jump"
@@ -226,15 +280,16 @@ export const DocBlock: React.FC<DocBlockProps> = ({
             event.stopPropagation();
             onJumpToNode(index, 'chat', 'doc-reaction');
           }}
-          title="チャット側のリアクションへジャンプ"
-          aria-label="チャット側のリアクションへジャンプ"
+          title={`絵文字リアクションへジャンプ (${emojiReactionCount}件)`}
+          aria-label={`絵文字リアクションへジャンプ (${emojiReactionCount}件)`}
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="doc-block__reaction-jump-icon">
             <circle cx="12" cy="12" r="8.5" />
             <circle className="doc-block__reaction-jump-eye" cx="9" cy="10" r="1" />
             <circle className="doc-block__reaction-jump-eye" cx="15" cy="10" r="1" />
             <path d="M8.5 14c1.8 2.2 5.2 2.2 7 0" />
           </svg>
+          <span className="doc-block__reaction-jump-count">{emojiReactionCount}</span>
         </button>
       )}
       <BlockActionToolbar

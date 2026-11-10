@@ -1,0 +1,312 @@
+/* ─── Theme Customization Menu & Popover ─── */
+
+.theme-custom-menu-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.theme-custom-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  background: var(--bg-secondary, #ffffff);
+  border: 1px solid var(--border-medium, #e2e8f0);
+  border-radius: 6px;
+  color: var(--text-secondary, #475569);
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.theme-custom-toggle-btn:hover {
+  background: var(--bg-hover, #f1f5f9);
+  color: var(--text-primary, #0f172a);
+  border-color: var(--border-strong, #cbd5e1);
+}
+
+.theme-custom-toggle-btn.is-active {
+  background: var(--bg-hover, #e2e8f0);
+  color: var(--accent-primary, #3b82f6);
+  border-color: var(--accent-primary, #3b82f6);
+  box-shadow: 0 0 0 1px var(--accent-primary, #3b82f6);
+}
+
+/* ポップオーバー本体 */
+.theme-custom-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 330px;
+  max-width: 92vw;
+  background: var(--bg-secondary, #ffffff);
+  border: 1px solid var(--border-medium, #e2e8f0);
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: theme-popover-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes theme-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.theme-custom-popover__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-subtle, #f1f5f9);
+  background: var(--bg-tertiary, #f8fafc);
+}
+
+.theme-custom-popover__title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.theme-custom-popover__title {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+}
+
+/* ヘッダー内の「デフォルトに戻す」ボタン */
+.theme-custom-header-reset-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle, #cbd5e1);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 10px;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  line-height: 1.4;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.theme-custom-header-reset-btn:hover {
+  background: var(--bg-hover, #e2e8f0);
+  color: var(--text-primary, #0f172a);
+  border-color: var(--border-medium, #94a3b8);
+}
+
+.theme-custom-popover__close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #94a3b8);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.theme-custom-popover__close:hover {
+  background: var(--bg-hover, #e2e8f0);
+  color: var(--text-primary, #0f172a);
+}
+
+.theme-custom-popover__body {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+/* オプション行 */
+.theme-custom-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 0;
+  border-top: 1px solid var(--border-subtle, #f1f5f9);
+}
+
+.theme-custom-option:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+.theme-custom-option__info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* タイトルのフォントスタイル：太字を解除し通常フォントに統一 */
+.theme-custom-option__title {
+  font-size: 12px;
+  font-weight: normal;
+  color: var(--text-primary, #0f172a);
+  line-height: 1.3;
+}
+
+.theme-custom-option__desc {
+  font-size: 10px;
+  color: var(--text-muted, #64748b);
+  margin-top: 1px;
+}
+
+/* セグメンテッドコントロール */
+.theme-custom-segmented {
+  display: inline-flex;
+  background: var(--bg-tertiary, #f1f5f9);
+  padding: 2px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle, #e2e8f0);
+}
+
+.theme-custom-segmented__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  font-size: 11px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #475569);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.theme-custom-segmented__btn:hover {
+  color: var(--text-primary, #0f172a);
+}
+
+.theme-custom-segmented__btn.is-active {
+  background: var(--bg-secondary, #ffffff);
+  color: var(--accent-primary, #3b82f6);
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+/* ─── プレビューボックス（ミニアイコン） ─── */
+.theme-preview-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 10px;
+  border-radius: 2px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+/* 背景スタイル: 通常 (単色グリーン) */
+.theme-preview-box--solid {
+  background: hsla(130, 60%, 45%, 0.45);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+/* 背景スタイル: グラデーション (右端から左へ消える) */
+.theme-preview-box--gradient {
+  background: linear-gradient(to left, hsla(130, 60%, 45%, 0.55) 0%, transparent 80%);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* 濃さ: 通常 (しっかりめ) */
+.theme-preview-box--normal {
+  background: hsla(130, 60%, 45%, 0.6);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+/* 濃さ: 全体薄め (淡いソフトグリーン) */
+.theme-preview-box--soft {
+  background: hsla(130, 60%, 45%, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+/* ストライプ: なし (無地) */
+.theme-preview-box--no-stripe {
+  background: hsla(130, 60%, 45%, 0.25);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* ストライプ: あり (右半分に斜めストライプ) */
+.theme-preview-box--stripe {
+  background: repeating-linear-gradient(
+    135deg,
+    hsla(130, 70%, 35%, 0.5) 0px,
+    hsla(130, 70%, 35%, 0.5) 1.5px,
+    transparent 1.5px,
+    transparent 4px
+  ) right center / 60% 100% no-repeat, hsla(130, 60%, 45%, 0.22);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+/* 絵文字マーク: ニコちゃん */
+.theme-preview-box--smile {
+  background: transparent;
+  color: #8c8c8c;
+}
+
+.theme-preview-box--smile svg {
+  display: block;
+}
+
+/* 絵文字マーク: 非表示 (打ち消し線) */
+.theme-preview-box--none {
+  background: transparent;
+  color: #94a3b8;
+}
+
+.theme-preview-box--none svg {
+  display: block;
+}
+
+/* ─── ダークモード対応 ─── */
+[data-theme="dark"] .theme-custom-popover {
+  border-color: #3f3f46;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .theme-custom-popover__header {
+  border-bottom-color: #27272a;
+}
+
+[data-theme="dark"] .theme-custom-header-reset-btn {
+  border-color: #3f3f46;
+  color: #a1a1aa;
+}
+
+[data-theme="dark"] .theme-custom-header-reset-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4f4f5;
+  border-color: #71717a;
+}
+
+[data-theme="dark"] .theme-custom-option {
+  border-top-color: #27272a;
+}
+
+[data-theme="dark"] .theme-custom-segmented {
+  background: #18181b;
+  border-color: #27272a;
+}
+
+[data-theme="dark"] .theme-custom-segmented__btn.is-active {
+  background: #27272a;
+  color: #60a5fa;
+}

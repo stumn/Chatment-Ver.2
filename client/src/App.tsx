@@ -14,6 +14,7 @@ import { ConnectionStatus } from './components/ConnectionStatus';
 import { GuideModal } from './components/GuideModal';
 import { OutlineSidebar } from './components/OutlineSidebar';
 import { ExportDialog } from './components/ExportDialog';
+import { ThemeCustomizationMenu } from './components/ThemeCustomizationMenu';
 
 import { AdminPanel } from './components/AdminPanel';
 import { CautiousConfirmProvider } from './components/CautiousConfirmModal';
@@ -554,12 +555,13 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
             </div>
           </div>
 
-          <div className="app-header__right" style={{ display: 'flex', alignItems: 'center' }}>
+          <div className="app-header__right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ThemeCustomizationMenu />
             <button
               className="toolbar-btn theme-toggle-btn"
               onClick={toggleTheme}
               title={theme === 'light' ? 'ダークモードに切り替え' : 'ライトモードに切り替え'}
-              style={{ marginRight: '12px' }}
+              style={{ marginRight: '4px' }}
             >
               {theme === 'light' ? (
                 <svg viewBox="0 0 24 24" width="15" height="15">
@@ -570,23 +572,23 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
                   <path fill="currentColor" d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41l-1.06-1.06zm1.06-12.37c-.39-.39-1.02-.39-1.41 0l-1.06 1.06c-.39.38-.39 1.02 0 1.41s1.02.39 1.41 0l1.06-1.06c.38-.38.38-1.02 0-1.41zm-12.37 12.37l-1.06 1.06c-.39.39-.39 1.02 0 1.41s1.02.39 1.41 0l1.06-1.06c.39-.38.39-1.02 0-1.41z" />
                 </svg>
               )}
-              {isExportOpen && (
-                <ExportDialog
-                  nodes={nodes}
-                  roomTitle={roomTitle}
-                  roomUrl={`${window.location.origin}/#${docId}`}
-                  isAdmin={isAdmin}
-                  onClose={() => setIsExportOpen(false)}
-                  onLog={({ type, order, format, settings, lines }) => {
-                    const logSettings = order === 'both' ? settings.doc : settings[order];
-                    emitUserAction({
-                      type: `export-${type}`,
-                      actionDetails: JSON.stringify({ order, format, includeAuthor: logSettings.includeAuthor, includeTime: logSettings.includeTime, includeReactions: logSettings.includeReactions, lines }),
-                    });
-                  }}
-                />
-              )}
             </button>
+            {isExportOpen && (
+              <ExportDialog
+                nodes={nodes}
+                roomTitle={roomTitle}
+                roomUrl={`${window.location.origin}/#${docId}`}
+                isAdmin={isAdmin}
+                onClose={() => setIsExportOpen(false)}
+                onLog={({ type, order, format, settings, lines }) => {
+                  const logSettings = order === 'both' ? settings.doc : settings[order];
+                  emitUserAction({
+                    type: `export-${type}`,
+                    actionDetails: JSON.stringify({ order, format, includeAuthor: logSettings.includeAuthor, includeTime: logSettings.includeTime, includeReactions: logSettings.includeReactions, lines }),
+                  });
+                }}
+              />
+            )}
             <span className="app-header__user">
               <span className="app-header__user-icon" title={`現在 ${userCount} 人が接続中`}></span>
               <span>{currentAuthorInfo?.displayName || realName}</span>
