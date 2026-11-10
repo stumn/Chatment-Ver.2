@@ -17,54 +17,52 @@ export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
         </div>
 
         <p className="guide-intro">
-          Chatmentは、チャットとドキュメントが縦につながったコミュニケーションツールです。まずは、以下の5つの特徴を使ってみてください！：
+          Chatmentは、チャットとドキュメントが縦につながったコミュニケーションツールです。
         </p>
 
         <div className="guide-features">
           <div className="guide-feature-item">
             <div className="guide-feature-item__title">
-              1. チャットとドキュメントの見た目の違い
+              1. 仕切りで広さを変える
             </div>
             <div className="guide-feature-item__desc">
-              真ん中の仕切りの上下はそれぞれ、ドキュメント画面とチャット画面。どちらからも書き込むことができるし、仕切りをドラッグして好きなほうを広くして使うことができます。
+              上がドキュメント、下がチャット。どちらからも書き込めます。仕切りをドラッグすると、自分の画面だけ広さが変わります。
             </div>
           </div>
 
           <div className="guide-feature-item">
             <div className="guide-feature-item__title">
-              2. チャット画面のリアクションボタン
+              2. リアクション
             </div>
             <div className="guide-feature-item__desc">
-              チャット画面にある「<strong>⇧</strong>」「<strong>⇩</strong>」ボタンを押すと、同意・つっこみの意思を表明できます。ボタンが押された数に応じてメッセージのサイズと色が変わります。実は、ドキュメント側にもリアクションに応じて背景が色付きます。
+              チャットの 👍👎 や ＋ で反応できます。結果はドキュメントの背景色にも出ます。
             </div>
           </div>
 
           <div className="guide-feature-item">
             <div className="guide-feature-item__title">
-              3. ドキュメント画面の編集と並び替え
+              3. ドキュメントの編集
             </div>
             <div className="guide-feature-item__desc">
-              ドキュメント画面では、直接カーソルをおいて編集できます。編集中は他の人には見えなくて、他の部分をクリックするとみんなに編集後の様子が共有されます。
-              また、左端のドラッグハンドル「<strong>⣿</strong>」をドラッグして順序を並べ替えることができます。
+              クリックしてそのまま編集できます。編集中は他の人に見えず、確定すると共有されます。右端の「⣿」で並べ替えできます。
             </div>
           </div>
 
           <div className="guide-feature-item">
             <div className="guide-feature-item__title">
-              4. 双方向ジャンプ機能
+              4. ジャンプ
             </div>
             <div className="guide-feature-item__desc">
-              チャットメッセージをクリックすると、ドキュメントの該当箇所へ自動スクロールします。また、ドキュメントブロックの左端の丸をクリックすれば、チャットの該当メッセージへ双方向にジャンプします。
+              チャットの発言をクリックするとドキュメントの該当箇所へ、ドキュメント左端の丸をクリックするとチャットの該当発言へ移動します。
             </div>
           </div>
 
           <div className="guide-feature-item">
             <div className="guide-feature-item__title">
-              5. 見出しとインデント機能
+              5. 見出しとインデント
             </div>
             <div className="guide-feature-item__desc">
-              H1ボタンを押すと、見出しを作ることができます。
-              また、＞ボタンを押すとインデントすることができます。
+              「H1」で見出し、「＞」でインデントできます。
             </div>
           </div>
 
