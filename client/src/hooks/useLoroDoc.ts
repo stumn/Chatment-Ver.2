@@ -1,7 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { LoroDoc } from 'loro-crdt';
 import { createDoc, getAllNodes } from '../loro/schema';
-import { initUndoManager, setupUndoKeyBindings, destroyUndoManager, getUndoManager, undo as loroUndo, redo as loroRedo } from '../loro/undo-manager';
+import {
+  initUndoManager,
+  setupUndoKeyBindings,
+  destroyUndoManager,
+  getUndoManager,
+  undo as loroUndo,
+  redo as loroRedo,
+  getNextUndoItem,
+  getNextRedoItem,
+  resolveTargetInfo,
+  type UndoRedoTargetInfo,
+} from '../loro/undo-manager';
 import { loadSnapshot, saveSnapshot, createAutoSave, loadUserColorIndex, saveUserColorIndex } from '../loro/local-storage';
 import { initSyncClient, sendUpdate, getSocketId, login, type ConnectionState } from '../loro/sync-client';
 import type { StreamNodeWithIndex } from '../types';
@@ -22,19 +33,35 @@ export function useLoroDoc(userName: string | null, docId: string, isAdmin?: boo
   const autoSaveRef = useRef<ReturnType<typeof createAutoSave> | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [nextUndoTarget, setNextUndoTarget] = useState<UndoRedoTargetInfo | null>(null);
+  const [nextRedoTarget, setNextRedoTarget] = useState<UndoRedoTargetInfo | null>(null);
   const [myColorIndex, setMyColorIndex] = useState<number | undefined>(undefined);
-  const updateUndoRedoStatus = useCallback(() => {
+  const nodesRef = useRef<StreamNodeWithIndex[]>([]);
+
+  const updateUndoRedoStatus = useCallback((customNodes?: StreamNodeWithIndex[]) => {
     const um = getUndoManager();
+    const currentNodes = customNodes || nodesRef.current;
     if (um) {
-      setCanUndo(um.canUndo());
-      setCanRedo(um.canRedo());
+      const u = um.canUndo();
+      const r = um.canRedo();
+      setCanUndo(u);
+      setCanRedo(r);
+      setNextUndoTarget(u ? resolveTargetInfo(getNextUndoItem(), currentNodes) : null);
+      setNextRedoTarget(r ? resolveTargetInfo(getNextRedoItem(), currentNodes) : null);
+    } else {
+      setCanUndo(false);
+      setCanRedo(false);
+      setNextUndoTarget(null);
+      setNextRedoTarget(null);
     }
   }, []);
 
   const refreshNodes = useCallback(() => {
     if (!docRef.current) return;
     const allNodes = getAllNodes(docRef.current);
+    nodesRef.current = allNodes;
     setNodes(allNodes);
+    return allNodes;
   }, []);
 
   const triggerSave = useCallback(() => {
@@ -70,8 +97,8 @@ export function useLoroDoc(userName: string | null, docId: string, isAdmin?: boo
 
     // 5. Subscribe to changes
     const unsubscribe = doc.subscribe((event) => {
-      refreshNodes();
-      updateUndoRedoStatus();
+      const nextNodes = refreshNodes();
+      updateUndoRedoStatus(nextNodes);
       // Auto-save and broadcast local edits (like typing, D&D, or Undo/Redo)
       // Do not save when the document is in a detached / historical state
       if (event.by === 'local' && !doc.isDetached()) {
@@ -146,16 +173,24 @@ export function useLoroDoc(userName: string | null, docId: string, isAdmin?: boo
     ratioBands,
     canUndo,
     canRedo,
+    nextUndoTarget,
+    nextRedoTarget,
     myColorIndex,
     undo: useCallback(() => {
-      const success = loroUndo();
-      updateUndoRedoStatus();
-      return success;
-    }, [updateUndoRedoStatus]),
+      const nextItem = getNextUndoItem();
+      const targetInfo = resolveTargetInfo(nextItem, nodesRef.current);
+      const res = loroUndo();
+      const updatedNodes = refreshNodes();
+      updateUndoRedoStatus(updatedNodes);
+      return { success: res.success, target: targetInfo };
+    }, [refreshNodes, updateUndoRedoStatus]),
     redo: useCallback(() => {
-      const success = loroRedo();
-      updateUndoRedoStatus();
-      return success;
-    }, [updateUndoRedoStatus]),
+      const nextItem = getNextRedoItem();
+      const targetInfo = resolveTargetInfo(nextItem, nodesRef.current);
+      const res = loroRedo();
+      const updatedNodes = refreshNodes();
+      updateUndoRedoStatus(updatedNodes);
+      return { success: res.success, target: targetInfo };
+    }, [refreshNodes, updateUndoRedoStatus]),
   };
 }

@@ -75,7 +75,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
     setCurrentAuthorInfo(info);
     try {
       sessionStorage.setItem('chatment-author-info', JSON.stringify(info));
-    } catch {}
+    } catch { }
   }, []);
 
   const [isGuideOpen, setIsGuideOpen] = useState(false);
@@ -169,7 +169,24 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
   }, []);
   const chatPanelRef = useRef<HTMLDivElement>(null);
 
-  const { doc, nodes, connectionState, userCount, isReady, hasReceivedServerSnapshot, triggerSave, ratios, ratioBands, undo, redo, canUndo, canRedo, myColorIndex } = useLoroDoc(realName, docId, isAdmin);
+  const {
+    doc,
+    nodes,
+    connectionState,
+    userCount,
+    isReady,
+    hasReceivedServerSnapshot,
+    triggerSave,
+    ratios,
+    ratioBands,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    nextUndoTarget,
+    nextRedoTarget,
+    myColorIndex,
+  } = useLoroDoc(realName, docId, isAdmin);
   const { ratio, setRatio, containerRef, handleMouseDown, handleDoubleClick, isDragging } = useSplitView({
     onDragStart: (startRatio) => {
       emitUserAction({
@@ -371,6 +388,91 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
     triggerSave();
   }, [triggerSave]);
 
+  const [hoveredHistoryBtn, setHoveredHistoryBtn] = useState<'undo' | 'redo' | null>(null);
+  const [isHistoryTargetInView, setIsHistoryTargetInView] = useState<boolean>(true);
+
+  // Undo / Redo ボタンホバー時に対象ブロックをハイライト表示
+  useEffect(() => {
+    const prevUndoEls = document.querySelectorAll('.history-target-highlight--undo');
+    prevUndoEls.forEach(el => el.classList.remove('history-target-highlight--undo'));
+    const prevRedoEls = document.querySelectorAll('.history-target-highlight--redo');
+    prevRedoEls.forEach(el => el.classList.remove('history-target-highlight--redo'));
+
+    if (!hoveredHistoryBtn) return;
+
+    const target = hoveredHistoryBtn === 'undo' ? nextUndoTarget : nextRedoTarget;
+    if (!target) return;
+
+    let elem: HTMLElement | null = null;
+    if (target.domId) {
+      elem = document.getElementById(target.domId);
+    }
+    if (!elem && target.nodeIndex !== undefined) {
+      elem = document.getElementById(target.panel === 'chat' ? `chat-message-${target.nodeIndex}` : `doc-block-${target.nodeIndex}`);
+    }
+
+    if (elem) {
+      const cls = hoveredHistoryBtn === 'undo' ? 'history-target-highlight--undo' : 'history-target-highlight--redo';
+      elem.classList.add(cls);
+
+      const rect = elem.getBoundingClientRect();
+      const inView =
+        rect.top >= 0 &&
+        rect.left >= 0 &&
+        rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+        rect.right <= (window.innerWidth || document.documentElement.clientWidth);
+      setIsHistoryTargetInView(inView);
+    } else {
+      setIsHistoryTargetInView(false);
+    }
+
+    return () => {
+      if (elem) {
+        elem.classList.remove('history-target-highlight--undo', 'history-target-highlight--redo');
+      }
+    };
+  }, [hoveredHistoryBtn, nextUndoTarget, nextRedoTarget]);
+
+  const handleExecuteUndo = useCallback(() => {
+    emitUserAction({ type: 'undo', actionDetails: '取り消し操作' });
+    const { success, target } = undo();
+    if (success && target) {
+      setTimeout(() => {
+        const targetId = target.domId || (target.nodeIndex !== undefined ? (target.panel === 'chat' ? `chat-message-${target.nodeIndex}` : `doc-block-${target.nodeIndex}`) : null);
+        if (targetId) {
+          const el = document.getElementById(targetId);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            el.classList.remove('jump-flash-animated');
+            void el.offsetWidth;
+            el.classList.add('jump-flash-animated');
+            setTimeout(() => el.classList.remove('jump-flash-animated'), 1000);
+          }
+        }
+      }, 50);
+    }
+  }, [undo]);
+
+  const handleExecuteRedo = useCallback(() => {
+    emitUserAction({ type: 'redo', actionDetails: 'やり直し操作' });
+    const { success, target } = redo();
+    if (success && target) {
+      setTimeout(() => {
+        const targetId = target.domId || (target.nodeIndex !== undefined ? (target.panel === 'chat' ? `chat-message-${target.nodeIndex}` : `doc-block-${target.nodeIndex}`) : null);
+        if (targetId) {
+          const el = document.getElementById(targetId);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            el.classList.remove('jump-flash-animated');
+            void el.offsetWidth;
+            el.classList.add('jump-flash-animated');
+            setTimeout(() => el.classList.remove('jump-flash-animated'), 1000);
+          }
+        }
+      }, 50);
+    }
+  }, [redo]);
+
   const {
     dragState,
     handleDragStart,
@@ -390,7 +492,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
         sessionStorage.setItem('chatment-real-name', name);
         sessionStorage.setItem('chatment-handle-options', JSON.stringify(options));
         sessionStorage.setItem('chatment-author-info', JSON.stringify(options[0]));
-      } catch {}
+      } catch { }
     }} />;
   }
 
@@ -419,27 +521,98 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
 
           <div className="app-header__center-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {/* 履歴操作 */}
-            <div className="toolbar-group" title="履歴操作" style={{ display: 'flex', gap: '2px' }}>
-              <button
-                className="toolbar-btn"
-                onClick={() => { emitUserAction({ type: 'undo', actionDetails: '取り消し操作' }); undo(); }}
-                disabled={!canUndo}
-                title="取り消し (Ctrl+Z)"
+            <div className="toolbar-group" style={{ display: 'flex', gap: '2px' }}>
+              <div
+                className="history-btn-wrapper"
+                onMouseEnter={() => setHoveredHistoryBtn('undo')}
+                onMouseLeave={() => setHoveredHistoryBtn(null)}
               >
-                <svg viewBox="0 0 24 24" width="14" height="14">
-                  <path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C23.77 10.96 18.66 8 12.5 8z" />
-                </svg>
-              </button>
-              <button
-                className="toolbar-btn"
-                onClick={() => { emitUserAction({ type: 'redo', actionDetails: 'やり直し操作' }); redo(); }}
-                disabled={!canRedo}
-                title="やり直し (Ctrl+Y)"
+                <button
+                  className="toolbar-btn"
+                  onClick={handleExecuteUndo}
+                  disabled={!canUndo}
+                  aria-label="取り消し (Ctrl+Z)"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14">
+                    <path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C23.77 10.96 18.66 8 12.5 8z" />
+                  </svg>
+                </button>
+                {hoveredHistoryBtn === 'undo' && (
+                  <div className="history-tooltip" role="tooltip">
+                    <div className="history-tooltip__header">
+                      <span>取り消し</span>
+                      <span className="history-tooltip__shortcut">Ctrl+Z</span>
+                    </div>
+                    {canUndo && nextUndoTarget ? (
+                      <div className="history-tooltip__body">
+                        <div className="history-tooltip__target-row">
+                          <span className="history-tooltip__target-badge">
+                            📍 {nextUndoTarget.locationLabel}
+                          </span>
+                          <span className="history-tooltip__action-label">
+                            {nextUndoTarget.actionLabel}
+                          </span>
+                        </div>
+                        {nextUndoTarget.snippet ? (
+                          <div className="history-tooltip__snippet">
+                            {nextUndoTarget.snippet}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className="history-tooltip__empty">
+                        元に戻せる操作はありません
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div
+                className="history-btn-wrapper"
+                onMouseEnter={() => setHoveredHistoryBtn('redo')}
+                onMouseLeave={() => setHoveredHistoryBtn(null)}
               >
-                <svg viewBox="0 0 24 24" width="14" height="14">
-                  <path fill="currentColor" d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-6.16 0-11.27 2.96-12.87 7.22l2.37.78c1.05-3.19 4.06-5.5 7.6-5.5 1.96 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z" />
-                </svg>
-              </button>
+                <button
+                  className="toolbar-btn"
+                  onClick={handleExecuteRedo}
+                  disabled={!canRedo}
+                  aria-label="やり直し (Ctrl+Y)"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14">
+                    <path fill="currentColor" d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-6.16 0-11.27 2.96-12.87 7.22l2.37.78c1.05-3.19 4.06-5.5 7.6-5.5 1.96 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z" />
+                  </svg>
+                </button>
+                {hoveredHistoryBtn === 'redo' && (
+                  <div className="history-tooltip" role="tooltip">
+                    <div className="history-tooltip__header">
+                      <span>やり直し</span>
+                      <span className="history-tooltip__shortcut">Ctrl+Y</span>
+                    </div>
+                    {canRedo && nextRedoTarget ? (
+                      <div className="history-tooltip__body">
+                        <div className="history-tooltip__target-row">
+                          <span className="history-tooltip__target-badge history-tooltip__target-badge--redo">
+                            📍 {nextRedoTarget.locationLabel}
+                          </span>
+                          <span className="history-tooltip__action-label">
+                            {nextRedoTarget.actionLabel}
+                          </span>
+                        </div>
+                        {nextRedoTarget.snippet ? (
+                          <div className="history-tooltip__snippet">
+                            {nextRedoTarget.snippet}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className="history-tooltip__empty">
+                        やり直せる操作はありません
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="toolbar-divider" style={{ width: '1px', height: '18px', background: 'var(--border-medium)' }} />
@@ -683,7 +856,7 @@ export const App: React.FC = () => {
   const verifyRoom = useCallback(async (targetDocId: string) => {
     try {
       setRoomState(prev => ({ ...prev, loading: true, error: null }));
-      
+
       const res = await fetch(`/api/rooms/${targetDocId}`);
       if (!res.ok) {
         if (res.status === 404) {
@@ -692,15 +865,15 @@ export const App: React.FC = () => {
         throw new Error('ルームの接続確認に失敗しました。');
       }
       const room = await res.json();
-      
+
       // Check closed/hidden status
       const searchParams = new URLSearchParams(window.location.search);
       const isAdminParam = searchParams.get('admin') === 'true';
-      
+
       if (room.status !== 'open' && !isAdminParam) {
         throw new Error('このルームは終了しているか、アクセスできません。');
       }
-      
+
       setRoomState({
         loading: false,
         error: null,
