@@ -180,7 +180,7 @@ export const ThemeCustomizationMenu: React.FC = () => {
                       <path d="M8.5 14c1.8 2.2 5.2 2.2 7 0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                     </svg>
                   </span>
-                  ニコちゃん
+                  アイコン
                 </button>
                 <button
                   type="button"
