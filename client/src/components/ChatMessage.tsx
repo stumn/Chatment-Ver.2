@@ -4,12 +4,16 @@ import type { LoroDoc } from 'loro-crdt';
 import { addReaction, toggleEmojiReaction } from '../loro/schema';
 import { EmojiReactionChips } from './EmojiReactionChips';
 import { EmojiReactionPicker } from './EmojiReactionPicker';
+import { PostActionMenu } from './PostActionMenu';
 
 interface ChatMessageProps {
   nodeWithIndex: StreamNodeWithIndex;
   doc: LoroDoc | null;
   isOwn: boolean;
   userId: string;
+  isMenuOpen?: boolean;
+  onToggleMenu?: (open: boolean) => void;
+  onRequestDelete?: () => void;
   onAfterEdit: () => void;
   onJumpToNode: (index: number, target: 'doc' | 'chat', source?: string) => void;
 }
@@ -19,6 +23,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   doc,
   isOwn,
   userId,
+  isMenuOpen = false,
+  onToggleMenu,
+  onRequestDelete,
   onAfterEdit,
   onJumpToNode,
 }) => {
@@ -95,6 +102,15 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const isHeading = (node as any).heading === 'h1' || /^[#＃]/.test(content);
   const headingClass = isHeading ? 'chat-message--heading-h1' : '';
 
+  // 1章: 自分の投稿判定 (authorUserId で比較) かつ 本文が空でない行
+  const isOwnMessage = Boolean(userId && node.author?.userId === userId);
+  const hasContent = Boolean(content && content.trim() !== '');
+  const showMenu = isOwnMessage && hasContent;
+
+  const handleEditInDoc = () => {
+    onJumpToNode(index, 'doc', 'chat-menu-edit');
+  };
+
   // URL を検出してリンクに変換
   const renderWithLinks = (text: string) => {
     const urlRegex = /(https?:\/\/[^\s\u3000-\u9fff\uff00-\uffef]+)/g;
@@ -143,9 +159,30 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         )}
       </div>
 
+      {isHeading && showMenu && (
+        <div className="chat-message__side-actions" onClick={(e) => e.stopPropagation()}>
+          <div className="chat-message__reaction-list">
+            <PostActionMenu
+              isOpen={isMenuOpen}
+              onToggle={(open) => onToggleMenu?.(open)}
+              onEditInDoc={handleEditInDoc}
+              onRequestDelete={() => onRequestDelete?.()}
+            />
+          </div>
+        </div>
+      )}
+
       {!isHeading && (
         <div className="chat-message__side-actions" onClick={(e) => e.stopPropagation()}>
           <div className="chat-message__reaction-list">
+            {showMenu && (
+              <PostActionMenu
+                isOpen={isMenuOpen}
+                onToggle={(open) => onToggleMenu?.(open)}
+                onEditInDoc={handleEditInDoc}
+                onRequestDelete={() => onRequestDelete?.()}
+              />
+            )}
             <button
               className={`chat-message__reaction-badge chat-message__reaction-badge--upvote ${myReaction === '⇧' ? 'chat-message__reaction-badge--active' : ''}`}
               onClick={(e) => handleVote('⇧', e)}

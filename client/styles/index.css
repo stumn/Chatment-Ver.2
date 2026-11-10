@@ -26,6 +26,7 @@
   --accent-secondary-hover: #292524;
   --split-chat: #e8793a;
   --split-doc: #3b82f6;
+  --color-danger: #c62828;
 
   /* Chat bubbles */
   --bubble-own: #3b82f6;
@@ -790,6 +791,7 @@ body {
   --accent-secondary-hover: #fafaf9;
   --split-chat: #e8793a;
   --split-doc: #3b82f6;
+  --color-danger: #ff6b6b;
 
   /* Chat bubbles */
   --bubble-own: #3b82f6;

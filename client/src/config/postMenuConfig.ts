@@ -39,3 +39,4 @@ export const POST_MENU_CONFIG = {
 } as const;
 
 export type PostMenuConfig = typeof POST_MENU_CONFIG;
+

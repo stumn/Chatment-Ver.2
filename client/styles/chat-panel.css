@@ -680,3 +680,197 @@
   color: var(--text-muted);
   margin-top: 1px;
 }
+
+/* ─── Post Action Menu (⋮) ─── */
+.post-action-menu {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.post-action-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 32px;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 16px;
+  font-family: inherit;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.35;
+  transition: opacity var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+  user-select: none;
+}
+
+.post-action-menu__trigger:hover,
+.post-action-menu__trigger:focus-visible,
+.post-action-menu__trigger--open {
+  opacity: 1;
+  background: var(--bg-tertiary);
+  border-color: var(--border-subtle);
+}
+
+.post-action-menu__trigger:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+/* ドロップダウンメニュー */
+.post-action-menu__dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 140px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  padding: 4px 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+}
+
+.post-action-menu__item {
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+}
+
+.post-action-menu__item:hover,
+.post-action-menu__item:focus-visible {
+  background: var(--bg-tertiary);
+  outline: none;
+}
+
+.post-action-menu__item--delete {
+  color: var(--color-danger) !important;
+}
+
+.post-action-menu__item--delete:hover,
+.post-action-menu__item--delete:focus-visible {
+  background: rgba(198, 40, 40, 0.08);
+}
+[data-theme="dark"] .post-action-menu__item--delete:hover,
+[data-theme="dark"] .post-action-menu__item--delete:focus-visible {
+  background: rgba(255, 107, 107, 0.12);
+}
+
+/* ─── Delete Confirm Modal ─── */
+.delete-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.delete-confirm-modal {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 440px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: scaleIn 0.15s ease-out;
+}
+
+.delete-confirm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.delete-confirm-text {
+  margin: 0;
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.delete-confirm-text--primary {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.delete-confirm-text--secondary {
+  color: var(--text-secondary);
+}
+
+.delete-confirm-text--subauthors,
+.delete-confirm-text--reactions {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent-primary);
+}
+
+.delete-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.delete-confirm-btn {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--transition-fast);
+  border: 1px solid var(--border-medium);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.delete-confirm-btn:hover {
+  background: var(--bg-tertiary);
+}
+
+.delete-confirm-btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+.delete-confirm-btn--delete {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.delete-confirm-btn--delete:hover {
+  background: rgba(198, 40, 40, 0.08);
+}
+
+[data-theme="dark"] .delete-confirm-btn--delete:hover {
+  background: rgba(255, 107, 107, 0.12);
+}

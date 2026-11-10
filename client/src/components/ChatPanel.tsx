@@ -1,13 +1,15 @@
-import React, { useRef, useEffect } from 'react';
-import type { StreamNodeWithIndex } from '../types';
+import React, { useRef, useEffect, useState } from 'react';
+import type { StreamNodeWithIndex, AuthorInfo } from '../types';
 import type { LoroDoc } from 'loro-crdt';
 import { ChatMessage } from './ChatMessage';
+import { DeleteConfirmModal } from './DeleteConfirmModal';
 
 interface ChatPanelProps {
   nodes: StreamNodeWithIndex[];
   doc: LoroDoc | null;
   userName: string;
   userId: string;
+  currentAuthorInfo?: AuthorInfo;
   panelRef: React.RefObject<HTMLDivElement | null>;
   ratio: number;
   onAfterEdit: () => void;
@@ -19,6 +21,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   doc,
   userName,
   userId,
+  currentAuthorInfo = { displayName: userName, realName: userName, userId },
   panelRef,
   ratio,
   onAfterEdit,
@@ -27,8 +30,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
-  const [showUnreadBanner, setShowUnreadBanner] = React.useState(false);
+  const [showUnreadBanner, setShowUnreadBanner] = useState(false);
   const rafIdRef = useRef<number | null>(null);
+
+  // 2章: 同時に開くメニューは1つだけ
+  const [openMenuBlockId, setOpenMenuBlockId] = useState<string | null>(null);
+  // 5章: 削除確認ダイアログの対象ノード
+  const [deleteTargetNode, setDeleteTargetNode] = useState<StreamNodeWithIndex | null>(null);
 
   // アンマウント時にタイマーを解除するクリーンアップ
   useEffect(() => {
@@ -103,12 +111,25 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             doc={doc}
             isOwn={nodeWithIndex.node.author.userId === userId}
             userId={userId}
+            isMenuOpen={openMenuBlockId === nodeWithIndex.node.blockId}
+            onToggleMenu={(open) => setOpenMenuBlockId(open ? nodeWithIndex.node.blockId : null)}
+            onRequestDelete={() => setDeleteTargetNode(nodeWithIndex)}
             onAfterEdit={onAfterEdit}
             onJumpToNode={onJumpToNode}
           />
         ))}
         <div ref={messagesEndRef} />
       </div>
+
+      <DeleteConfirmModal
+        isOpen={deleteTargetNode !== null}
+        nodeWithIndex={deleteTargetNode}
+        doc={doc}
+        currentUserId={userId}
+        currentAuthorInfo={currentAuthorInfo}
+        onClose={() => setDeleteTargetNode(null)}
+        onAfterEdit={onAfterEdit}
+      />
 
       {showUnreadBanner && (
         <button

@@ -17,12 +17,43 @@ import { ExportDialog } from './components/ExportDialog';
 
 import { AdminPanel } from './components/AdminPanel';
 import { CautiousConfirmProvider } from './components/CautiousConfirmModal';
+import { POST_MENU_CONFIG } from './config/postMenuConfig';
 
 export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitle: string }> = ({ docId, isAdmin, roomTitle }) => {
-  const [realName, setRealName] = useState<string | null>(null);
-  const [currentAuthorInfo, setCurrentAuthorInfo] = useState<AuthorInfo | null>(null);
-  const [handleNameOptions, setHandleNameOptions] = useState<AuthorInfo[]>([]);
-  const [userId] = useState(() => `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
+  const [realName, setRealName] = useState<string | null>(() => {
+    try {
+      return sessionStorage.getItem('chatment-real-name') || null;
+    } catch {
+      return null;
+    }
+  });
+  const [currentAuthorInfo, setCurrentAuthorInfo] = useState<AuthorInfo | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('chatment-author-info');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [handleNameOptions, setHandleNameOptions] = useState<AuthorInfo[]>(() => {
+    try {
+      const saved = sessionStorage.getItem('chatment-handle-options');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [userId] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('chatment-user-id');
+      if (stored) return stored;
+      const newId = `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      sessionStorage.setItem('chatment-user-id', newId);
+      return newId;
+    } catch {
+      return `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    }
+  });
   const [defaultEmphasis, setDefaultEmphasis] = useState<EmphasisLevel | 'h1'>(0);
   const [isExportOpen, setIsExportOpen] = useState(false);
 
@@ -37,6 +68,13 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
       { displayName: name, realName: name, userId: uid },
       { displayName: displayName2, realName: name, userId: uid },
     ];
+  }, []);
+
+  const handleAuthorInfoChange = useCallback((info: AuthorInfo) => {
+    setCurrentAuthorInfo(info);
+    try {
+      sessionStorage.setItem('chatment-author-info', JSON.stringify(info));
+    } catch {}
   }, []);
 
   const [isGuideOpen, setIsGuideOpen] = useState(false);
@@ -260,11 +298,24 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
     if (nodeObj) {
       targetBlockId = nodeObj.id;
     }
-    emitUserAction({
-      type: source === 'minimap' ? 'minimap-jump' : (source === 'outline' ? 'outline-jump' : 'jump-to-node'),
-      after: { targetBlockId, targetIndex: index, targetPanel },
-      actionDetails: `${source || 'UI'} からジャンプ機能を利用しました。`,
-    });
+    if (source === 'chat-menu-edit') {
+      emitUserAction({
+        type: 'post-edit-in-doc',
+        targetId: targetBlockId,
+        before: null,
+        after: {
+          nodeType: nodeObj?.node.type || 'unknown',
+          targetIndex: index,
+        },
+        actionDetails: `「${POST_MENU_CONFIG.EDIT_IN_DOC_LABEL}」を選択（${nodeObj?.node.type || ''}）`,
+      });
+    } else {
+      emitUserAction({
+        type: source === 'minimap' ? 'minimap-jump' : (source === 'outline' ? 'outline-jump' : 'jump-to-node'),
+        after: { targetBlockId, targetIndex: index, targetPanel },
+        actionDetails: `${source || 'UI'} からジャンプ機能を利用しました。`,
+      });
+    }
 
     let delay = 0;
     if (targetPanel === 'doc' && ratio < 0.2) {
@@ -286,6 +337,27 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
         // Force reflow to allow restarting animation if already present
         void elem.offsetWidth;
         elem.classList.add('jump-flash-animated');
+
+        // 4章: ジャンプしたあと、その行の末尾にカーソルを置く【仮】
+        if (source === 'chat-menu-edit' && targetPanel === 'doc') {
+          const contentEl = elem.querySelector<HTMLElement>('.doc-block__content');
+          if (contentEl) {
+            contentEl.focus();
+            const sel = window.getSelection();
+            if (sel) {
+              const range = document.createRange();
+              range.selectNodeContents(contentEl);
+              if (POST_MENU_CONFIG.CURSOR_POSITION_AFTER_JUMP === 'end') {
+                range.collapse(false); // false = 末尾
+              } else if (POST_MENU_CONFIG.CURSOR_POSITION_AFTER_JUMP === 'start') {
+                range.collapse(true); // true = 先頭
+              }
+              // select-all のときは collapse しない
+              sel.removeAllRanges();
+              sel.addRange(range);
+            }
+          }
+        }
 
         setTimeout(() => {
           elem.classList.remove('jump-flash-animated');
@@ -313,6 +385,11 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
       const options = generateHandleNameOptions(name, attribute, age, userId);
       setHandleNameOptions(options);
       setCurrentAuthorInfo(options[0]); // デフォルトは本名
+      try {
+        sessionStorage.setItem('chatment-real-name', name);
+        sessionStorage.setItem('chatment-handle-options', JSON.stringify(options));
+        sessionStorage.setItem('chatment-author-info', JSON.stringify(options[0]));
+      } catch {}
     }} />;
   }
 
@@ -550,6 +627,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
                 doc={doc}
                 userName={currentAuthorInfo?.displayName || ''}
                 userId={userId}
+                currentAuthorInfo={currentAuthorInfo || { displayName: '', realName: '', userId }}
                 panelRef={chatPanelRef}
                 ratio={ratio}
                 onAfterEdit={handleAfterEdit}
@@ -568,7 +646,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
               doc={doc}
               currentAuthorInfo={currentAuthorInfo || { displayName: '', realName: '', userId: '' }}
               handleNameOptions={handleNameOptions}
-              onHandleNameChange={setCurrentAuthorInfo}
+              onHandleNameChange={handleAuthorInfoChange}
               onAfterSend={handleAfterEdit}
               useCtrlEnter={useCtrlEnter}
             />
