@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import type { StreamNodeWithIndex, EmphasisLevel, AuthorInfo } from '../types';
 import type { LoroDoc } from 'loro-crdt';
 import { useBlockEditor } from '../hooks/useBlockEditor';
@@ -6,6 +6,13 @@ import { BlockTimelineCircle } from './BlockTimelineCircle';
 import { BlockTimelineH1Button } from './BlockTimelineH1Button';
 import { BlockActionToolbar } from './BlockActionToolbar';
 import { useThemeCustomization } from '../contexts/ThemeCustomizationContext';
+import {
+  calculateReactionStats,
+  calculateLevel,
+  calculateStep,
+  getDocBgIntensity,
+} from '../utils/reactionUtils';
+import { useRoom } from '../contexts/RoomContext';
 
 interface DocBlockProps {
   nodeWithIndex: StreamNodeWithIndex;
@@ -26,7 +33,7 @@ interface DocBlockProps {
   isCautiousMode?: boolean;
 }
 
-export const DocBlock: React.FC<DocBlockProps> = ({
+export const DocBlockComponent: React.FC<DocBlockProps> = ({
   nodeWithIndex,
   doc,
   currentAuthorInfo,
@@ -86,27 +93,33 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     return 0;
   };
 
+  const { R } = useRoom();
+  const [isPulsing, setIsPulsing] = useState(false);
+  const pulseTimerRef = useRef<number | null>(null);
+
+  const triggerPulse = useCallback(() => {
+    if (pulseTimerRef.current) {
+      window.clearTimeout(pulseTimerRef.current);
+    }
+    setIsPulsing(true);
+    pulseTimerRef.current = window.setTimeout(() => {
+      setIsPulsing(false);
+      pulseTimerRef.current = null;
+    }, 400);
+  }, []);
+
   // Read emphasis level from Map for doc blocks (block level styling)
   const blockEmphasis = blockHeading === 'h1' ? 0 : (loroMap?.get('emphasis') as EmphasisLevel || 0);
 
-  // Calculate total reactions and dynamic vote emphasis
-  let totalReactions = 0;
-  let upvotes = 0;
-  let downvotes = 0;
-  if ('reactions' in node && node.reactions) {
-    totalReactions = Object.values(node.reactions).length;
-    Object.values(node.reactions).forEach(emoji => {
-      if (emoji === '⇧') upvotes++;
-      if (emoji === '⇩') downvotes++;
-    });
-  }
-  let emojiReactionCount = 0;
-  if ('emojiReactions' in node && node.emojiReactions) {
-    emojiReactionCount = Object.values(node.emojiReactions).filter(v => v === true).length;
-    totalReactions += emojiReactionCount;
-  }
+  // 共通ユーティリティから集計
+  const stats = calculateReactionStats(node);
+  const totalReactions = stats.attention;
+  const emojiReactionCount = stats.emojiTotal;
   const hasEmojiReactions = emojiReactionCount > 0;
-  const voteScore = upvotes - downvotes;
+  const voteScore = stats.voteScore;
+
+  const level = calculateLevel(voteScore, R);
+  const step = calculateStep(level);
 
   const { themeSettings } = useThemeCustomization();
   const showEmojiIndicator = hasEmojiReactions && themeSettings.reactionIcon === 'smile';
@@ -119,14 +132,8 @@ export const DocBlock: React.FC<DocBlockProps> = ({
 
   if (voteScore !== 0) {
     const isPositive = voteScore > 0;
-    const rawIntensity = isPositive
-      ? Math.min(1.0, Math.floor(voteScore / 2) * 0.15 + 0.1)
-      : Math.min(1.0, Math.floor(Math.abs(voteScore) / 2) * 0.15 + 0.1);
-
-    // 背景色の濃さテーマ（全体薄めの場合、控えめで淡い色合いにする）
-    const effectiveIntensity = themeSettings.bgIntensity === 'soft'
-      ? Math.min(0.35, rawIntensity * 0.45)
-      : rawIntensity;
+    // 背景色の濃さ: 強度 = 0.12 + (現行上限 - 0.12) * level。soft設定時は従来係数
+    const effectiveIntensity = getDocBgIntensity(level, themeSettings.bgIntensity === 'soft');
 
     const hsl = isPositive ? '130, 60%, 45%' : '0, 70%, 55%';
 
@@ -216,7 +223,8 @@ export const DocBlock: React.FC<DocBlockProps> = ({
 
   return (
     <div
-      className={blockClass}
+      className={`${blockClass} reaction-transition`}
+      data-lv={step}
       style={dynamicStyle}
       draggable={isDraggable}
       onDragStart={onDragStart}
@@ -304,3 +312,24 @@ export const DocBlock: React.FC<DocBlockProps> = ({
     </div>
   );
 };
+
+export const DocBlock = React.memo(DocBlockComponent, (prevProps, nextProps) => {
+  if (prevProps.isDropTarget !== nextProps.isDropTarget) return false;
+  if (prevProps.isDragging !== nextProps.isDragging) return false;
+  if (prevProps.isCautiousMode !== nextProps.isCautiousMode) return false;
+  if (prevProps.defaultEmphasis !== nextProps.defaultEmphasis) return false;
+  if (prevProps.nodeWithIndex.index !== nextProps.nodeWithIndex.index) return false;
+  if (prevProps.nodeWithIndex.id !== nextProps.nodeWithIndex.id) return false;
+
+  const prevNode = prevProps.nodeWithIndex.node;
+  const nextNode = nextProps.nodeWithIndex.node;
+  if (prevNode.content !== nextNode.content) return false;
+  if (prevNode.timestamp !== nextNode.timestamp) return false;
+  if (prevNode.reactions !== nextNode.reactions) return false;
+  if (prevNode.emojiReactions !== nextNode.emojiReactions) return false;
+  if ((prevNode as any).emphasis !== (nextNode as any).emphasis) return false;
+  if ((prevNode as any).heading !== (nextNode as any).heading) return false;
+  if ((prevNode as any).indent !== (nextNode as any).indent) return false;
+
+  return true;
+});

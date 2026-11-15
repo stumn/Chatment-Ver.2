@@ -31,6 +31,7 @@ const parsedUrl = getArg('--url', '-u') || DEFAULT_URL;
 const parsedDocId = getArg('--doc', '--docId');
 const parsedNoReactions = args.includes('--no-reactions');
 const parsedEnableReactions = !parsedNoReactions;
+const parsedReactionRate = parseFloat(getArg('--rate', '-r') || '3.0'); // リアクション毎秒件数 (デフォルト3件/s)
 
 // ─── 分布ジェネレータ ───
 // ratio: 0.0 (上端/チャット最大) 〜 1.0 (下端/ドキュメント最大)
@@ -122,7 +123,15 @@ async function promptOptions() {
   }
 
   rl.close();
-  return { count, dist, mode, url: parsedUrl, docId: parsedDocId, enableReactions: parsedEnableReactions };
+  return {
+    count,
+    dist,
+    mode,
+    url: parsedUrl,
+    docId: parsedDocId,
+    enableReactions: parsedEnableReactions,
+    reactionRate: parsedReactionRate,
+  };
 }
 
 // ─── ルーム取得 ───
@@ -146,7 +155,7 @@ async function resolveDocId(serverUrl, specifiedDocId) {
 
 // ─── クライアント管理クラス ───
 class SimulatedClient {
-  constructor({ id, username, docId, serverUrl, initialRatio, mode, enableReactions = true }) {
+  constructor({ id, username, docId, serverUrl, initialRatio, mode, enableReactions = true, totalClients = 150, reactionRate = 3.0 }) {
     this.id = id;
     this.username = username;
     this.docId = docId;
@@ -154,6 +163,8 @@ class SimulatedClient {
     this.ratio = initialRatio;
     this.mode = mode;
     this.enableReactions = enableReactions;
+    this.totalClients = totalClients;
+    this.reactionRate = reactionRate;
     this.socket = null;
     this.wanderTimer = null;
     this.churnTimer = null;
@@ -193,7 +204,7 @@ class SimulatedClient {
           this.doc = new Loro();
           this.doc.import(Buffer.isBuffer(snapshot) ? snapshot : Buffer.from(snapshot));
           if (!this.reactionTimer) {
-            this.startReactions();
+            this.startReactions(this.totalClients, this.reactionRate);
           }
         } catch (err) {
           // ignore
@@ -238,53 +249,100 @@ class SimulatedClient {
     }, wanderInterval);
   }
 
-  // 絵文字リアクションのランダムトグル
-  startReactions() {
-    const reactionInterval = 3000 + Math.random() * 5000; // 3〜8秒ごと
-    this.reactionTimer = setInterval(() => {
-      if (!this.isConnected || !this.socket || !this.doc) return;
-      try {
-        const stream = this.doc.getMovableList('stream');
-        if (!stream || stream.length === 0) return;
-        const targetIdx = Math.floor(Math.random() * stream.length);
-        const nodeMap = stream.get(targetIdx);
-        if (!nodeMap) return;
+  // 👍👎 (1人1投稿あたり1票) および絵文字リアクションのシミュレーション
+  startReactions(totalClients = 150, targetReactionRate = 3.0) {
+    // 全体で targetReactionRate (件/秒) になるよう、クライアント1体あたりの間隔 (ms) を算出
+    const baseInterval = (totalClients / Math.max(0.1, targetReactionRate)) * 1000;
+    // ジッター (±20%)
+    const getInterval = () => baseInterval * (0.8 + Math.random() * 0.4);
 
-        let emojiReactions;
+    const scheduleNext = () => {
+      this.reactionTimer = setTimeout(() => {
+        if (!this.isConnected || !this.socket || !this.doc) return;
         try {
-          emojiReactions = nodeMap.getOrCreateContainer('emojiReactions', new LoroMap());
-        } catch {
-          emojiReactions = nodeMap.setContainer('emojiReactions', new LoroMap());
+          const stream = this.doc.getMovableList('stream');
+          if (!stream || stream.length === 0) return;
+          const targetIdx = Math.floor(Math.random() * stream.length);
+          const nodeMap = stream.get(targetIdx);
+          if (!nodeMap) return;
+
+          const blockId = (nodeMap.get('blockId') || '').toString();
+
+          // 70%の確率で 👍👎 投票、30%の確率で絵文字リアクション
+          const isVote = Math.random() < 0.7;
+
+          if (isVote) {
+            // 👍👎 (内部値 ⇧ / ⇩) は1人1票
+            let reactions;
+            try {
+              reactions = nodeMap.getOrCreateContainer('reactions', new LoroMap());
+            } catch {
+              reactions = nodeMap.setContainer('reactions', new LoroMap());
+            }
+
+            const currentVote = reactions.get(this.userId);
+            // 85% 👍, 15% 👎
+            const targetVote = Math.random() < 0.85 ? '⇧' : '⇩';
+            let newVote = targetVote;
+            if (currentVote === targetVote) {
+              newVote = ''; // トグル解除
+              reactions.delete(this.userId);
+            } else {
+              reactions.set(this.userId, newVote);
+            }
+
+            this.doc.commit({ message: `vote:${this.userId}:${blockId}:${newVote}` });
+            const update = this.doc.exportFrom();
+            this.socket.emit('send-update', { docId: this.docId, update });
+            this.socket.emit('user-action', {
+              type: 'vote',
+              targetId: blockId,
+              contentPreview: newVote || 'none',
+              actionDetails: newVote ? `投票: ${newVote === '⇧' ? '👍' : '👎'}` : '投票解除',
+              before: currentVote ? { vote: currentVote } : null,
+              after: newVote ? { vote: newVote } : null,
+            });
+          } else {
+            // 絵文字リアクション
+            let emojiReactions;
+            try {
+              emojiReactions = nodeMap.getOrCreateContainer('emojiReactions', new LoroMap());
+            } catch {
+              emojiReactions = nodeMap.setContainer('emojiReactions', new LoroMap());
+            }
+
+            const emoji = SIMULATED_EMOJIS[Math.floor(Math.random() * SIMULATED_EMOJIS.length)];
+            const key = `${this.userId}|${emoji}`;
+            const exists = emojiReactions.get(key) === true;
+            const isAdding = !exists;
+
+            if (exists) {
+              emojiReactions.delete(key);
+            } else {
+              emojiReactions.set(key, true);
+            }
+
+            this.doc.commit({ message: `emojiReaction:${this.userId}:${blockId}:${emoji}` });
+            const update = this.doc.exportFrom();
+            this.socket.emit('send-update', { docId: this.docId, update });
+            this.socket.emit('user-action', {
+              type: 'emojiReaction',
+              targetId: blockId,
+              contentPreview: emoji,
+              actionDetails: isAdding ? `絵文字リアクション追加: ${emoji}` : `絵文字リアクション削除: ${emoji}`,
+              before: exists ? { emoji, active: true } : null,
+              after: isAdding ? { emoji, active: true } : null,
+            });
+          }
+        } catch (err) {
+          // ignore
+        } finally {
+          scheduleNext();
         }
+      }, getInterval());
+    };
 
-        const emoji = SIMULATED_EMOJIS[Math.floor(Math.random() * SIMULATED_EMOJIS.length)];
-        const key = `${this.userId}|${emoji}`;
-        const exists = emojiReactions.get(key) === true;
-        const isAdding = !exists;
-
-        if (exists) {
-          emojiReactions.delete(key);
-        } else {
-          emojiReactions.set(key, true);
-        }
-
-        const blockId = (nodeMap.get('blockId') || '').toString();
-        this.doc.commit({ message: `emojiReaction:${this.userId}:${blockId}:${emoji}` });
-        const update = this.doc.exportFrom();
-
-        this.socket.emit('send-update', { docId: this.docId, update });
-        this.socket.emit('user-action', {
-          type: 'emojiReaction',
-          targetId: blockId,
-          contentPreview: emoji,
-          actionDetails: isAdding ? `絵文字リアクション追加: ${emoji}` : `絵文字リアクション削除: ${emoji}`,
-          before: exists ? { emoji, active: true } : null,
-          after: isAdding ? { emoji, active: true } : null,
-        });
-      } catch (err) {
-        // ignore
-      }
-    }, reactionInterval);
+    scheduleNext();
   }
 
   updateRatio(newRatio) {
@@ -354,6 +412,8 @@ async function run() {
       initialRatio: initRatio,
       mode: config.mode,
       enableReactions: config.enableReactions,
+      totalClients: config.count,
+      reactionRate: config.reactionRate,
     });
     clients.push(client);
   }

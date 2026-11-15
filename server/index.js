@@ -57,9 +57,23 @@ app.post('/api/rooms', async (req, res) => {
     const mongoose = require('mongoose');
     const docId = new mongoose.Types.ObjectId().toString();
     const title = req.body?.title || '';
-    const room = new Room({ docId, title, status: 'open', userIds: [] });
+    
+    // 想定参加者数 (目安): 新規ルーム作成では必須入力。空欄は不可、範囲外(2〜1000)は丸める
+    const rawParticipants = req.body?.expectedParticipants;
+    if (rawParticipants === undefined || rawParticipants === null || String(rawParticipants).trim() === '') {
+      return res.status(400).json({ error: '想定参加者数は必須入力です。' });
+    }
+
+    let parsed = parseInt(rawParticipants, 10);
+    if (isNaN(parsed)) {
+      return res.status(400).json({ error: '想定参加者数には有効な整数を入力してください。' });
+    }
+
+    const expectedParticipants = Math.max(2, Math.min(1000, Math.round(parsed)));
+
+    const room = new Room({ docId, title, status: 'open', userIds: [], expectedParticipants });
     await room.save();
-    await saveSystemLog('info', 'room-created', { docId, title }, room._id.toString(), docId);
+    await saveSystemLog('info', 'room-created', { docId, title, expectedParticipants }, room._id.toString(), docId);
     res.json(room);
   } catch (err) {
     console.error('[API] POST room error:', err.message);
@@ -71,7 +85,12 @@ app.post('/api/rooms', async (req, res) => {
 app.get('/api/rooms', async (req, res) => {
   try {
     const rooms = await Room.find({}).sort({ updatedAt: -1 });
-    res.json(rooms);
+    const formatted = rooms.map(r => {
+      const obj = r.toObject ? r.toObject() : r;
+      if (!obj.expectedParticipants) obj.expectedParticipants = 50;
+      return obj;
+    });
+    res.json(formatted);
   } catch (err) {
     console.error('[API] GET rooms error:', err.message);
     res.status(500).json({ error: err.message });
@@ -85,7 +104,11 @@ app.get('/api/rooms/:roomId', async (req, res) => {
     if (!room) {
       return res.status(404).json({ error: 'Room not found' });
     }
-    res.json(room);
+    const roomObj = room.toObject ? room.toObject() : room;
+    if (!roomObj.expectedParticipants) {
+      roomObj.expectedParticipants = 50;
+    }
+    res.json(roomObj);
   } catch (err) {
     console.error('[API] GET room error:', err.message);
     res.status(500).json({ error: err.message });

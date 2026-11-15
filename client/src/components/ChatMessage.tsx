@@ -1,10 +1,17 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import type { StreamNodeWithIndex } from '../types';
 import type { LoroDoc } from 'loro-crdt';
 import { addReaction, toggleEmojiReaction } from '../loro/schema';
 import { EmojiReactionChips } from './EmojiReactionChips';
 import { EmojiReactionPicker } from './EmojiReactionPicker';
 import { PostActionMenu } from './PostActionMenu';
+import {
+  calculateReactionStats,
+  calculateLevel,
+  calculateStep,
+  formatReactionCount,
+} from '../utils/reactionUtils';
+import { useRoom } from '../contexts/RoomContext';
 
 interface ChatMessageProps {
   nodeWithIndex: StreamNodeWithIndex;
@@ -18,7 +25,7 @@ interface ChatMessageProps {
   onJumpToNode: (index: number, target: 'doc' | 'chat', source?: string) => void;
 }
 
-export const ChatMessage: React.FC<ChatMessageProps> = ({
+export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   nodeWithIndex,
   doc,
   isOwn,
@@ -29,8 +36,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   onAfterEdit,
   onJumpToNode,
 }) => {
-  const { node, index } = nodeWithIndex;
+  const { node, index, id } = nodeWithIndex;
+  const { R } = useRoom();
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [isPulsing, setIsPulsing] = useState(false);
+  const pulseTimerRef = useRef<number | null>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
 
   const formatTime = (ts: number) => {
@@ -38,9 +48,24 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     return d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const triggerPulse = useCallback(() => {
+    if (pulseTimerRef.current) {
+      window.clearTimeout(pulseTimerRef.current);
+    }
+    setIsPulsing(true);
+    pulseTimerRef.current = window.setTimeout(() => {
+      setIsPulsing(false);
+      pulseTimerRef.current = null;
+    }, 400);
+  }, []);
+
+  const myReaction = (node.reactions && node.reactions[userId]) || '';
+
   const handleVote = (emoji: '⇧' | '⇩', e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!doc) return;
+    // 自分が押した直後のパルスと即座の楽観反映
+    triggerPulse();
     const newEmoji = myReaction === emoji ? '' : emoji;
     addReaction(doc, index, userId, newEmoji);
     onAfterEdit();
@@ -48,6 +73,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
   const handleToggleEmoji = (emoji: string) => {
     if (!doc) return;
+    triggerPulse();
     toggleEmojiReaction(doc, index, userId, emoji);
     onAfterEdit();
   };
@@ -62,19 +88,12 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     }
   };
 
-  let upvotes = 0;
-  let downvotes = 0;
-  let myReaction = '';
+  // 共通ユーティリティから集計
+  const stats = calculateReactionStats(node);
+  const { up: upvotes, down: downvotes, voteScore } = stats;
 
-  if ('reactions' in node && node.reactions) {
-    Object.entries(node.reactions).forEach(([uid, emoji]) => {
-      if (emoji === '⇧') upvotes++;
-      if (emoji === '⇩') downvotes++;
-      if (uid === userId) myReaction = emoji as string;
-    });
-  }
-
-  const voteScore = upvotes - downvotes;
+  const level = calculateLevel(voteScore, R);
+  const step = calculateStep(level);
 
   const baseEmphasis = 'emphasis' in node && node.emphasis !== undefined ? node.emphasis : 0;
   const emphasisClass = baseEmphasis > 0 ? 'text-emphasis-1' : baseEmphasis < 0 ? 'text-emphasis-minus1' : 'text-emphasis-0';
@@ -83,14 +102,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   if (voteScore > 0) {
     dynamicStyle = {
       color: 'hsl(130, 60%, 45%)',
-      fontSize: `calc(var(--font-size-base) + ${voteScore * 1.5}px)`,
-      transition: 'all 0.3s ease'
+      fontSize: `calc(var(--font-size-base) + ${(12 * level).toFixed(2)}px)`,
+      transition: 'color 0.3s ease',
     };
   } else if (voteScore < 0) {
     dynamicStyle = {
       color: 'hsl(0, 70%, 55%)',
-      fontSize: `max(10px, calc(var(--font-size-base) - ${Math.abs(voteScore)}px))`,
-      transition: 'all 0.3s ease'
+      fontSize: `max(10px, calc(var(--font-size-base) - ${(4 * level).toFixed(2)}px))`,
+      transition: 'color 0.3s ease',
     };
   }
 
@@ -135,13 +154,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
   return (
     <div
-      className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'} ${typeClass} ${headingClass}`}
+      className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'} ${typeClass} ${headingClass} reaction-transition`}
+      data-lv={step}
       id={`chat-message-${index}`}
       onClick={() => onJumpToNode(index, 'doc', 'chat-message')}
       style={{ cursor: 'pointer' }}
       title="クリックしてドキュメントへジャンプ"
     >
-      <div className="chat-message__body">
+      <div className={`chat-message__body ${isPulsing ? 'reaction-pulse-active' : ''}`}>
         <div className="chat-message__header">
           <span className="chat-message__time">{formatTime(node.timestamp)}</span>
           <span className="chat-message__author">{node.author.displayName}</span>
@@ -186,10 +206,10 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             <button
               className={`chat-message__reaction-badge chat-message__reaction-badge--upvote ${myReaction === '⇧' ? 'chat-message__reaction-badge--active' : ''}`}
               onClick={(e) => handleVote('⇧', e)}
-                  title="いいね (Upvote)"
+              title="いいね (Upvote)"
               aria-label="いいね"
             >
-              👍 {upvotes > 0 && upvotes}
+              👍 {upvotes > 0 && formatReactionCount(upvotes)}
             </button>
             <button
               className={`chat-message__reaction-badge chat-message__reaction-badge--downvote ${myReaction === '⇩' ? 'chat-message__reaction-badge--active' : ''}`}
@@ -197,7 +217,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               title="よくないね (Downvote)"
               aria-label="よくないね"
             >
-              👎 {downvotes > 0 && downvotes}
+              👎 {downvotes > 0 && formatReactionCount(downvotes)}
             </button>
             <div className="chat-message__picker-container">
               <button
@@ -231,3 +251,23 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     </div>
   );
 };
+
+export const ChatMessage = React.memo(ChatMessageComponent, (prevProps, nextProps) => {
+  if (prevProps.isOwn !== nextProps.isOwn) return false;
+  if (prevProps.isMenuOpen !== nextProps.isMenuOpen) return false;
+  if (prevProps.userId !== nextProps.userId) return false;
+  if (prevProps.nodeWithIndex.index !== nextProps.nodeWithIndex.index) return false;
+  if (prevProps.nodeWithIndex.id !== nextProps.nodeWithIndex.id) return false;
+  
+  const prevNode = prevProps.nodeWithIndex.node;
+  const nextNode = nextProps.nodeWithIndex.node;
+  if (prevNode.content !== nextNode.content) return false;
+  if (prevNode.timestamp !== nextNode.timestamp) return false;
+  if (prevNode.author.displayName !== nextNode.author.displayName) return false;
+  if (prevNode.reactions !== nextNode.reactions) return false;
+  if (prevNode.emojiReactions !== nextNode.emojiReactions) return false;
+  if ((prevNode as any).emphasis !== (nextNode as any).emphasis) return false;
+  if ((prevNode as any).heading !== (nextNode as any).heading) return false;
+
+  return true;
+});

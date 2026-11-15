@@ -1,7 +1,17 @@
-import React from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { StreamNodeWithIndex } from '../types';
+import {
+  calculateReactionStats,
+  calculateLevel,
+  calculateStep,
+  getMinimapOpacity,
+} from '../utils/reactionUtils';
+import { useRoom } from '../contexts/RoomContext';
+import { MinimapDots } from './MinimapDots';
+import { MinimapBands } from './MinimapBands';
+import { emitUserAction } from '../loro/sync-client';
 
-interface OutlineItem {
+export interface OutlineItem {
   index: number;
   text: string;
   isH1: boolean;
@@ -10,6 +20,9 @@ interface OutlineItem {
   indent: number;
   hasReactions: boolean;
   voteScore: number;
+  level: number;
+  step: number;
+  opacity: number;
   type: 'chat' | 'doc';
 }
 
@@ -24,78 +37,199 @@ interface OutlineSidebarProps {
 
 const POSITIVE_REACTIONS = new Set(['👍', '❤️', '😂', '🎉', '👀', '⇧']);
 
-export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToNode, isCollapsed, onToggle, onOpenSidebar, roomTitle }) => {
-  const outlineItems: OutlineItem[] = nodes
-    .filter(({ node }) => {
-      const text = node.content?.trim() ?? '';
-      if (!text) return false;
-      const hasReactions =
-        (!!node.reactions && Object.keys(node.reactions).length > 0) ||
-        (!!node.emojiReactions && Object.keys(node.emojiReactions).length > 0);
-      const isTopLevel = (node.indent ?? 0) === 0;
-      // chatノードのH1判定：headingフィールドまたは#始まり
-      const isH1 = node.heading === 'h1' || /^[#＃]/.test(node.content ?? '');
-      return isH1 || hasReactions || isTopLevel;
-    })
-    .map(({ node, index, id }) => {
-      let upvotes = 0;
-      let downvotes = 0;
-      if ('reactions' in node && node.reactions) {
-        Object.values(node.reactions).forEach(emoji => {
-          if (emoji === '⇧') upvotes++;
-          if (emoji === '⇩') downvotes++;
-        });
-      }
-      const voteScore = upvotes - downvotes;
-      const isH1 = node.heading === 'h1' || /^[#＃]/.test(node.content ?? '');
-      const legacyPositiveCount = Object.values(node.reactions ?? {}).filter((emoji) => POSITIVE_REACTIONS.has(emoji)).length;
-      const emojiPositiveCount = Object.values(node.emojiReactions ?? {}).filter((v) => v === true).length;
-      const positiveReactionCount = legacyPositiveCount + emojiPositiveCount;
-      const hasReactions =
-        (!!node.reactions && Object.keys(node.reactions).length > 0) ||
-        (!!node.emojiReactions && Object.keys(node.emojiReactions).length > 0);
+/**
+ * 【仕様書 §7 より】
+ * 優先選択の処理 (positiveReactionCount による並べ替えなど)。
+ * 仕様により削除せず保持しています（現行目次・ミニマップでは全件表示へ移行）。
+ */
+export function getPrioritizedItemsLegacy(outlineItems: OutlineItem[]): OutlineItem[] {
+  if (outlineItems.length <= 14) return outlineItems;
 
-      return {
-        index,
-        text: node.content?.trim() ?? '',
-        isH1,
-        blockId: id,
-        positiveReactionCount,
-        indent: (node as any).indent ?? 0,
-        hasReactions,
-        voteScore,
-        type: node.type,
-      };
-    });
+  const withReactions = outlineItems
+    .filter((item) => item.positiveReactionCount > 0)
+    .sort((a, b) => b.positiveReactionCount - a.positiveReactionCount || a.index - b.index);
+  const withoutReactions = outlineItems
+    .filter((item) => item.positiveReactionCount === 0)
+    .sort((a, b) => a.index - b.index);
 
-  const prioritizedItems = (() => {
-    if (outlineItems.length <= 14) return outlineItems;
+  return [...withReactions, ...withoutReactions].slice(0, 14);
+}
 
-    const withReactions = outlineItems
-      .filter((item) => item.positiveReactionCount > 0)
-      .sort((a, b) => b.positiveReactionCount - a.positiveReactionCount || a.index - b.index);
-    const withoutReactions = outlineItems
-      .filter((item) => item.positiveReactionCount === 0)
-      .sort((a, b) => a.index - b.index);
+/** 目次項目コンポーネント (React.memo 最適化) */
+const OutlineItemRow = React.memo<{
+  blockId: string;
+  index: number;
+  text: string;
+  isH1: boolean;
+  indent: number;
+  hasReactions: boolean;
+  voteScore: number;
+  step: number;
+  opacity: number;
+  type: 'chat' | 'doc';
+  onJumpToNode: (index: number, target: 'doc' | 'chat', source?: string) => void;
+}>(({
+  blockId,
+  index,
+  text,
+  isH1,
+  indent,
+  hasReactions,
+  voteScore,
+  step,
+  opacity,
+  type,
+  onJumpToNode,
+}) => {
+  const dotClasses = [
+    'outline-sidebar__item-dot',
+    isH1 ? 'is-h1' : '',
+    indent === 0 ? 'is-indent-0' : '',
+    hasReactions ? 'has-reactions' : '',
+    voteScore > 0 ? 'is-positive' : '',
+    voteScore < 0 ? 'is-negative' : '',
+    type === 'chat' ? 'is-chat' : 'is-doc',
+  ].filter(Boolean).join(' ');
 
-    return [...withReactions, ...withoutReactions].slice(0, 14);
-  })();
+  return (
+    <button
+      key={blockId}
+      className={`outline-sidebar__item ${isH1 ? 'outline-sidebar__item--h1' : 'outline-sidebar__item--bold'}`}
+      onClick={() => onJumpToNode(index, 'doc', 'outline')}
+      title={text}
+      data-lv={step}
+    >
+      {!isH1 && (
+        <span
+          className={dotClasses}
+          style={{ opacity: hasReactions ? opacity : undefined }}
+        />
+      )}
+      <span className="outline-sidebar__item-text">{text}</span>
+    </button>
+  );
+}, (prev, next) => {
+  return (
+    prev.blockId === next.blockId &&
+    prev.index === next.index &&
+    prev.text === next.text &&
+    prev.isH1 === next.isH1 &&
+    prev.indent === next.indent &&
+    prev.hasReactions === next.hasReactions &&
+    prev.voteScore === next.voteScore &&
+    prev.step === next.step &&
+    prev.opacity === next.opacity &&
+    prev.type === next.type
+  );
+});
 
-  // ミニマップドットの衝突回避アルゴリズム
-  // 近接するドット同士が重なり合って隠れるのを防ぐため、最小間隔（4.5%）をあけて自動配置します。
-  const sortedItems = [...prioritizedItems].sort((a, b) => a.index - b.index);
-  const minSpacing = 4.5;
-  let prevPos = -100;
+export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({
+  nodes,
+  onJumpToNode,
+  isCollapsed,
+  onToggle,
+  onOpenSidebar,
+  roomTitle,
+}) => {
+  const { R } = useRoom();
 
-  const positionedItems = sortedItems.map((item) => {
-    // nodes.length > 1 の場合: 0〜96%の範囲にマップ（最初が上から始まるよう+2に変更）
-    let rawPos = nodes.length > 1 ? (item.index / (nodes.length - 1)) * 94 + 2 : 50;
-    if (rawPos - prevPos < minSpacing) {
-      rawPos = prevPos + minSpacing;
+  // ミニマップモード (初期値: dots)
+  const [minimapMode, setMinimapMode] = useState<'dots' | 'bands'>(() => {
+    try {
+      const saved = localStorage.getItem('chatment-minimap-mode');
+      if (saved === 'bands') return 'bands';
+    } catch {
+      // ignore
     }
-    prevPos = rawPos;
-    return { ...item, topPercent: Math.min(97, rawPos) };
+    return 'dots';
   });
+
+  const handleMinimapModeChange = (mode: 'dots' | 'bands') => {
+    setMinimapMode(mode);
+    try {
+      localStorage.setItem('chatment-minimap-mode', mode);
+    } catch {
+      // ignore
+    }
+    emitUserAction({
+      type: 'minimapMode',
+      targetId: mode,
+      actionDetails: `ミニマップ表示切替: ${mode}`,
+    });
+  };
+
+  // 全掲載アイテムの算出（掲載条件: H1・リアクションあり・indent===0）
+  const computeOutlineItems = useCallback((): OutlineItem[] => {
+    return nodes
+      .filter(({ node }) => {
+        const text = node.content?.trim() ?? '';
+        if (!text) return false;
+        const stats = calculateReactionStats(node);
+        const hasReactions = stats.attention > 0;
+        const isTopLevel = (node.indent ?? 0) === 0;
+        const isH1 = node.heading === 'h1' || /^[#＃]/.test(node.content ?? '');
+        return isH1 || hasReactions || isTopLevel;
+      })
+      .map(({ node, index, id }) => {
+        const stats = calculateReactionStats(node);
+        const { up: upvotes, down: downvotes, voteScore } = stats;
+        const isH1 = node.heading === 'h1' || /^[#＃]/.test(node.content ?? '');
+
+        const legacyPositiveCount = Object.values(node.reactions ?? {}).filter((emoji) => POSITIVE_REACTIONS.has(emoji)).length;
+        const emojiPositiveCount = Object.values(node.emojiReactions ?? {}).filter((v) => v === true).length;
+        const positiveReactionCount = legacyPositiveCount + emojiPositiveCount;
+        const hasReactions = stats.attention > 0;
+
+        const level = calculateLevel(voteScore, R);
+        const step = calculateStep(level);
+        const opacity = getMinimapOpacity(level);
+
+        return {
+          index,
+          text: node.content?.trim() ?? '',
+          isH1,
+          blockId: id,
+          positiveReactionCount,
+          indent: (node as any).indent ?? 0,
+          hasReactions,
+          voteScore,
+          level,
+          step,
+          opacity,
+          type: node.type,
+        };
+      });
+  }, [nodes, R]);
+
+  // 目次・ミニマップの更新スロットル (250ms以上の間隔、最後の1回を必ず実行)
+  const [outlineItems, setOutlineItems] = useState<OutlineItem[]>(() => computeOutlineItems());
+  const throttleTimeoutRef = useRef<number | null>(null);
+  const pendingUpdateRef = useRef(false);
+
+  useEffect(() => {
+    if (throttleTimeoutRef.current !== null) {
+      pendingUpdateRef.current = true;
+      return;
+    }
+
+    setOutlineItems(computeOutlineItems());
+    pendingUpdateRef.current = false;
+
+    throttleTimeoutRef.current = window.setTimeout(() => {
+      throttleTimeoutRef.current = null;
+      if (pendingUpdateRef.current) {
+        pendingUpdateRef.current = false;
+        setOutlineItems(computeOutlineItems());
+      }
+    }, 250);
+
+    return () => {
+      if (throttleTimeoutRef.current !== null) {
+        window.clearTimeout(throttleTimeoutRef.current);
+        throttleTimeoutRef.current = null;
+      }
+    };
+  }, [computeOutlineItems]);
 
   return (
     <aside className={`outline-sidebar ${isCollapsed ? 'is-collapsed' : 'is-expanded'}`}>
@@ -127,88 +261,105 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({ nodes, onJumpToN
             </svg>
           </button>
         </div>
+
+        {/* サイドバー展開時：目次タイトルとミニマップ切替スイッチ */}
         {!isCollapsed && (
-          <div className="outline-sidebar__section">
-            <div className="outline-sidebar__divider" />
-            <span className="outline-sidebar__title">目次</span>
+          <div className="outline-sidebar__section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="outline-sidebar__divider" />
+              <span className="outline-sidebar__title">目次</span>
+            </div>
+            {/* ミニマップ切替 (ドット / 帯) */}
+            <div
+              className="minimap-mode-toggle"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                background: 'var(--bg-tertiary)',
+                padding: '2px',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '11px',
+                fontWeight: 500,
+              }}
+              title="折りたたみ時のミニマップ表示形式"
+            >
+              <button
+                type="button"
+                onClick={() => handleMinimapModeChange('dots')}
+                style={{
+                  padding: '2px 6px',
+                  border: 'none',
+                  borderRadius: 'var(--radius-sm)',
+                  background: minimapMode === 'dots' ? 'var(--bg-elevated)' : 'transparent',
+                  color: minimapMode === 'dots' ? 'var(--text-primary)' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                  boxShadow: minimapMode === 'dots' ? 'var(--shadow-sm)' : 'none',
+                }}
+              >
+                ドット
+              </button>
+              <button
+                type="button"
+                onClick={() => handleMinimapModeChange('bands')}
+                style={{
+                  padding: '2px 6px',
+                  border: 'none',
+                  borderRadius: 'var(--radius-sm)',
+                  background: minimapMode === 'bands' ? 'var(--bg-elevated)' : 'transparent',
+                  color: minimapMode === 'bands' ? 'var(--text-primary)' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                  boxShadow: minimapMode === 'bands' ? 'var(--shadow-sm)' : 'none',
+                }}
+              >
+                帯
+              </button>
+            </div>
           </div>
         )}
       </div>
 
       <div className="outline-sidebar__body">
         {isCollapsed ? (
-          /* 折りたたみ時：ミニマップドットインジケーター */
-          <div className="outline-sidebar__minimap">
-            {positionedItems.map((item) => {
-              if (item.isH1) {
-                return (
-                  <button
-                    key={item.blockId}
-                    className="outline-sidebar__minimap-h1-btn"
-                    style={{ top: `${item.topPercent}%` }}
-                    onClick={() => onJumpToNode(item.index, 'doc', 'minimap')}
-                    aria-label={item.text}
-                  >
-                    #
-                    <span className="outline-sidebar__tooltip">{item.text}</span>
-                  </button>
-                );
-              }
-
-              const dotClasses = [
-                'outline-sidebar__minimap-dot',
-                item.isH1 ? 'is-h1' : '',
-                item.indent === 0 ? 'is-indent-0' : '',
-                item.hasReactions ? 'has-reactions' : '',
-                item.voteScore > 0 ? 'is-positive' : '',
-                item.voteScore < 0 ? 'is-negative' : '',
-                item.type === 'chat' ? 'is-chat' : 'is-doc',
-              ].filter(Boolean).join(' ');
-
-              return (
-                <button
-                  key={item.blockId}
-                  className={dotClasses}
-                  style={{ top: `${item.topPercent}%` }}
-                  onClick={() => onJumpToNode(item.index, 'doc', 'minimap')}
-                  aria-label={item.text}
-                >
-                  <span className="outline-sidebar__tooltip">{item.text}</span>
-                </button>
-              );
-            })}
-          </div>
+          /* 折りたたみ時：選択されたミニマップ形式 (ドット または 帯) */
+          minimapMode === 'dots' ? (
+            <MinimapDots
+              items={outlineItems}
+              totalNodesCount={nodes.length}
+              onJumpToNode={onJumpToNode}
+            />
+          ) : (
+            <MinimapBands
+              items={outlineItems}
+              totalNodesCount={nodes.length}
+              onJumpToNode={onJumpToNode}
+            />
+          )
         ) : (
-          /* 展開時：見出しリスト */
+          /* 展開時：見出しリスト (全件表示 & content-visibility: auto) */
           <div className="outline-sidebar__list">
-            {prioritizedItems.length === 0 ? (
+            {outlineItems.length === 0 ? (
               <div className="outline-sidebar__empty">
                 見出しがありません
               </div>
             ) : (
-              prioritizedItems.map((item) => {
-                const dotClasses = [
-                  'outline-sidebar__item-dot',
-                  item.isH1 ? 'is-h1' : '',
-                  item.indent === 0 ? 'is-indent-0' : '',
-                  item.hasReactions ? 'has-reactions' : '',
-                  item.voteScore > 0 ? 'is-positive' : '',
-                  item.voteScore < 0 ? 'is-negative' : '',
-                  item.type === 'chat' ? 'is-chat' : 'is-doc',
-                ].filter(Boolean).join(' ');
-
-                return (
-                  <button
-                    key={item.blockId}
-                    className={`outline-sidebar__item ${item.isH1 ? 'outline-sidebar__item--h1' : 'outline-sidebar__item--bold'}`}
-                    onClick={() => onJumpToNode(item.index, 'doc', 'outline')}
-                    title={item.text}
-                  >
-                    {!item.isH1 && <span className={dotClasses} />}
-                    <span className="outline-sidebar__item-text">{item.text}</span>
-                  </button>
-                );
-              })
+              outlineItems.map((item) => (
+                <OutlineItemRow
+                  key={item.blockId}
+                  blockId={item.blockId}
+                  index={item.index}
+                  text={item.text}
+                  isH1={item.isH1}
+                  indent={item.indent}
+                  hasReactions={item.hasReactions}
+                  voteScore={item.voteScore}
+                  step={item.step}
+                  opacity={item.opacity}
+                  type={item.type}
+                  onJumpToNode={onJumpToNode}
+                />
+              ))
             )}
           </div>
         )}

@@ -36,6 +36,7 @@ const roomSchema = new mongoose.Schema({
   docId: { type: String, required: true, unique: true, index: true },
   title: { type: String, default: '' },        // ルームのタイトル
   status: { type: String, enum: ['open', 'closed', 'hidden'], default: 'open', index: true },
+  expectedParticipants: { type: Number, default: 50 }, // 想定参加者数 (目安: 既存ルーム既定値50)
   userIds: [{ type: String }],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },

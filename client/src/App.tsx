@@ -19,8 +19,9 @@ import { ThemeCustomizationMenu } from './components/ThemeCustomizationMenu';
 import { AdminPanel } from './components/AdminPanel';
 import { CautiousConfirmProvider } from './components/CautiousConfirmModal';
 import { POST_MENU_CONFIG } from './config/postMenuConfig';
+import { RoomProvider } from './contexts/RoomContext';
 
-export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitle: string }> = ({ docId, isAdmin, roomTitle }) => {
+export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitle: string; expectedParticipants?: number }> = ({ docId, isAdmin, roomTitle, expectedParticipants }) => {
   const [realName, setRealName] = useState<string | null>(() => {
     try {
       return sessionStorage.getItem('chatment-real-name') || null;
@@ -845,12 +846,14 @@ export const App: React.FC = () => {
     verifiedDocId: string | null;
     isAdmin: boolean;
     title: string;
+    expectedParticipants?: number;
   }>({
     loading: true,
     error: null,
     verifiedDocId: null,
     isAdmin: false,
     title: 'Chatment',
+    expectedParticipants: 50,
   });
 
   const verifyRoom = useCallback(async (targetDocId: string) => {
@@ -880,6 +883,7 @@ export const App: React.FC = () => {
         verifiedDocId: targetDocId,
         isAdmin: isAdminParam,
         title: room.title || 'Chatment',
+        expectedParticipants: room.expectedParticipants || 50,
       });
     } catch (err: any) {
       setRoomState({
@@ -888,6 +892,7 @@ export const App: React.FC = () => {
         verifiedDocId: null,
         isAdmin: false,
         title: 'Chatment',
+        expectedParticipants: 50,
       });
     }
   }, []);
@@ -938,7 +943,14 @@ export const App: React.FC = () => {
   if (roomState.verifiedDocId) {
     return (
       <CautiousConfirmProvider>
-        <ChatWorkspace docId={roomState.verifiedDocId} isAdmin={roomState.isAdmin} roomTitle={roomState.title} />
+        <RoomProvider expectedParticipants={roomState.expectedParticipants}>
+          <ChatWorkspace
+            docId={roomState.verifiedDocId}
+            isAdmin={roomState.isAdmin}
+            roomTitle={roomState.title}
+            expectedParticipants={roomState.expectedParticipants}
+          />
+        </RoomProvider>
       </CautiousConfirmProvider>
     );
   }

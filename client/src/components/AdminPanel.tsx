@@ -9,6 +9,7 @@ interface Room {
   docId: string;
   title: string;
   status: 'open' | 'closed' | 'hidden';
+  expectedParticipants?: number;
   userIds: string[];
   createdAt: string;
   updatedAt: string;
@@ -23,6 +24,8 @@ export const AdminPanel: React.FC = () => {
   // 新規作成ダイアログ用
   const [isCreating, setIsCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
+  const [newParticipants, setNewParticipants] = useState('50');
+  const [createError, setCreateError] = useState<string | null>(null);
   const [exportState, setExportState] = useState<{ docId: string; title: string; nodes: StreamNodeWithIndex[] } | null>(null);
   const [isExportLoading, setIsExportLoading] = useState(false);
 
@@ -47,18 +50,42 @@ export const AdminPanel: React.FC = () => {
 
   const handleCreateRoom = async () => {
     try {
+      setCreateError(null);
+      const trimmedParticipants = newParticipants.trim();
+      if (!trimmedParticipants) {
+        setCreateError('想定参加者数は必須入力です。');
+        return;
+      }
+
+      const parsed = parseInt(trimmedParticipants, 10);
+      if (isNaN(parsed)) {
+        setCreateError('想定参加者数には有効な整数を入力してください。');
+        return;
+      }
+
+      // 範囲外(最小2、最大1000)は最も近い値に丸める
+      const expectedParticipants = Math.max(2, Math.min(1000, Math.round(parsed)));
+
       const res = await fetch('/api/rooms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTitle.trim() }),
+        body: JSON.stringify({
+          title: newTitle.trim(),
+          expectedParticipants,
+        }),
       });
-      if (!res.ok) throw new Error('ルームの作成に失敗しました。');
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || 'ルームの作成に失敗しました。');
+      }
       const newRoom = await res.json();
       setRooms(prev => [newRoom, ...prev]);
       setNewTitle('');
+      setNewParticipants('50');
+      setCreateError(null);
       setIsCreating(false);
     } catch (err: any) {
-      alert(err.message || 'エラーが発生しました。');
+      setCreateError(err.message || 'エラーが発生しました。');
     }
   };
 
@@ -126,7 +153,10 @@ export const AdminPanel: React.FC = () => {
         </div>
       </td>
       <td>{statusBadge}</td>
-      <td>{room.userIds?.length || 0}人</td>
+      <td>
+        <div>{room.userIds?.length || 0}人</div>
+        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>想定: {room.expectedParticipants || 50}人</div>
+      </td>
       <td>{formatDate(room.updatedAt)}</td>
       <td>
         <div className="action-buttons">
@@ -198,8 +228,41 @@ export const AdminPanel: React.FC = () => {
                 }}
               />
             </div>
+            <div>
+              <label style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                想定参加者数 (目安) <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>*必須</span>
+              </label>
+              <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                リアクションの濃さの基準になります。実際の人数が違っても使えます
+              </p>
+              <input
+                type="number"
+                min={2}
+                max={1000}
+                step={1}
+                value={newParticipants}
+                onChange={e => { setNewParticipants(e.target.value); setCreateError(null); }}
+                placeholder="50"
+                onKeyDown={e => { if (e.key === 'Enter') handleCreateRoom(); if (e.key === 'Escape') { setIsCreating(false); setCreateError(null); } }}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  background: 'var(--bg-tertiary)',
+                  border: createError ? '1px solid var(--color-danger)' : '1px solid var(--border-medium)',
+                  borderRadius: 'var(--radius-md)',
+                  color: 'var(--text-primary)',
+                  fontSize: 'var(--font-size-base)',
+                  outline: 'none',
+                }}
+              />
+            </div>
+            {createError && (
+              <div style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)', padding: '4px 0' }}>
+                ⚠️ {createError}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'flex-end' }}>
-              <button className="btn-secondary" onClick={() => { setIsCreating(false); setNewTitle(''); }}>キャンセル</button>
+              <button className="btn-secondary" onClick={() => { setIsCreating(false); setNewTitle(''); setNewParticipants('50'); setCreateError(null); }}>キャンセル</button>
               <button className="btn-primary" onClick={handleCreateRoom}>作成する</button>
             </div>
           </div>
