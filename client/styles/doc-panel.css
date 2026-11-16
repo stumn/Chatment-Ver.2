@@ -468,7 +468,7 @@
   align-items: stretch;
   gap: 10px;
   min-height: 84px;
-  padding: 12px 12px 12px 12px;
+  padding: 12px 12px 0;
   flex-shrink: 0;
   position: relative;
 }
@@ -589,16 +589,15 @@
   overflow-x: hidden;
   width: 100%;
   position: relative;
-  scrollbar-width: none;
-  /* スクロールバー非表示 */
+  scrollbar-width: thin;
 }
 
 .outline-sidebar__body::-webkit-scrollbar {
-  display: none;
+  width: 6px;
 }
 
 .outline-sidebar__list {
-  padding: var(--space-md) var(--space-sm);
+  padding: 6px var(--space-sm) var(--space-md);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -608,7 +607,7 @@
   background: transparent;
   border: none;
   text-align: left;
-  padding: 8px 12px;
+  padding: 4px 6px;
   border-radius: var(--radius-sm);
   font-size: 13px;
   color: var(--text-secondary);
@@ -629,6 +628,17 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  border-radius: var(--radius-sm);
+  padding-inline: 2px;
+  background-color: transparent;
+}
+
+.outline-sidebar__item--line-positive .outline-sidebar__item-text {
+  color: var(--reaction-pos);
+}
+
+.outline-sidebar__item--line-negative .outline-sidebar__item-text {
+  color: var(--reaction-neg);
 }
 
 /* ─── Sidebar Item Dot ─── */
@@ -637,7 +647,7 @@
   height: 6px;
   border-radius: 50%;
   background-color: var(--text-muted);
-  opacity: 0.6;
+  opacity: 0.4;
   border: none;
   flex-shrink: 0;
   display: inline-block;
@@ -646,32 +656,13 @@
 .outline-sidebar__item-dot.is-indent-0.is-doc {
   background-color: var(--bg-elevated);
   border: 1.5px solid var(--split-doc);
+  opacity: 0.4;
 }
 
 .outline-sidebar__item-dot.is-indent-0.is-chat {
   background-color: var(--split-chat);
   border: none;
-}
-
-.outline-sidebar__item-dot.has-reactions {
-  width: 7px;
-  height: 7px;
-  border: none;
-  opacity: 0.85;
-}
-
-.outline-sidebar__item-dot.has-reactions.is-positive {
-  background-color: var(--reaction-pos);
-  opacity: var(--reaction-opacity, 0.85);
-  box-shadow: 0 0 4px var(--reaction-pos);
-  border: 1px solid var(--reaction-pos);
-}
-
-.outline-sidebar__item-dot.has-reactions.is-negative {
-  background-color: var(--reaction-neg);
-  opacity: var(--reaction-opacity, 0.85);
-  box-shadow: 0 0 4px var(--reaction-neg);
-  border: 1px solid var(--reaction-neg);
+  opacity: 0.4;
 }
 
 .outline-sidebar__item-dot.is-h1 {
@@ -775,6 +766,7 @@
   height: auto;
   border-radius: 0;
   background: transparent;
+  border: none;
 }
 
 .outline-sidebar__minimap-marker.is-h1::after {

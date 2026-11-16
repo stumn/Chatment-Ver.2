@@ -83,16 +83,18 @@ const OutlineItemRow = React.memo<{
     'outline-sidebar__item-dot',
     isH1 ? 'is-h1' : '',
     indent === 0 ? 'is-indent-0' : '',
-    hasReactions ? 'has-reactions' : '',
-    voteScore > 0 ? 'is-positive' : '',
-    voteScore < 0 ? 'is-negative' : '',
     type === 'chat' ? 'is-chat' : 'is-doc',
   ].filter(Boolean).join(' ');
 
   return (
     <button
       key={blockId}
-      className={`outline-sidebar__item ${isH1 ? 'outline-sidebar__item--h1' : 'outline-sidebar__item--bold'}`}
+      className={[
+        'outline-sidebar__item',
+        isH1 ? 'outline-sidebar__item--h1' : 'outline-sidebar__item--bold',
+        !isH1 && voteScore > 0 ? 'outline-sidebar__item--line-positive' : '',
+        !isH1 && voteScore < 0 ? 'outline-sidebar__item--line-negative' : '',
+      ].filter(Boolean).join(' ')}
       onClick={() => onJumpToNode(index, 'doc', 'outline')}
       title={text}
       data-lv={step}
