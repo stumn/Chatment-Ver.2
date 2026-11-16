@@ -7,9 +7,7 @@ import {
   getMinimapOpacity,
 } from '../utils/reactionUtils';
 import { useRoom } from '../contexts/RoomContext';
-import { MinimapDots } from './MinimapDots';
-import { MinimapBands } from './MinimapBands';
-import { emitUserAction } from '../loro/sync-client';
+import { Minimap } from './Minimap';
 
 export interface OutlineItem {
   index: number;
@@ -133,31 +131,6 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({
 }) => {
   const { R } = useRoom();
 
-  // ミニマップモード (初期値: dots)
-  const [minimapMode, setMinimapMode] = useState<'dots' | 'bands'>(() => {
-    try {
-      const saved = localStorage.getItem('chatment-minimap-mode');
-      if (saved === 'bands') return 'bands';
-    } catch {
-      // ignore
-    }
-    return 'dots';
-  });
-
-  const handleMinimapModeChange = (mode: 'dots' | 'bands') => {
-    setMinimapMode(mode);
-    try {
-      localStorage.setItem('chatment-minimap-mode', mode);
-    } catch {
-      // ignore
-    }
-    emitUserAction({
-      type: 'minimapMode',
-      targetId: mode,
-      actionDetails: `ミニマップ表示切替: ${mode}`,
-    });
-  };
-
   // 全掲載アイテムの算出（掲載条件: H1・リアクションあり・indent===0）
   const computeOutlineItems = useCallback((): OutlineItem[] => {
     return nodes
@@ -262,80 +235,22 @@ export const OutlineSidebar: React.FC<OutlineSidebarProps> = ({
           </button>
         </div>
 
-        {/* サイドバー展開時：目次タイトルとミニマップ切替スイッチ */}
+        {/* サイドバー展開時：目次タイトル */}
         {!isCollapsed && (
-          <div className="outline-sidebar__section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div className="outline-sidebar__divider" />
-              <span className="outline-sidebar__title">目次</span>
-            </div>
-            {/* ミニマップ切替 (ドット / 帯) */}
-            <div
-              className="minimap-mode-toggle"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                background: 'var(--bg-tertiary)',
-                padding: '2px',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: '11px',
-                fontWeight: 500,
-              }}
-              title="折りたたみ時のミニマップ表示形式"
-            >
-              <button
-                type="button"
-                onClick={() => handleMinimapModeChange('dots')}
-                style={{
-                  padding: '2px 6px',
-                  border: 'none',
-                  borderRadius: 'var(--radius-sm)',
-                  background: minimapMode === 'dots' ? 'var(--bg-elevated)' : 'transparent',
-                  color: minimapMode === 'dots' ? 'var(--text-primary)' : 'var(--text-muted)',
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                  boxShadow: minimapMode === 'dots' ? 'var(--shadow-sm)' : 'none',
-                }}
-              >
-                ドット
-              </button>
-              <button
-                type="button"
-                onClick={() => handleMinimapModeChange('bands')}
-                style={{
-                  padding: '2px 6px',
-                  border: 'none',
-                  borderRadius: 'var(--radius-sm)',
-                  background: minimapMode === 'bands' ? 'var(--bg-elevated)' : 'transparent',
-                  color: minimapMode === 'bands' ? 'var(--text-primary)' : 'var(--text-muted)',
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                  boxShadow: minimapMode === 'bands' ? 'var(--shadow-sm)' : 'none',
-                }}
-              >
-                帯
-              </button>
-            </div>
+          <div className="outline-sidebar__section">
+            <div className="outline-sidebar__divider" />
+            <span className="outline-sidebar__title">目次</span>
           </div>
         )}
       </div>
 
       <div className="outline-sidebar__body">
         {isCollapsed ? (
-          /* 折りたたみ時：選択されたミニマップ形式 (ドット または 帯) */
-          minimapMode === 'dots' ? (
-            <MinimapDots
-              items={outlineItems}
-              totalNodesCount={nodes.length}
-              onJumpToNode={onJumpToNode}
-            />
-          ) : (
-            <MinimapBands
-              items={outlineItems}
-              totalNodesCount={nodes.length}
-              onJumpToNode={onJumpToNode}
-            />
-          )
+          <Minimap
+            items={outlineItems}
+            totalNodesCount={nodes.length}
+            onJumpToNode={onJumpToNode}
+          />
         ) : (
           /* 展開時：見出しリスト (全件表示 & content-visibility: auto) */
           <div className="outline-sidebar__list">

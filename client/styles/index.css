@@ -26,6 +26,10 @@
   --accent-secondary-hover: #292524;
   --split-chat: #e8793a;
   --split-doc: #3b82f6;
+  --minimap-row-pitch: 6px;
+  --minimap-marker-size: 5px;
+  --minimap-line-width: 2px;
+  --minimap-heading-line-width: 3px;
   --color-danger: #c62828;
   --reaction-pos: #2eb845;
   --reaction-neg: #dd3c3c;
@@ -793,6 +797,10 @@ body {
   --accent-secondary-hover: #fafaf9;
   --split-chat: #e8793a;
   --split-doc: #3b82f6;
+  --minimap-row-pitch: 6px;
+  --minimap-marker-size: 5px;
+  --minimap-line-width: 2px;
+  --minimap-heading-line-width: 3px;
   --color-danger: #ff6b6b;
   --reaction-pos: #34d399;
   --reaction-neg: #f87171;

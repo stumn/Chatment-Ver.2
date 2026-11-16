@@ -715,11 +715,102 @@
 .outline-sidebar__minimap {
   position: absolute;
   inset: 0;
-  padding: var(--space-xl) 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  cursor: pointer;
 }
+
+.outline-sidebar__minimap::-webkit-scrollbar {
+  display: none;
+}
+
+.outline-sidebar__minimap-content {
+  position: relative;
+  width: 100%;
+}
+
+.outline-sidebar__minimap-row {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.outline-sidebar__minimap-viewport {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  min-height: 6px;
+  background: var(--split-doc);
+  opacity: 0.08;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.outline-sidebar__minimap-marker {
+  position: absolute;
+  left: 8px;
+  width: var(--minimap-marker-size);
+  height: var(--minimap-marker-size);
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.4;
+  z-index: 1;
+}
+
+.outline-sidebar__minimap-marker.is-chat {
+  background: var(--split-chat);
+}
+
+.outline-sidebar__minimap-marker.is-doc {
+  background: var(--bg-elevated);
+  border: 1.5px solid var(--split-doc);
+}
+
+.outline-sidebar__minimap-marker.is-h1 {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: transparent;
+}
+
+.outline-sidebar__minimap-marker.is-h1::after {
+  content: '#';
+  color: var(--text-primary);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.outline-sidebar__minimap-line {
+  position: absolute;
+  right: 6px;
+  width: calc(50% - 4px);
+  height: var(--minimap-line-width);
+  background: transparent;
+  transform-origin: right center;
+}
+
+.outline-sidebar__minimap-line.is-positive {
+  background: var(--reaction-pos);
+}
+
+.outline-sidebar__minimap-line.is-negative {
+  background: var(--reaction-neg);
+}
+
+.outline-sidebar__minimap-line.is-h1 {
+  right: 6px;
+  width: calc(50% - 4px);
+  height: var(--minimap-heading-line-width);
+  background: var(--text-primary);
+  z-index: 0;
+}
+
+
 
 .outline-sidebar__minimap-dot {
   position: absolute;
