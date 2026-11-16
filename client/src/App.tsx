@@ -10,7 +10,6 @@ import { SplitView } from './components/SplitView';
 import { DocPanel } from './components/DocPanel';
 import { ChatPanel } from './components/ChatPanel';
 import { ChatInput } from './components/ChatInput';
-import { ConnectionStatus } from './components/ConnectionStatus';
 import { GuideModal } from './components/GuideModal';
 import { OutlineSidebar } from './components/OutlineSidebar';
 import { ExportDialog } from './components/ExportDialog';
@@ -764,9 +763,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
               />
             )}
             <span className="app-header__user">
-              <span className="app-header__user-icon" title={`現在 ${userCount} 人が接続中`}></span>
               <span>{currentAuthorInfo?.displayName || realName}</span>
-              <ConnectionStatus state={connectionState} userName={currentAuthorInfo?.displayName || ''} colorIndex={myColorIndex} />
             </span>
           </div>
         </div>
