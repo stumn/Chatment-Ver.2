@@ -250,9 +250,9 @@
 }
 
 .emoji-reaction-chip--active {
-  background: hsla(260, 65%, 55%, 0.12);
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
+  background: var(--bg-tertiary);
+  border-color: var(--border-medium);
+  color: var(--text-secondary);
   font-weight: 600;
 }
 

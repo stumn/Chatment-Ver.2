@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import type { StreamNodeWithIndex } from '../types';
 import type { LoroDoc } from 'loro-crdt';
 import { addReaction, toggleEmojiReaction } from '../loro/schema';
@@ -39,8 +39,6 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   const { node, index, id } = nodeWithIndex;
   const { R } = useRoom();
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [isPulsing, setIsPulsing] = useState(false);
-  const pulseTimerRef = useRef<number | null>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
 
   const formatTime = (ts: number) => {
@@ -48,24 +46,11 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
     return d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const triggerPulse = useCallback(() => {
-    if (pulseTimerRef.current) {
-      window.clearTimeout(pulseTimerRef.current);
-    }
-    setIsPulsing(true);
-    pulseTimerRef.current = window.setTimeout(() => {
-      setIsPulsing(false);
-      pulseTimerRef.current = null;
-    }, 400);
-  }, []);
-
   const myReaction = (node.reactions && node.reactions[userId]) || '';
 
   const handleVote = (emoji: '⇧' | '⇩', e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!doc) return;
-    // 自分が押した直後のパルスと即座の楽観反映
-    triggerPulse();
     const newEmoji = myReaction === emoji ? '' : emoji;
     addReaction(doc, index, userId, newEmoji);
     onAfterEdit();
@@ -73,7 +58,6 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
 
   const handleToggleEmoji = (emoji: string) => {
     if (!doc) return;
-    triggerPulse();
     toggleEmojiReaction(doc, index, userId, emoji);
     onAfterEdit();
   };
@@ -154,14 +138,14 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
 
   return (
     <div
-      className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'} ${typeClass} ${headingClass} reaction-transition`}
+      className={`chat-message ${isOwn ? 'chat-message--own' : 'chat-message--other'} ${typeClass} ${headingClass}`}
       data-lv={step}
       id={`chat-message-${index}`}
       onClick={() => onJumpToNode(index, 'doc', 'chat-message')}
       style={{ cursor: 'pointer' }}
       title="クリックしてドキュメントへジャンプ"
     >
-      <div className={`chat-message__body ${isPulsing ? 'reaction-pulse-active' : ''}`}>
+      <div className="chat-message__body">
         <div className="chat-message__header">
           <span className="chat-message__time">{formatTime(node.timestamp)}</span>
           <span className="chat-message__author">{node.author.displayName}</span>

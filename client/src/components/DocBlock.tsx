@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useState } from 'react';
 import type { StreamNodeWithIndex, EmphasisLevel, AuthorInfo } from '../types';
 import type { LoroDoc } from 'loro-crdt';
 import { useBlockEditor } from '../hooks/useBlockEditor';
@@ -94,19 +94,6 @@ export const DocBlockComponent: React.FC<DocBlockProps> = ({
   };
 
   const { R } = useRoom();
-  const [isPulsing, setIsPulsing] = useState(false);
-  const pulseTimerRef = useRef<number | null>(null);
-
-  const triggerPulse = useCallback(() => {
-    if (pulseTimerRef.current) {
-      window.clearTimeout(pulseTimerRef.current);
-    }
-    setIsPulsing(true);
-    pulseTimerRef.current = window.setTimeout(() => {
-      setIsPulsing(false);
-      pulseTimerRef.current = null;
-    }, 400);
-  }, []);
 
   // Read emphasis level from Map for doc blocks (block level styling)
   const blockEmphasis = blockHeading === 'h1' ? 0 : (loroMap?.get('emphasis') as EmphasisLevel || 0);
@@ -223,7 +210,7 @@ export const DocBlockComponent: React.FC<DocBlockProps> = ({
 
   return (
     <div
-      className={`${blockClass} reaction-transition`}
+      className={blockClass}
       data-lv={step}
       style={dynamicStyle}
       draggable={isDraggable}
