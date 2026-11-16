@@ -51,6 +51,7 @@ export const DocBlockComponent: React.FC<DocBlockProps> = ({
   onJumpToNode,
   isCautiousMode,
 }) => {
+  const [toolbarSide, setToolbarSide] = useState<'left' | 'right'>('right');
   const { node, index, loroText, loroMap } = nodeWithIndex;
   const blockIndent = node.indent || 0;
   const blockHeading = node.heading ?? (/^[#＃]/.test(node.content) ? 'h1' : null);
@@ -182,6 +183,12 @@ export const DocBlockComponent: React.FC<DocBlockProps> = ({
     isContentEmpty ? 'doc-block--empty' : '',
   ].filter(Boolean).join(' ');
 
+  const handleBlockMouseEnter = (event: React.MouseEvent<HTMLDivElement>) => {
+    const { left, width } = event.currentTarget.getBoundingClientRect();
+    const nextSide = event.clientX < left + width / 2 ? 'left' : 'right';
+    setToolbarSide(nextSide);
+  };
+
   // Render content safely via HTML for contentEditable support without React child fights
   const renderContentAsHTML = (): string => {
     let text = node.content || '';
@@ -219,6 +226,7 @@ export const DocBlockComponent: React.FC<DocBlockProps> = ({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       onDragEnd={onDragEnd}
+      onMouseEnter={handleBlockMouseEnter}
       id={`doc-block-${index}`}
     >
       {blockHeading === 'h1' ? (
@@ -295,6 +303,7 @@ export const DocBlockComponent: React.FC<DocBlockProps> = ({
         setIsDraggable={setIsDraggable}
         adjustIndent={adjustIndent}
         setBlockStyle={setBlockStyle}
+        side={toolbarSide}
       />
     </div>
   );

@@ -1136,7 +1136,7 @@
   border-radius: var(--radius-md);
   /* 2段構造に適した角丸 */
   box-shadow: var(--shadow-md), 0 4px 12px rgba(0, 0, 0, 0.08);
-  z-index: 20;
+  z-index: 1000;
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--transition-fast) ease, transform var(--transition-fast) ease;
@@ -1151,6 +1151,16 @@
   bottom: -10px;
   width: 40px;
   background: transparent;
+}
+
+.doc-block__action-toolbar--left {
+  left: -125px;
+  right: auto;
+}
+
+.doc-block__action-toolbar--left::before {
+  left: auto;
+  right: -40px;
 }
 
 .doc-block:hover .doc-block__action-toolbar {
@@ -1206,6 +1216,11 @@
     right: 4px;
     padding: 2px;
     border-radius: var(--radius-sm);
+  }
+
+  .doc-block__action-toolbar--left {
+    left: 4px;
+    right: auto;
   }
 
   .action-toolbar__controls-grid {

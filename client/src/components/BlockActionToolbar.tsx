@@ -8,6 +8,7 @@ interface BlockActionToolbarProps {
   setIsDraggable: (draggable: boolean) => void;
   adjustIndent: (direction: number) => void;
   setBlockStyle: (style: 'h1' | 'normal' | 'fade') => void;
+  side: 'left' | 'right';
 }
 
 export const BlockActionToolbar: React.FC<BlockActionToolbarProps> = ({
@@ -18,9 +19,10 @@ export const BlockActionToolbar: React.FC<BlockActionToolbarProps> = ({
   setIsDraggable,
   adjustIndent,
   setBlockStyle,
+  side,
 }) => {
   return (
-    <div className="doc-block__action-toolbar" onClick={(e) => e.stopPropagation()}>
+    <div className={`doc-block__action-toolbar doc-block__action-toolbar--${side}`} onClick={(e) => e.stopPropagation()}>
       {/* ドラッグハンドルをツールバーの左側に配置し、高さを縦全体に持たせる */}
       {showDragHandle && (
         <div
@@ -74,7 +76,7 @@ export const BlockActionToolbar: React.FC<BlockActionToolbarProps> = ({
           </button>
         </div>
 
-        {/* 下段：見出し・標準・控えめ */}
+        {/* 下段：見出し・標準 */}
         <div className="action-toolbar__row" style={{ display: 'flex', gap: '2px' }}>
           <button
             className={`action-toolbar__btn ${blockHeading === 'h1' ? 'is-active' : ''}`}
@@ -91,15 +93,6 @@ export const BlockActionToolbar: React.FC<BlockActionToolbarProps> = ({
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => setBlockStyle('normal')}
             style={{ fontSize: '10px' }}
-          >
-            ●
-          </button>
-          <button
-            className={`action-toolbar__btn ${blockHeading !== 'h1' && blockEmphasis === -1 ? 'is-active' : ''}`}
-            title="控えめ (●)"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setBlockStyle('fade')}
-            style={{ fontSize: '10px', color: '#999' }}
           >
             ●
           </button>
