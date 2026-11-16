@@ -138,8 +138,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           onKeyDown={handleKeyDown}
           placeholder={
             useCtrlEnter
-                ? 'チャットメッセージを入力... (Ctrl + Enter で送信)'
-                : 'チャットメッセージを入力... (Enter で送信, Shift + Enter で改行)'
+              ? 'チャットメッセージを入力... (Ctrl + Enter で送信)'
+              : 'チャットメッセージを入力... (Enter で送信)'
           }
           rows={1}
           id="chat-input-textarea"
