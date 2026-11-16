@@ -17,6 +17,7 @@ interface DocPanelProps {
   onAfterEdit: () => void;
   onJumpToNode: (index: number, target: 'doc' | 'chat') => void;
   isCautiousMode?: boolean;
+  readOnly?: boolean;
 }
 
 export const DocPanel: React.FC<DocPanelProps> = ({
@@ -33,6 +34,7 @@ export const DocPanel: React.FC<DocPanelProps> = ({
   onAfterEdit,
   onJumpToNode,
   isCautiousMode,
+  readOnly = false,
 }) => {
 
 
@@ -53,8 +55,10 @@ export const DocPanel: React.FC<DocPanelProps> = ({
                 textAlign: 'center',
                 lineHeight: '1.7',
               }}>
-                チャットからでも、ここドキュメントからでも、書き込めます。<br />
-                ドキュメントから書き込む場合は、前の行の最後でEnter（改行）すると、次の行が作れます。
+                {readOnly
+                  ? 'ドキュメントは閲覧専用です。'
+                  : <>チャットからでも、ここドキュメントからでも、書き込めます。<br />
+                    ドキュメントから書き込む場合は、前の行の最後でEnter（改行）すると、次の行が作れます。</>}
               </p>
             </div>
           </div>
@@ -76,8 +80,10 @@ export const DocPanel: React.FC<DocPanelProps> = ({
               textAlign: 'center',
               lineHeight: '1.7',
             }}>
-              チャットからでも、ここドキュメントからでも、書き込めます。<br />
-              ドキュメントから書き込む場合は、前の行の最後でEnter（改行）すると、次の行が作れます。
+              {readOnly
+                ? 'ドキュメントは閲覧専用です。'
+                : <>チャットからでも、ここドキュメントからでも、書き込めます。<br />
+                  ドキュメントから書き込む場合は、前の行の最後でEnter（改行）すると、次の行が作れます。</>}
             </p>
           )}
           {nodes.map((nodeWithIndex, arrayIndex) => (
@@ -99,6 +105,7 @@ export const DocPanel: React.FC<DocPanelProps> = ({
                 onAfterEdit={onAfterEdit}
                 onJumpToNode={onJumpToNode}
                 isCautiousMode={isCautiousMode}
+                readOnly={readOnly}
               />
             </React.Fragment>
           ))}

@@ -1,0 +1,158 @@
+.mobile-version-link {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+}
+
+.mobile-version-link:hover,
+.mobile-version-link:focus-visible {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.mobile-view-btn {
+  width: 34px;
+  height: 32px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.mobile-view-btn svg,
+.mobile-header-action svg {
+  display: block;
+  margin: auto;
+}
+
+.mobile-view-btn.is-active {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary-glow);
+  color: var(--text-primary);
+}
+
+.mobile-header-action {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.mobile-header-action:hover:not(:disabled),
+.mobile-header-action:focus-visible {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.mobile-header-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mobile-view {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mobile-view > .chat-panel,
+.mobile-view > .doc-panel {
+  width: 100%;
+}
+
+.mobile-chat-message__reactions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.mobile-chat-message__reactions .emoji-reaction-chips {
+  margin-top: 0;
+  align-self: auto;
+  justify-content: flex-start;
+}
+
+@media (max-width: 480px) {
+  .app:not(.mobile-mode) {
+    padding-left: 0;
+  }
+
+  .app.mobile-mode {
+    padding-left: 0;
+  }
+
+  .app.mobile-mode .outline-sidebar {
+    display: none;
+  }
+
+  .app-header__main-row {
+    padding: 0 10px;
+  }
+
+  .app-header__center-toolbar,
+  .app-header__right > .theme-custom-menu-container,
+  .app-header__right > .theme-toggle-btn,
+  .app-header__right > .app-header__user {
+    display: none !important;
+  }
+
+  .app-header__right {
+    gap: 5px;
+  }
+
+  .mobile-version-link {
+    display: none;
+  }
+
+  .chat-panel__messages {
+    padding: 16px 8px;
+  }
+
+  .chat-message {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .chat-input {
+    padding: 8px;
+  }
+
+  .chat-input__handle-dropdown {
+    margin-right: 4px !important;
+  }
+
+  .chat-input__handle-name {
+    max-width: 64px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .doc-panel__content {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+@media (min-width: 481px) {
+  .mobile-mode .mobile-view-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

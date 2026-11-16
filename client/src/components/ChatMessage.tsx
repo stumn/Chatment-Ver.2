@@ -23,6 +23,7 @@ interface ChatMessageProps {
   onRequestDelete?: () => void;
   onAfterEdit: () => void;
   onJumpToNode: (index: number, target: 'doc' | 'chat', source?: string) => void;
+  isMobile?: boolean;
 }
 
 export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
@@ -35,6 +36,7 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   onRequestDelete,
   onAfterEdit,
   onJumpToNode,
+  isMobile = false,
 }) => {
   const { node, index, id } = nodeWithIndex;
   const { R } = useRoom();
@@ -153,7 +155,7 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
         <div className={`chat-message__content ${emphasisClass}`} style={dynamicStyle}>
           {renderWithLinks(content)}
         </div>
-        {isHeading && (
+        {isHeading && !isMobile && (
           <EmojiReactionChips
             emojiReactions={node.emojiReactions}
             currentUserId={userId}
@@ -161,9 +163,55 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
             variant="chat"
           />
         )}
+        {isMobile && (
+          <div className="mobile-chat-message__reactions" onClick={(e) => e.stopPropagation()}>
+            <button
+              className={`chat-message__reaction-badge chat-message__reaction-badge--upvote ${myReaction === '⇧' ? 'chat-message__reaction-badge--active' : ''}`}
+              onClick={(e) => handleVote('⇧', e)}
+              title="いいね (Upvote)"
+              aria-label="いいね"
+            >
+              👍 {upvotes > 0 && formatReactionCount(upvotes)}
+            </button>
+            <button
+              className={`chat-message__reaction-badge chat-message__reaction-badge--downvote ${myReaction === '⇩' ? 'chat-message__reaction-badge--active' : ''}`}
+              onClick={(e) => handleVote('⇩', e)}
+              title="よくないね (Downvote)"
+              aria-label="よくないね"
+            >
+              👎 {downvotes > 0 && formatReactionCount(downvotes)}
+            </button>
+            <div className="chat-message__picker-container">
+              <button
+                ref={addButtonRef}
+                className={`chat-message__reaction-badge chat-message__reaction-badge--add ${isPickerOpen ? 'chat-message__reaction-badge--active' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsPickerOpen((prev) => !prev);
+                }}
+                title="絵文字を追加"
+                aria-label="絵文字リアクションを追加"
+              >
+                ＋
+              </button>
+              <EmojiReactionPicker
+                isOpen={isPickerOpen}
+                onClose={() => setIsPickerOpen(false)}
+                onSelectEmoji={handleSelectEmojiFromPicker}
+                buttonRef={addButtonRef}
+              />
+            </div>
+            <EmojiReactionChips
+              emojiReactions={node.emojiReactions}
+              currentUserId={userId}
+              onToggleEmoji={handleToggleEmoji}
+              variant="chat"
+            />
+          </div>
+        )}
       </div>
 
-      {isHeading && showMenu && (
+      {isHeading && showMenu && !isMobile && (
         <div className="chat-message__side-actions" onClick={(e) => e.stopPropagation()}>
           <div className="chat-message__reaction-list">
             <PostActionMenu
@@ -176,7 +224,7 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
         </div>
       )}
 
-      {!isHeading && (
+      {!isHeading && !isMobile && (
         <div className="chat-message__side-actions" onClick={(e) => e.stopPropagation()}>
           <div className="chat-message__reaction-list">
             {showMenu && (
@@ -238,6 +286,7 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
 
 export const ChatMessage = React.memo(ChatMessageComponent, (prevProps, nextProps) => {
   if (prevProps.isOwn !== nextProps.isOwn) return false;
+  if (prevProps.isMobile !== nextProps.isMobile) return false;
   if (prevProps.isMenuOpen !== nextProps.isMenuOpen) return false;
   if (prevProps.userId !== nextProps.userId) return false;
   if (prevProps.nodeWithIndex.index !== nextProps.nodeWithIndex.index) return false;

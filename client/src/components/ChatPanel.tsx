@@ -14,6 +14,7 @@ interface ChatPanelProps {
   ratio: number;
   onAfterEdit: () => void;
   onJumpToNode: (index: number, target: 'doc' | 'chat') => void;
+  isMobile?: boolean;
 }
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -26,6 +27,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   ratio,
   onAfterEdit,
   onJumpToNode,
+  isMobile = false,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -116,6 +118,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             onRequestDelete={() => setDeleteTargetNode(nodeWithIndex)}
             onAfterEdit={onAfterEdit}
             onJumpToNode={onJumpToNode}
+            isMobile={isMobile}
           />
         ))}
         <div ref={messagesEndRef} />

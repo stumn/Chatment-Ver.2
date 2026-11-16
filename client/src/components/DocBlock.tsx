@@ -31,6 +31,7 @@ interface DocBlockProps {
   onAfterEdit: () => void;
   onJumpToNode: (index: number, target: 'doc' | 'chat', source?: string) => void;
   isCautiousMode?: boolean;
+  readOnly?: boolean;
 }
 
 export const DocBlockComponent: React.FC<DocBlockProps> = ({
@@ -50,6 +51,7 @@ export const DocBlockComponent: React.FC<DocBlockProps> = ({
   onAfterEdit,
   onJumpToNode,
   isCautiousMode,
+  readOnly = false,
 }) => {
   const [toolbarSide, setToolbarSide] = useState<'left' | 'right'>('right');
   const { node, index, loroText, loroMap } = nodeWithIndex;
@@ -220,12 +222,12 @@ export const DocBlockComponent: React.FC<DocBlockProps> = ({
       className={blockClass}
       data-lv={step}
       style={dynamicStyle}
-      draggable={isDraggable}
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-      onDragEnd={onDragEnd}
+      draggable={!readOnly && isDraggable}
+      onDragStart={readOnly ? undefined : onDragStart}
+      onDragOver={readOnly ? undefined : onDragOver}
+      onDragLeave={readOnly ? undefined : onDragLeave}
+      onDrop={readOnly ? undefined : onDrop}
+      onDragEnd={readOnly ? undefined : onDragEnd}
       onMouseEnter={handleBlockMouseEnter}
       id={`doc-block-${index}`}
     >
@@ -260,14 +262,14 @@ export const DocBlockComponent: React.FC<DocBlockProps> = ({
           key={node.blockId}
           ref={contentRef}
           className="doc-block__content"
-          contentEditable
+          contentEditable={!readOnly}
           suppressContentEditableWarning
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          onInput={handleInput}
-          onKeyDown={handleKeyDown}
+          onFocus={readOnly ? undefined : handleFocus}
+          onBlur={readOnly ? undefined : handleBlur}
+          onInput={readOnly ? undefined : handleInput}
+          onKeyDown={readOnly ? undefined : handleKeyDown}
           dangerouslySetInnerHTML={{ __html: renderContentAsHTML() }}
-          style={{ cursor: 'text' }}
+          style={{ cursor: readOnly ? 'default' : 'text', userSelect: 'text' }}
         />
       </div>
       {showEmojiIndicator && (
@@ -295,16 +297,18 @@ export const DocBlockComponent: React.FC<DocBlockProps> = ({
           <span className="doc-block__reaction-jump-count">{emojiReactionCount}</span>
         </button>
       )}
-      <BlockActionToolbar
-        showDragHandle={showDragHandle}
-        blockIndent={blockIndent}
-        blockHeading={blockHeading}
-        blockEmphasis={blockEmphasis}
-        setIsDraggable={setIsDraggable}
-        adjustIndent={adjustIndent}
-        setBlockStyle={setBlockStyle}
-        side={toolbarSide}
-      />
+      {!readOnly && (
+        <BlockActionToolbar
+          showDragHandle={showDragHandle}
+          blockIndent={blockIndent}
+          blockHeading={blockHeading}
+          blockEmphasis={blockEmphasis}
+          setIsDraggable={setIsDraggable}
+          adjustIndent={adjustIndent}
+          setBlockStyle={setBlockStyle}
+          side={toolbarSide}
+        />
+      )}
     </div>
   );
 };
@@ -313,6 +317,7 @@ export const DocBlock = React.memo(DocBlockComponent, (prevProps, nextProps) => 
   if (prevProps.isDropTarget !== nextProps.isDropTarget) return false;
   if (prevProps.isDragging !== nextProps.isDragging) return false;
   if (prevProps.isCautiousMode !== nextProps.isCautiousMode) return false;
+  if (prevProps.readOnly !== nextProps.readOnly) return false;
   if (prevProps.defaultEmphasis !== nextProps.defaultEmphasis) return false;
   if (prevProps.nodeWithIndex.index !== nextProps.nodeWithIndex.index) return false;
   if (prevProps.nodeWithIndex.id !== nextProps.nodeWithIndex.id) return false;

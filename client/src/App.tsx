@@ -20,7 +20,7 @@ import { CautiousConfirmProvider } from './components/CautiousConfirmModal';
 import { POST_MENU_CONFIG } from './config/postMenuConfig';
 import { RoomProvider } from './contexts/RoomContext';
 
-export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitle: string; expectedParticipants?: number }> = ({ docId, isAdmin, roomTitle, expectedParticipants }) => {
+export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitle: string; expectedParticipants?: number; mobileMode?: boolean }> = ({ docId, isAdmin, roomTitle, expectedParticipants, mobileMode = false }) => {
   const [realName, setRealName] = useState<string | null>(() => {
     try {
       return sessionStorage.getItem('chatment-real-name') || null;
@@ -57,6 +57,8 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
   });
   const [defaultEmphasis, setDefaultEmphasis] = useState<EmphasisLevel | 'h1'>(0);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState<'chat' | 'doc'>('chat');
+  const [isMobileLayout, setIsMobileLayout] = useState(() => mobileMode || window.matchMedia('(max-width: 480px)').matches);
 
   /** ログイン情報からハンドルネーム候補2件を生成 */
   const generateHandleNameOptions = useCallback((name: string, attribute: string, age: string, uid: string): AuthorInfo[] => {
@@ -114,6 +116,13 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('chatment-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 480px)');
+    const handleChange = () => setIsMobileLayout(mobileMode || mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [mobileMode]);
 
   useEffect(() => {
     if (!cautiousTooltip) return;
@@ -207,6 +216,9 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
     }
   });
   const { docNodes, chatNodes } = useOverflow(nodes, chatPanelRef, 36);
+  const mobileChatNodes = nodes
+    .filter(node => node.node.content.trim().length > 0)
+    .sort((a, b) => a.node.timestamp - b.node.timestamp);
   const lastLoggedRatio = useRef<number>(ratio);
   const prevIsDragging = useRef<boolean>(false);
 
@@ -506,7 +518,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
   }
 
   return (
-    <div className={`app ${isSidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`} id="app">
+    <div className={`app ${isSidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'} ${isMobileLayout ? 'mobile-mode' : ''}`} id="app">
       <OutlineSidebar
         nodes={nodes}
         onJumpToNode={handleJumpToNode}
@@ -729,7 +741,91 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
           </div>
 
           <div className="app-header__right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <ThemeCustomizationMenu />
+            {isMobileLayout ? (
+              <>
+                <button
+                  className={`mobile-view-btn ${mobilePanel === 'doc' ? 'is-active' : ''}`}
+                  onClick={() => setMobilePanel('doc')}
+                  aria-label="ドキュメント表示"
+                  aria-pressed={mobilePanel === 'doc'}
+                >
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M6 3h9l3 3v15H6z" />
+                    <path d="M15 3v4h4" />
+                    <path d="M9 12h6M9 16h6" />
+                  </svg>
+                </button>
+                <button
+                  className={`mobile-view-btn ${mobilePanel === 'chat' ? 'is-active' : ''}`}
+                  onClick={() => setMobilePanel('chat')}
+                  aria-label="チャット表示"
+                  aria-pressed={mobilePanel === 'chat'}
+                >
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H7l-4 2 1.5-4A7.5 7.5 0 1 1 20 11.5Z" />
+                  </svg>
+                </button>
+              </>
+            ) : (
+              <button
+                className="mobile-version-link"
+                onClick={() => {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set('mobile', 'true');
+                  url.hash = docId;
+                  window.location.href = url.toString();
+                }}
+                title="スマホ版を開く"
+              >
+                スマホ版
+              </button>
+            )}
+            {isMobileLayout && (
+              <>
+                <button
+                  className="mobile-header-action"
+                  onClick={() => { emitUserAction({ type: 'guide-open', actionDetails: 'ガイドを表示' }); setIsGuideOpen(true); }}
+                  title="体験ガイドを表示"
+                  aria-label="体験ガイドを表示"
+                >
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                </button>
+                <button
+                  className="mobile-header-action"
+                  onClick={() => setIsExportOpen(true)}
+                  disabled={!hasReceivedServerSnapshot}
+                  title={hasReceivedServerSnapshot ? '文章を持ち出す' : '同期中です'}
+                  aria-label={hasReceivedServerSnapshot ? '文章を持ち出す' : '同期中です'}
+                >
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 3v12" />
+                    <path d="m7 10 5 5 5-5" />
+                    <path d="M5 21h14" />
+                  </svg>
+                </button>
+                <button
+                  className="mobile-header-action"
+                  onClick={toggleTheme}
+                  title={theme === 'light' ? 'ダークモードに切り替え' : 'ライトモードに切り替え'}
+                  aria-label={theme === 'light' ? 'ダークモードに切り替え' : 'ライトモードに切り替え'}
+                >
+                  {theme === 'light' ? (
+                    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                      <path fill="currentColor" d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                      <path fill="currentColor" d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45-1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41 1.03.39 1.41 0l1.06-1.06c.39-.39.39-1.03 0-1.41s-1.03-.39-1.41 0L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0s-.39 1.03 0 1.41 1.03.39 1.41 0 1.03-.39 1.41 0l1.06 1.06c.39.39.39 1.03 0 1.41s-1.03.39-1.41 0l-1.06-1.06z" />
+                    </svg>
+                  )}
+                </button>
+              </>
+            )}
+            {!isMobileLayout && <ThemeCustomizationMenu />}
             <button
               className="toolbar-btn theme-toggle-btn"
               onClick={toggleTheme}
@@ -771,7 +867,55 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
 
       <main className={`app-main ${dominantClass}`} style={{ position: 'relative' }}>
         <div className="split-view-shell">
-          <SplitView
+          {isMobileLayout ? (
+            <>
+              <div className="mobile-view">
+                {mobilePanel === 'doc' ? (
+                  <DocPanel
+                    nodes={docNodes}
+                    doc={doc}
+                    currentAuthorInfo={currentAuthorInfo || { displayName: '', realName: '', userId: '' }}
+                    defaultEmphasis={defaultEmphasis}
+                    dragState={dragState}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onDragEnd={handleDragEnd}
+                    onAfterEdit={handleAfterEdit}
+                    onJumpToNode={handleJumpToNode}
+                    isCautiousMode={isCautiousMode}
+                    readOnly
+                  />
+                ) : (
+                  <ChatPanel
+                    nodes={mobileChatNodes}
+                    doc={doc}
+                    userName={currentAuthorInfo?.displayName || ''}
+                    userId={userId}
+                    currentAuthorInfo={currentAuthorInfo || { displayName: '', realName: '', userId }}
+                    panelRef={chatPanelRef}
+                    ratio={ratio}
+                    onAfterEdit={handleAfterEdit}
+                    onJumpToNode={handleJumpToNode}
+                    isMobile
+                  />
+                )}
+              </div>
+              {mobilePanel === 'chat' && (
+                <div className="split-view__footer">
+                  <ChatInput
+                    doc={doc}
+                    currentAuthorInfo={currentAuthorInfo || { displayName: '', realName: '', userId: '' }}
+                    handleNameOptions={handleNameOptions}
+                    onHandleNameChange={handleAuthorInfoChange}
+                    onAfterSend={handleAfterEdit}
+                    useCtrlEnter={useCtrlEnter}
+                  />
+                </div>
+              )}
+            </>
+          ) : <SplitView
             ratio={ratio}
             onHandleMouseDown={handleMouseDown}
             onHandleDoubleClick={handleRatioDoubleClick}
@@ -813,8 +957,8 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
               console.log("[App] onSelectRatio called with newRatio:", newRatio);
               setRatio(newRatio);
             }}
-          />
-          <div className="split-view__footer">
+          />}
+          {!isMobileLayout && <div className="split-view__footer">
             <ChatInput
               doc={doc}
               currentAuthorInfo={currentAuthorInfo || { displayName: '', realName: '', userId: '' }}
@@ -823,7 +967,7 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
               onAfterSend={handleAfterEdit}
               useCtrlEnter={useCtrlEnter}
             />
-          </div>
+          </div>}
         </div>
       </main>
       <GuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
@@ -946,6 +1090,7 @@ export const App: React.FC = () => {
             isAdmin={roomState.isAdmin}
             roomTitle={roomState.title}
             expectedParticipants={roomState.expectedParticipants}
+            mobileMode={new URLSearchParams(window.location.search).get('mobile') === 'true'}
           />
         </RoomProvider>
       </CautiousConfirmProvider>

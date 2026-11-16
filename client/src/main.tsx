@@ -11,6 +11,7 @@ import '../styles/guide-modal.css';
 import '../styles/cautious-confirm-modal.css';
 import '../styles/export-dialog.css';
 import '../styles/theme-customization.css';
+import '../styles/mobile.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
