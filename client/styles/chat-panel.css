@@ -753,6 +753,7 @@
   font-family: inherit;
   display: flex;
   align-items: center;
+  white-space: nowrap;
 }
 
 .post-action-menu__item:hover,
