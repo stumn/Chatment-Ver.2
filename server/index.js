@@ -5,7 +5,8 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const { connectDB, User, Room, SystemLog, UserActionLog, DocumentSnapshot } = require('./db');
-const { getSnapshot, applyUpdate } = require('./snapshot-manager');
+const { getSnapshot, applyUpdate, getOrCreateDoc } = require('./snapshot-manager');
+const { registerIntegrationRoutes } = require('./integration');
 
 const app = express();
 const server = http.createServer(app);
@@ -178,6 +179,8 @@ app.get('/api/snapshot/:docId', async (req, res) => {
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: Date.now() });
 });
+
+registerIntegrationRoutes(app, { Room, getOrCreateDoc });
 
 // 静的ファイルの配信はAPIルートより後に置く
 const path = require('path');
