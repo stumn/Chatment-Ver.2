@@ -1,6 +1,7 @@
 import { LoroDoc, LoroMovableList, LoroMap, LoroText } from 'loro-crdt';
 import type { StreamNode, StreamNodeWithIndex, EmphasisLevel, AuthorInfo } from '../types';
 import { emitUserAction } from './sync-client';
+import { isSameAuthor } from '../utils/authorMatch';
 
 let peerIdCounter = BigInt(Math.floor(Math.random() * 1000000));
 
@@ -592,8 +593,14 @@ export function updateDocContent(
   const cleanNew = newText.replace(/[\s　]+/g, '');
   const hasSubstantialChange = cleanOld !== cleanNew;
 
-  const isAlreadyAuthor = currentAuthorUserId === editorInfo.userId && currentAuthorUserId !== '';
-  const isAlreadySubAuthor = currentSubAuthors.some(sa => sa.userId === editorInfo.userId && sa.userId !== '');
+  const isAlreadyAuthor = isSameAuthor(
+    {
+      userId: currentAuthorUserId,
+      realName: (nodeMap.get('authorRealName') as string) || (nodeMap.get('author') as string) || '',
+    },
+    editorInfo
+  );
+  const isAlreadySubAuthor = currentSubAuthors.some(sa => isSameAuthor(sa, editorInfo));
 
   // First Author resolution
   if (hasSubstantialChange && !currentAuthorUserId) {

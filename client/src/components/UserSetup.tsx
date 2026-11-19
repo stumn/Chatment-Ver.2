@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { loadUserName, saveUserName } from '../loro/local-storage';
 
 interface UserSetupProps {
+  docId: string;
   onComplete: (name: string, attribute: string, age: string) => void;
 }
 
@@ -16,11 +17,14 @@ for (const age of AGES) {
   }
 }
 
-export const UserSetup: React.FC<UserSetupProps> = ({ onComplete }) => {
+export const UserSetup: React.FC<UserSetupProps> = ({ docId, onComplete }) => {
   const [name, setName] = useState('');
   const [attribute, setAttribute] = useState('学部生');
   const [age, setAge] = useState('20s');
   const [nameError, setNameError] = useState('');
+  const [isCheckingName, setIsCheckingName] = useState(false);
+  const [showNameConfirmation, setShowNameConfirmation] = useState(false);
+  const usernameInputRef = React.useRef<HTMLInputElement>(null);
 
   // Load saved data for autofill on mount
   useEffect(() => {
@@ -57,7 +61,17 @@ export const UserSetup: React.FC<UserSetupProps> = ({ onComplete }) => {
     setNameError(validateName(value));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const completeLogin = (trimmed: string) => {
+    saveUserName(trimmed);
+    localStorage.setItem('compact-chatment-user-attribute', attribute);
+    localStorage.setItem('compact-chatment-user-age', age);
+    try {
+      localStorage.setItem(`chatment-room-name-${docId}`, trimmed);
+    } catch { }
+    onComplete(trimmed, attribute, age);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -68,25 +82,75 @@ export const UserSetup: React.FC<UserSetupProps> = ({ onComplete }) => {
       return;
     }
 
-    // Save to localStorage
-    saveUserName(trimmed);
-    localStorage.setItem('compact-chatment-user-attribute', attribute);
-    localStorage.setItem('compact-chatment-user-age', age);
+    setIsCheckingName(true);
+    try {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 3000);
+      try {
+        const response = await fetch(`/api/rooms/${docId}`, { signal: controller.signal });
+        if (response.ok) {
+          const room = await response.json() as { userIds?: unknown };
+          if (Array.isArray(room.userIds) && room.userIds.every((id): id is string => typeof id === 'string')) {
+            let confirmedName = false;
+            try {
+              confirmedName = localStorage.getItem(`chatment-room-name-${docId}`) === trimmed;
+            } catch { }
+            if (room.userIds.includes(trimmed) && !confirmedName) {
+              setShowNameConfirmation(true);
+              return;
+            }
+          }
+        }
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+    } catch { }
+    setIsCheckingName(false);
+    completeLogin(trimmed);
+  };
 
-    onComplete(trimmed, attribute, age);
+  const handleConfirmSamePerson = () => {
+    setShowNameConfirmation(false);
+    setIsCheckingName(false);
+    completeLogin(name.trim());
+  };
+
+  const handleChooseAnotherName = () => {
+    setShowNameConfirmation(false);
+    setNameError('その名前はこのルームで使われています。別の名前を入力してください。');
+    requestAnimationFrame(() => {
+      usernameInputRef.current?.focus();
+      usernameInputRef.current?.select();
+    });
   };
 
   return (
     <div className="user-setup-overlay" id="user-setup">
       <div className="user-setup-modal user-setup-modal--login">
-        <h2 className="user-login-title">ログイン</h2>
-        <form onSubmit={handleSubmit} className="user-setup-form">
+        {showNameConfirmation ? (
+          <>
+            <h2 className="user-login-title">「{name.trim()}」さんは、このルームにすでにいます</h2>
+            <p>同じ人（別の端末や別のタブで入り直した場合など）なら、そのまま続けられます。</p>
+            <div className="user-login-actions">
+              <button type="button" className="user-login-submit" onClick={handleConfirmSamePerson}>
+                同じ人です（続ける）
+              </button>
+              <button type="button" className="user-login-submit" onClick={handleChooseAnotherName}>
+                別の人です（名前を変える）
+              </button>
+            </div>
+          </>
+        ) : (
+        <>
+          <h2 className="user-login-title">ログイン</h2>
+          <form onSubmit={handleSubmit} className="user-setup-form">
           <div className="user-login-field">
             <label htmlFor="username-input" className="user-login-label user-login-label--required">
               ニックネーム
             </label>
             <input
               id="username-input"
+              ref={usernameInputRef}
               type="text"
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
@@ -145,13 +209,15 @@ export const UserSetup: React.FC<UserSetupProps> = ({ onComplete }) => {
             <button
               type="submit"
               className="user-login-submit"
-              disabled={!name.trim() || !!nameError}
+              disabled={isCheckingName || !name.trim() || !!nameError}
               id="username-submit"
             >
-              ログインする
+              {isCheckingName ? '確認中…' : 'ログインする'}
             </button>
           </div>
         </form>
+        </>
+        )}
       </div>
     </div>
   );

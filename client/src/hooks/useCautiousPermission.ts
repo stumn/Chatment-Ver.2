@@ -1,6 +1,7 @@
 import { useRef, useCallback, type RefObject } from 'react';
 import type { AuthorInfo, StreamNode } from '../types';
 import { useCautiousConfirm, type BlockStatePreview } from '../components/CautiousConfirmModal';
+import { isSameAuthor } from '../utils/authorMatch';
 
 interface UseCautiousPermissionProps {
   contentRef: RefObject<HTMLDivElement | null>;
@@ -55,8 +56,8 @@ export function useCautiousPermission({
   ): Promise<boolean> => {
     if (!isCautiousMode) return true;
 
-    const isFirstAuthor = blockAuthor.userId === currentAuthorInfo.userId && blockAuthor.userId !== '';
-    const isSubAuthor = blockSubAuthors.some(sa => sa.userId === currentAuthorInfo.userId && sa.userId !== '');
+    const isFirstAuthor = isSameAuthor(blockAuthor, currentAuthorInfo);
+    const isSubAuthor = blockSubAuthors.some(sa => isSameAuthor(sa, currentAuthorInfo));
     if (isFirstAuthor || isSubAuthor) return true;
     if (!blockAuthor.displayName) return true; // 空ブロック
     if (hasEditPermissionRef.current) return true;

@@ -19,6 +19,7 @@ import { AdminPanel } from './components/AdminPanel';
 import { CautiousConfirmProvider } from './components/CautiousConfirmModal';
 import { POST_MENU_CONFIG } from './config/postMenuConfig';
 import { RoomProvider } from './contexts/RoomContext';
+import { makeUserId } from './utils/authorMatch';
 
 export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitle: string; expectedParticipants?: number; mobileMode?: boolean }> = ({ docId, isAdmin, roomTitle, expectedParticipants, mobileMode = false }) => {
   const [realName, setRealName] = useState<string | null>(() => {
@@ -31,7 +32,8 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
   const [currentAuthorInfo, setCurrentAuthorInfo] = useState<AuthorInfo | null>(() => {
     try {
       const saved = sessionStorage.getItem('chatment-author-info');
-      return saved ? JSON.parse(saved) : null;
+      const info = saved ? JSON.parse(saved) as AuthorInfo : null;
+      return info?.realName ? { ...info, userId: makeUserId(info.realName) } : info;
     } catch {
       return null;
     }
@@ -44,8 +46,15 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
       return [];
     }
   });
-  const [userId] = useState(() => {
+  const [userId, setUserId] = useState(() => {
     try {
+      const savedAuthor = sessionStorage.getItem('chatment-author-info');
+      const author = savedAuthor ? JSON.parse(savedAuthor) as AuthorInfo : null;
+      if (author?.realName) {
+        const stableId = makeUserId(author.realName);
+        sessionStorage.setItem('chatment-user-id', stableId);
+        return stableId;
+      }
       const stored = sessionStorage.getItem('chatment-user-id');
       if (stored) return stored;
       const newId = `user-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -495,9 +504,14 @@ export const ChatWorkspace: React.FC<{ docId: string; isAdmin: boolean; roomTitl
   } = useDragDrop(doc, currentAuthorInfo, handleAfterEdit);
 
   if (!currentAuthorInfo) {
-    return <UserSetup onComplete={(name, attribute, age) => {
+    return <UserSetup docId={docId} onComplete={(name, attribute, age) => {
       setRealName(name);
-      const options = generateHandleNameOptions(name, attribute, age, userId);
+      const uid = makeUserId(name);
+      setUserId(uid);
+      try {
+        sessionStorage.setItem('chatment-user-id', uid);
+      } catch { }
+      const options = generateHandleNameOptions(name, attribute, age, uid);
       setHandleNameOptions(options);
       setCurrentAuthorInfo(options[0]); // デフォルトは本名
       try {

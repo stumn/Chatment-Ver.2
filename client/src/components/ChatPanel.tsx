@@ -3,6 +3,7 @@ import type { StreamNodeWithIndex, AuthorInfo } from '../types';
 import type { LoroDoc } from 'loro-crdt';
 import { ChatMessage } from './ChatMessage';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
+import { isSameAuthor } from '../utils/authorMatch';
 
 interface ChatPanelProps {
   nodes: StreamNodeWithIndex[];
@@ -111,7 +112,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             key={nodeWithIndex.id}
             nodeWithIndex={nodeWithIndex}
             doc={doc}
-            isOwn={nodeWithIndex.node.author.userId === userId}
+            isOwn={isSameAuthor(nodeWithIndex.node.author, currentAuthorInfo)}
             userId={userId}
             isMenuOpen={openMenuBlockId === nodeWithIndex.node.blockId}
             onToggleMenu={(open) => setOpenMenuBlockId(open ? nodeWithIndex.node.blockId : null)}

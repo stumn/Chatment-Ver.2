@@ -107,8 +107,8 @@ export const ChatMessageComponent: React.FC<ChatMessageProps> = ({
   const isHeading = (node as any).heading === 'h1' || /^[#＃]/.test(content);
   const headingClass = isHeading ? 'chat-message--heading-h1' : '';
 
-  // 1章: 自分の投稿判定 (authorUserId で比較) かつ 本文が空でない行
-  const isOwnMessage = Boolean(userId && node.author?.userId === userId);
+  // 1章: 同じ人（ニックネーム一致を含む）の投稿判定、かつ本文が空でない行
+  const isOwnMessage = isOwn;
   const hasContent = Boolean(content && content.trim() !== '');
   const showMenu = isOwnMessage && hasContent;
 

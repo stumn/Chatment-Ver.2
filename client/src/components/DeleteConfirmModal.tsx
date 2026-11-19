@@ -4,6 +4,7 @@ import type { LoroDoc, LoroMap } from 'loro-crdt';
 import { getStream, deleteDocNode } from '../loro/schema';
 import { emitUserAction } from '../loro/sync-client';
 import { POST_MENU_CONFIG } from '../config/postMenuConfig';
+import { isSameAuthor } from '../utils/authorMatch';
 
 interface DeleteConfirmModalProps {
   isOpen: boolean;
@@ -20,7 +21,7 @@ interface DeleteConfirmModalProps {
  */
 export function formatSubAuthorsWarning(
   subAuthors: AuthorInfo[] | undefined | null,
-  currentUserId: string,
+  me: Pick<AuthorInfo, 'userId' | 'realName'>,
   maxShown: number = POST_MENU_CONFIG.MAX_SUB_AUTHORS_SHOWN
 ): { isEditedByOthers: boolean; text: string | null } {
   if (!subAuthors || !Array.isArray(subAuthors)) {
@@ -29,7 +30,7 @@ export function formatSubAuthorsWarning(
 
   // 自分以外の共同編集者（displayName が存在する人のみ）
   const others = subAuthors.filter(
-    (sa) => sa && sa.userId !== currentUserId && typeof sa.displayName === 'string' && sa.displayName.trim() !== ''
+    (sa) => sa && !isSameAuthor(sa, me) && typeof sa.displayName === 'string' && sa.displayName.trim() !== ''
   );
 
   // displayName の重複を除去
@@ -124,7 +125,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
   }
 
   const { node } = nodeWithIndex;
-  const subAuthorsResult = formatSubAuthorsWarning(node.subAuthors, currentUserId);
+  const subAuthorsResult = formatSubAuthorsWarning(node.subAuthors, currentAuthorInfo);
   const reactionCount = countNodeReactions(node);
 
   const handleCancel = () => {
